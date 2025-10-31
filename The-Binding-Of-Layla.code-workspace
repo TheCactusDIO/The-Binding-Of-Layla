@@ -1,0 +1,41 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    // 🧠 JavaFX + Scene Builder
+    "javafx.sceneBuilderHome": "C:\\Program Files\\SceneBuilder\\SceneBuilder.exe",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.maven.enabled": true,
+    "java.import.gradle.enabled": false,
+    "files.associations": {
+      "*.fxml": "xml"
+    },
+
+    // 🧩 Copilot
+    "github.copilot.enable": {
+      "*": true,
+      "plaintext": false,
+      "markdown": true,
+      "scminput": false
+    },
+
+    // 💡 Editor settings
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "files.exclude": {
+      "target": true
+    },
+
+    // ⚙️ Maven + Build
+    "maven.executable.path": "C:\\ProgramData\\chocolatey\\lib\\maven\\apache-maven-3.9.11\\bin\\mvn.cmd",
+    "maven.view": "hierarchical",
+    "java.compile.nullAnalysis.mode": "automatic",
+
+    // 🎨 Terminal / UI
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "workbench.colorTheme": "Default Dark+"
+  }
+}
