@@ -1,21 +1,17 @@
 package com.layla;
 
+import com.layla.ui.SceneRouter;
+
 import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 public class App extends Application {
     @Override
     public void start(Stage stage) {
-        Label label = new Label("Proyecto base configurado correctamente ✅");
-        StackPane root = new StackPane(label);
-        Scene scene = new Scene(root, 420, 200);
-
         stage.setTitle("The Binding of Layla");
-        stage.setScene(scene);
-        stage.show();
+        SceneRouter.init(stage);
+        // Start at the loading screen which will navigate to main menu when assets are ready
+        SceneRouter.go("ui/loading.fxml", 1280, 720);
     }
 
     public static void main(String[] args) {

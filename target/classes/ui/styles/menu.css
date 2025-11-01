@@ -1,0 +1,33 @@
+﻿#main-menu-root {
+    -fx-background-color: linear-gradient(to bottom, #1e1e2f, #12121c);
+    -fx-padding: 40;
+}
+
+.menu-container {
+    -fx-alignment: center;
+    -fx-spacing: 18;
+}
+
+.menu-title {
+    -fx-font-size: 30px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f0f0f0;
+}
+
+.menu-button {
+    -fx-pref-width: 240px;
+    -fx-padding: 10 24;
+    -fx-font-size: 16px;
+    -fx-background-color: #2b2b3d;
+    -fx-text-fill: #f7f7f7;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.menu-button:hover {
+    -fx-background-color: #3c3c54;
+}
+
+.menu-button:pressed {
+    -fx-background-color: #202030;
+}

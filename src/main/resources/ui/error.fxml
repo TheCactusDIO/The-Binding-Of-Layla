@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.layla.ui.ErrorController" alignment="CENTER" spacing="12.0" prefWidth="600" prefHeight="300">
+    <Label fx:id="messageLabel" text="An error occurred while loading assets." wrapText="true" />
+    <Button text="Exit" onAction="#onExit" />
+</VBox>
