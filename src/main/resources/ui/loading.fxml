@@ -9,8 +9,7 @@
       alignment="CENTER"
       spacing="12.0"
       prefWidth="600"
-      prefHeight="300"
-      stylesheets="@/ui/styles/global.css">
+      prefHeight="300">
 
     <padding>
         <Insets top="24" right="24" bottom="24" left="24" />

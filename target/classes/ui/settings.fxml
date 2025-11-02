@@ -7,7 +7,6 @@
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml"
            fx:controller="com.layla.ui.SettingsController"
            prefWidth="1280" prefHeight="720"
-           stylesheets="@/ui/styles/global.css,@/ui/styles/menu.css"
            id="settings-root">
 
     <VBox fx:id="contentBox" spacing="18" alignment="CENTER" StackPane.alignment="CENTER">

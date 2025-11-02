@@ -9,7 +9,6 @@
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml"
            fx:controller="com.layla.ui.MainMenuController"
            prefWidth="1280" prefHeight="720"
-           stylesheets="@/ui/styles/global.css,@/ui/styles/menu.css"
            id="main-menu-root">
 
     <!-- Capa de fondo: vídeo a pantalla completa -->

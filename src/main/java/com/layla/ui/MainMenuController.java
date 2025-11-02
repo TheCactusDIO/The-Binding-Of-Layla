@@ -8,6 +8,7 @@ import javafx.application.Platform;
 import static javafx.beans.binding.Bindings.max;
 import static javafx.beans.binding.Bindings.min;
 import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -23,6 +24,7 @@ import javafx.util.Duration;
 
 public class MainMenuController {
 
+
     @FXML private StackPane root;
     @FXML private VBox menuBox;
     @FXML private Label titleLabel;
@@ -31,6 +33,7 @@ public class MainMenuController {
 
     private MediaPlayer videoPlayer;
     private boolean retriedVideoOnce = false;
+    private Node settingsOverlay;
 
     @FXML
     private void initialize() {
@@ -159,9 +162,15 @@ public class MainMenuController {
 
     @FXML
     private void onOptionsClicked() {
-        System.out.println("[MainMenu] Options clicked");
-        cleanupMedia();
-        SceneRouter.goWithFadeKeepSize("ui/settings.fxml");
+        if (settingsOverlay != null) return; // ya abierto
+        settingsOverlay = OverlayRouter.showOverlay(root, "ui/settings.fxml", controller -> {
+            if (controller instanceof SettingsController sc) {
+                sc.setOnClose(() -> {
+                    OverlayRouter.closeOverlay(root, settingsOverlay);
+                    settingsOverlay = null;
+                });
+            }
+        });
     }
 
     @FXML
@@ -193,10 +202,13 @@ public class MainMenuController {
     private void cleanupMedia() {
         try {
             if (backgroundVideo != null) {
-                backgroundVideo.setMediaPlayer(null);
+            backgroundVideo.setMediaPlayer(null);
             }
             if (videoPlayer != null) {
-                videoPlayer.stop(); // no dispose inmediato
+                videoPlayer.stop();
+                try {
+                    videoPlayer.dispose();
+                } catch (Exception ignore) {}
             }
         } catch (Exception ignore) {}
         videoPlayer = null;
