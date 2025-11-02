@@ -1,5 +1,7 @@
 package com.layla.ui;
 
+import java.lang.ref.WeakReference;
+
 import javafx.animation.FadeTransition;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -11,8 +13,20 @@ public final class SceneRouter {
     private static Stage primaryStage;
     private static final Duration FADE_DURATION = Duration.millis(350);
 
+    // Controlador actual (para onExit/onEnter automáticos)
+    private static WeakReference<Object> currentController = new WeakReference<>(null);
+
+    private SceneRouter() {}
+
+    // ---------- Bootstrap ----------
     public static void init(Stage stage) {
         primaryStage = stage;
+    }
+
+    private static void ensureInit() {
+        if (primaryStage == null) {
+            throw new IllegalStateException("SceneRouter not initialized. Call SceneRouter.init(stage) first.");
+        }
     }
 
     // ---------- Public API ----------
@@ -22,19 +36,27 @@ public final class SceneRouter {
         ensureInit();
         try {
             System.out.println("[SceneRouter] Attempting to load: " + fxmlPath);
-            var url = SceneRouter.class.getResource("/" + fxmlPath);
-            if (url == null) throw new IllegalArgumentException("FXML not found on classpath: /" + fxmlPath);
+            var url = SceneRouter.class.getResource(normalize(fxmlPath));
+            if (url == null) throw new IllegalArgumentException("FXML not found on classpath: " + normalize(fxmlPath));
 
             FXMLLoader loader = new FXMLLoader(url);
             Parent root = loader.load();
+            Object controller = loader.getController();
+
+            // 1) salir de la vista previa (si la hay)
+            callExitOnPrevious();
 
             Scene scene = new Scene(root, width, height);
 
-            // ⬇️ APLICAR SIEMPRE CSS BASE ANTES DE show()
-            applyBaseStyles(scene);
+            // 2) CSS base (global.css + menu.css sólo si root es el main menu)
+            applyBaseStyles(scene, root);
 
             primaryStage.setScene(scene);
             primaryStage.show();
+
+            // 3) entrar en la vista nueva (con Scene ya montada)
+            rememberAndEnter(controller);
+
             System.out.println("[SceneRouter] Scene set and displayed: " + fxmlPath);
         } catch (Exception e) {
             System.err.println("[SceneRouter] ERROR loading FXML: " + fxmlPath);
@@ -47,25 +69,31 @@ public final class SceneRouter {
         ensureInit();
         try {
             System.out.println("[SceneRouter] Attempting to load (fade): " + fxmlPath);
-            var url = SceneRouter.class.getResource("/" + fxmlPath);
-            if (url == null) throw new IllegalArgumentException("FXML not found: /" + fxmlPath);
+            var url = SceneRouter.class.getResource(normalize(fxmlPath));
+            if (url == null) throw new IllegalArgumentException("FXML not found on classpath: " + normalize(fxmlPath));
 
             FXMLLoader loader = new FXMLLoader(url);
             Parent newRoot = loader.load();
-
+            Object newController = loader.getController();
             Scene newScene = new Scene(newRoot, width, height);
 
-            // ⬇️ APLICAR SIEMPRE CSS BASE ANTES DE setScene()/show()
-            applyBaseStyles(newScene);
+            // CSS base antes de colocar la escena
+            applyBaseStyles(newScene, newRoot);
 
             Parent currentRoot = primaryStage.getScene() != null ? primaryStage.getScene().getRoot() : null;
             if (currentRoot != null) {
+                // 1) salir de la vista previa
+                callExitOnPrevious();
+
                 FadeTransition fadeOut = new FadeTransition(FADE_DURATION, currentRoot);
                 fadeOut.setFromValue(1);
                 fadeOut.setToValue(0);
                 fadeOut.setOnFinished(e -> {
                     primaryStage.setScene(newScene);
                     primaryStage.show();
+
+                    // 2) entrar en la vista nueva (con Scene ya montada)
+                    rememberAndEnter(newController);
 
                     FadeTransition fadeIn = new FadeTransition(FADE_DURATION, newRoot);
                     fadeIn.setFromValue(0);
@@ -74,8 +102,10 @@ public final class SceneRouter {
                 });
                 fadeOut.play();
             } else {
+                // No había escena previa
                 primaryStage.setScene(newScene);
                 primaryStage.show();
+                rememberAndEnter(newController); // entrar tras montar Scene
             }
 
             System.out.println("[SceneRouter] Scene set with fade: " + fxmlPath);
@@ -85,7 +115,7 @@ public final class SceneRouter {
         }
     }
 
-    /** Igual que goWithFade, pero **mantiene** el tamaño actual del Stage. */
+    /** Igual que goWithFade, pero mantiene el tamaño actual del Stage. */
     public static void goWithFadeKeepSize(String fxmlPath) {
         var stage = getStage();
         if (stage.getScene() == null) {
@@ -118,7 +148,7 @@ public final class SceneRouter {
         ft.play();
     }
 
-    // ---------- Helpers ----------
+    // ---------- Helpers públicos ----------
     public static Stage getStage() {
         ensureInit();
         return primaryStage;
@@ -130,13 +160,13 @@ public final class SceneRouter {
         return s.getRoot();
     }
 
-    private static void ensureInit() {
-        if (primaryStage == null) {
-            throw new IllegalStateException("SceneRouter not initialized. Call SceneRouter.init(stage) first.");
-        }
+    // ---------- Internos ----------
+
+    private static String normalize(String fxmlPath) {
+        return fxmlPath.startsWith("/") ? fxmlPath : "/" + fxmlPath;
     }
 
-    // === CSS helpers ===
+    /** Devuelve url.toExternalForm() si existe; si no, null y loguea. */
     private static String css(String path) {
         var url = SceneRouter.class.getResource(path);
         if (url == null) {
@@ -146,20 +176,40 @@ public final class SceneRouter {
         return url.toExternalForm();
     }
 
-    /** Aplica global.css y menu.css si no están ya presentes y loguea el resultado. */
-    private static void applyBaseStyles(Scene scene) {
-        var g = css("/ui/styles/global.css");
-        var m = css("/ui/styles/menu.css");
-        if (g != null && !scene.getStylesheets().contains(g)) {
-            scene.getStylesheets().add(g);
+    /**
+     * Aplica global.css siempre. Añade menu.css SOLO si el root actual es el main menu
+     * (heurística: id == "main-menu-root").
+     */
+    private static void applyBaseStyles(Scene scene, Parent root) {
+        var global = css("/ui/styles/global.css");
+        if (global != null && !scene.getStylesheets().contains(global)) {
+            scene.getStylesheets().add(global);
             System.out.println("[SceneRouter] Applied /ui/styles/global.css");
         }
-        if (m != null && !scene.getStylesheets().contains(m)) {
-            scene.getStylesheets().add(m);
-            System.out.println("[SceneRouter] Applied /ui/styles/menu.css");
+
+        boolean isMainMenu = root != null && "main-menu-root".equals(root.getId());
+        if (isMainMenu) {
+            var menu = css("/ui/styles/menu.css");
+            if (menu != null && !scene.getStylesheets().contains(menu)) {
+                scene.getStylesheets().add(menu);
+                System.out.println("[SceneRouter] Applied /ui/styles/menu.css");
+            }
         }
+
         System.out.println("[SceneRouter] Scene stylesheets now: " + scene.getStylesheets());
     }
 
-    private SceneRouter() {}
+    private static void callExitOnPrevious() {
+        Object prev = currentController.get();
+        if (prev instanceof ViewLifecycle vl) {
+            try { vl.onExit(); } catch (Exception ignore) {}
+        }
+    }
+
+    private static void rememberAndEnter(Object controller) {
+        currentController = new WeakReference<>(controller);
+        if (controller instanceof ViewLifecycle vl) {
+            try { vl.onEnter(); } catch (Exception ignore) {}
+        }
+    }
 }

@@ -1,0 +1,29 @@
+/* Raíz del game: dejamos ver lo de detrás si hubiera video */
+.game-root {
+    -fx-background-color: transparent;
+}
+
+/* Barra HUD superior */
+.hud-bar {
+    -fx-background-color: rgba(0,0,0,0.45);
+    -fx-padding: 10 24;
+    -fx-spacing: 40;
+    -fx-border-color: rgba(255,255,255,0.08);
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Texto HUD coherente con tu fuente global */
+.hud-label {
+    -fx-font-family: "Upheaval TT (BRK)", "Segoe UI";
+    -fx-font-size: 20px;
+    -fx-text-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 8, 0.2, 1, 1);
+}
+
+/* Si añades un contenedor de pausa/overlay dentro del game */
+.game-overlay-backdrop {
+    -fx-background-color: rgba(0,0,0,0.80);
+}
+
+/* DEBUG: color de fondo temporal para ver bien el gameArea */
+#gameArea { -fx-background-color: #111111; }  /* quítalo cuando metas el render real */

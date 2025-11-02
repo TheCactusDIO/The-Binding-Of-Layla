@@ -1,33 +1,77 @@
-// GameController.java (añadir cuando crees la clase del juego)
 package com.layla.ui;
 
 import javafx.fxml.FXML;
+import javafx.scene.control.Label;
+import javafx.scene.layout.Pane;
 
-public class GameController {
+/**
+ * Controller for the main game scene.
+ */
+public class GameController implements ViewLifecycle {
 
-    // TODO: inyecta aquí tu root cuando tengas el layout (por ejemplo AnchorPane o StackPane)
-    // @FXML private StackPane root;
+    @FXML
+    private Pane gameArea;
+
+    @FXML
+    private Label scoreLabel;
+
+    @FXML
+    private Label floorLabel;
+
+    @FXML
+    private Label healthLabel;
+
+    @FXML
+    private void initialize() {
+        System.out.println("[GameController] initialize()");
+        resetHUD();
+    }
 
     /**
-     * Muestra una confirmación para volver al menú principal sin cerrar la aplicación.
-     * Usa el mismo ExitConfirm overlay que el MainMenuController, pero sin detener la música global.
+     * Called when the scene becomes active.
      */
-    @FXML
-    private void onBackToMenuClicked() {
-        // Cuando ya tengas el root, descomenta esto:
-        /*
-        OverlayRouter.showOverlay(root, "ui/exit_confirm.fxml", controller -> {
-            if (controller instanceof ExitConfirmController ec) {
-                ec.setOnCancel(() -> OverlayRouter.closeOverlay(root, overlay));
-                ec.setOnConfirm(() -> {
-                    OverlayRouter.closeOverlay(root, overlay);
-                    // Volver al menú principal conservando el tamaño de ventana
-                    javafx.application.Platform.runLater(() ->
-                        SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml")
-                    );
-                });
-            }
-        });
-        */
+
+    public void onEnter() {
+        System.out.println("[GameController] onEnter()");
     }
+
+    /**
+     * Called when the scene is no longer active.
+     */
+    public void onExit() {
+        System.out.println("[GameController] onExit()");
+    }
+
+    public void setHUD(int score, int floor, int health) {
+        if (scoreLabel != null) {
+            scoreLabel.setText("Score: " + score);
+        }
+        if (floorLabel != null) {
+            floorLabel.setText("Floor: " + floor);
+        }
+        if (healthLabel != null) {
+            healthLabel.setText("HP: " + health);
+        }
+    }
+
+    private void resetHUD() {
+        setHUD(0, 1, 100);
+    }
+
+    // TODO: Integrate OverlayRouter with exit_confirm.fxml for pause/back-to-menu flow.
+
+    // TODO: cuando tengas input configurado, habilita ESC para abrir overlay de pausa:
+    // @FXML
+    // private void initialize() {
+    //     System.out.println("[GameController] initialize()");
+    //     resetHUD();
+    //
+    //     // root.getScene().addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+    //     //     if (e.getCode() == KeyCode.ESCAPE) {
+    //     //         // Mostrar overlay de pausa reutilizando exit_confirm.fxml
+    //     //         // OverlayRouter.showOverlay(root, "ui/exit_confirm.fxml", c -> { ... });
+    //     //     }
+    //     // });
+    // }
+
 }
