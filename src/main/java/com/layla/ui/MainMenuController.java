@@ -9,9 +9,7 @@ import static javafx.beans.binding.Bindings.max;
 import static javafx.beans.binding.Bindings.min;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -34,6 +32,7 @@ public class MainMenuController {
     private MediaPlayer videoPlayer;
     private boolean retriedVideoOnce = false;
     private Node settingsOverlay;
+    private Node exitOverlay;
 
     @FXML
     private void initialize() {
@@ -175,23 +174,34 @@ public class MainMenuController {
 
     @FXML
     private void onExitClicked() {
-        System.out.println("[MainMenu] Exit clicked");
-        var confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Are you sure you want to exit?",
-                ButtonType.OK, ButtonType.CANCEL);
-        confirm.setHeaderText(null);
-        confirm.setTitle("Confirm Exit");
+        if (exitOverlay != null) return;
+        exitOverlay = OverlayRouter.showOverlay(root, "ui/exit_confirm.fxml", controller -> {
+            if (controller instanceof ExitConfirmController ec) {
+                ec.setOnCancel(() -> {
+                    OverlayRouter.closeOverlay(root, exitOverlay);
+                    exitOverlay = null;
+                });
+                ec.setOnConfirm(() -> {
+                    // cerrar overlay primero
+                    OverlayRouter.closeOverlay(root, exitOverlay);
+                    exitOverlay = null;
 
-        SceneRouter.fadeOutCurrent(0.18, 200);
-        UIStyles.applyDialogStyle(confirm.getDialogPane());
-
-        confirm.showAndWait().ifPresent(btn -> {
-            if (btn == ButtonType.OK) {
-                cleanupMedia();
-                Platform.exit();
-                System.exit(0);
-            } else {
-                SceneRouter.fadeInCurrent(0.18, 200);
+                    // comportamiento según modo test o normal
+                    boolean safeExit = Boolean.getBoolean("testfx.safeExit");
+                    if (safeExit) {
+                        // En tests: no matar la JVM. Oculta solo la ventana.
+                        try {
+                            if (root != null && root.getScene() != null && root.getScene().getWindow() != null) {
+                                root.getScene().getWindow().hide();
+                            }
+                        } catch (Exception ignore) {}
+                        return;
+                    }
+                    // Runtime normal:
+                    cleanupMedia();
+                    // Mejor no usar System.exit(0); con JavaFX basta:
+                    javafx.application.Platform.exit();
+                });
             }
         });
     }

@@ -43,12 +43,21 @@
     </dependency>
 
     <!-- JUnit 5 (opcional) -->
+
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>5.10.2</version>
+      <version>5.11.0</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.testfx</groupId>
+      <artifactId>testfx-junit5</artifactId>
+      <version>4.0.16-alpha</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -91,12 +100,39 @@
       </plugin>
 
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.2.5</version>
         <configuration>
-          <useModulePath>false</useModulePath>
+          <includes>
+            <include>**/*Test.java</include>
+          </includes>
+          <argLine>
+            -Dtestfx.safeExit=true
+            --add-opens javafx.graphics/com.sun.glass.ui=ALL-UNNAMED
+            --add-opens javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED
+            --add-opens javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED
+          </argLine>
         </configuration>
       </plugin>
+
+       <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-surefire-plugin</artifactId>
+      <version>3.2.5</version>
+      <configuration>
+        <includes>
+          <include>**/*Test.java</include>
+        </includes>
+        <!-- Primero sin headless para que sea más fácil ver fallos -->
+        <argLine>
+          --add-opens javafx.graphics/com.sun.glass.ui=ALL-UNNAMED
+          --add-opens javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED
+          --add-opens javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED
+        </argLine>
+      </configuration>
+    </plugin>
+
     </plugins>
   </build>
 </project>
