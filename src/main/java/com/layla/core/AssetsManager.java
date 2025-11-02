@@ -6,7 +6,10 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -15,19 +18,36 @@ import com.google.gson.Gson;
 import javafx.concurrent.Task;
 import javafx.scene.image.Image;
 import javafx.scene.media.AudioClip;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.text.Font;
 
+/**
+ * Global asset manager for images, sounds, fonts, and media.
+ * Provides preloading (from manifest) and reusable playback for music and videos.
+ */
 public class AssetsManager {
+
+    private static final Map<String, Image> imageCache = new HashMap<>();
+    private static final Map<String, AudioClip> soundCache = new HashMap<>();
+    private static final Map<String, Font> fontCache = new HashMap<>();
+
+    private static MediaPlayer backgroundMusic;
+    private static MediaPlayer videoPlayer;
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "assets-loader");
         t.setDaemon(true);
         return t;
     });
 
+    // Manifest inner class
     public static class Manifest {
         public List<String> images = new ArrayList<>();
         public List<String> sounds = new ArrayList<>();
     }
 
+    // Task to preload assets listed in manifest.json
     public Task<Void> createLoadTask() {
         return new Task<>() {
             @Override
@@ -37,106 +57,44 @@ public class AssetsManager {
 
                 Manifest manifest = readManifest();
                 if (manifest == null) {
-                    String error = "assets/manifest.json not found or is invalid";
-                    System.err.println("[AssetsManager] " + error);
-                    throw new IllegalStateException(error);
+                    throw new IllegalStateException("assets/manifest.json not found or invalid");
                 }
 
-                // GPT START — listas null-safe y progreso inicial
-                List<String> images = (manifest.images == null) ? List.of() : manifest.images;
-                List<String> sounds = (manifest.sounds == null) ? List.of() : manifest.sounds;
-
-                int total = images.size() + sounds.size();
-                if (total == 0) total = 1; // evita división por cero
-                updateProgress(0, total);
-                // GPT END
-
-                System.out.println("[AssetsManager] Found " + images.size() + " images and " + sounds.size() + " sounds to load");
-
-                if (images.isEmpty() && sounds.isEmpty()) {
-                    System.out.println("[AssetsManager] No assets to load");
-                    updateMessage("No assets to load");
-                    updateProgress(1, 1);
-                    return null;
-                }
+                List<String> images = Optional.ofNullable(manifest.images).orElse(List.of());
+                List<String> sounds = Optional.ofNullable(manifest.sounds).orElse(List.of());
+                int total = Math.max(1, images.size() + sounds.size());
 
                 int done = 0;
 
-                // load images
-                updateMessage("Loading images...");
                 for (String path : images) {
-                    if (isCancelled()) {
-                        System.out.println("[AssetsManager] Task cancelled while loading images");
-                        break;
-                    }
-
-                    System.out.println("[AssetsManager] Loading image: " + path);
-                    updateMessage("Loading: " + path);
-
-                    try {
-                        URL url = getClass().getResource("/" + path);
-                        if (url == null)
-                            throw new Exception("Image file not found: " + path);
-
-                        Image img = new Image(url.toExternalForm(), false);
-                        if (img.isError()) {
-                            Throwable cause = img.getException();
-                            String msg = (cause != null && cause.getMessage() != null)
-                                    ? cause.getMessage()
-                                    : "unknown error";
-                            throw new Exception("Failed to decode image: " + msg);
-                        }
-                        System.out.println("[AssetsManager] Successfully loaded image: " + path);
-                    } catch (Exception e) {
-                        System.err.println("[AssetsManager] Error loading image " + path + ": " + e.getMessage());
-                        throw new Exception("Failed to load image " + path + ": " + e.getMessage());
-                    }
-
+                    loadImage(path);
                     done++;
                     updateProgress(done, total);
-
+                    updateMessage("Loaded image: " + path);
                 }
 
-                // load sounds
-                updateMessage("Loading sounds...");
                 for (String path : sounds) {
-                    if (isCancelled()) {
-                        System.out.println("[AssetsManager] Task cancelled while loading sounds");
-                        break;
-                    }
-
-                    System.out.println("[AssetsManager] Loading sound: " + path);
-                    updateMessage("Loading: " + path);
-
-                    URL url = getClass().getResource("/" + path);
-                    if (url == null)
-                        throw new Exception("Sound file not found: " + path);
-
-                    try {
-                        new AudioClip(url.toExternalForm());
-                        System.out.println("[AssetsManager] Successfully loaded sound: " + path);
-                    } catch (Exception e) {
-                        System.err.println("[AssetsManager] Failed to load sound " + path + ": " + e.getMessage());
-                        throw new Exception("Failed to load sound " + path + ": " + e.getMessage());
-                    }
-
+                    loadSound(path);
                     done++;
                     updateProgress(done, total);
-                    
+                    updateMessage("Loaded sound: " + path);
                 }
 
-                return null;
-            }
-
-            @Override
-            protected void cancelled() {
-                super.cancelled();
+                updateMessage("All assets loaded.");
+                updateProgress(1, 1);
                 shutdownExecutor();
+                return null;
             }
 
             @Override
             protected void failed() {
                 super.failed();
+                shutdownExecutor();
+            }
+
+            @Override
+            protected void cancelled() {
+                super.cancelled();
                 shutdownExecutor();
             }
 
@@ -149,25 +107,11 @@ public class AssetsManager {
     }
 
     private Manifest readManifest() {
-        System.out.println("[AssetsManager] Reading assets/manifest.json");
+        System.out.println("[AssetsManager] Reading manifest.json...");
         try (InputStream is = getClass().getResourceAsStream("/assets/manifest.json")) {
-            if (is == null) {
-                System.err.println("[AssetsManager] manifest.json not found in resources");
-                return null;
-            }
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                Gson gson = new Gson();
-                Manifest m = gson.fromJson(r, Manifest.class);
-                if (m == null) {
-                    System.err.println("[AssetsManager] Failed to parse manifest.json: Empty or invalid JSON");
-                    return null;
-                }
-                if (m.images == null) m.images = new ArrayList<>();
-                if (m.sounds == null) m.sounds = new ArrayList<>();
-
-                System.out.println("[AssetsManager] Successfully read manifest with "
-                        + m.images.size() + " images and " + m.sounds.size() + " sounds");
-                return m;
+            if (is == null) return null;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                return new Gson().fromJson(reader, Manifest.class);
             }
         } catch (Exception e) {
             System.err.println("[AssetsManager] Error reading manifest: " + e.getMessage());
@@ -175,11 +119,11 @@ public class AssetsManager {
         }
     }
 
-    public void submit(Task<Void> task) {
+    // GPT — BEGIN: make executor controls public
+    public void submit(javafx.concurrent.Task<?> task) {
         executor.submit(task);
     }
 
-    // GPT START — mejor cierre con logs
     public void shutdownExecutor() {
         try {
             if (!executor.isShutdown()) {
@@ -192,5 +136,104 @@ public class AssetsManager {
             System.err.println("[AssetsManager] Error on shutdown: " + e.getMessage());
         }
     }
-    // GPT END
+    // GPT — END
+
+    // ======== IMAGE MANAGEMENT ========
+    public static Image loadImage(String relativePath) {
+        return imageCache.computeIfAbsent(relativePath, path -> {
+            try {
+                URL url = AssetsManager.class.getResource("/" + path);
+                if (url == null) throw new Exception("Image not found: " + path);
+                Image img = new Image(url.toExternalForm(), false);
+                System.out.println("[AssetsManager] Cached image: " + path);
+                return img;
+            } catch (Exception e) {
+                System.err.println("[AssetsManager] Error loading image: " + e.getMessage());
+                return null;
+            }
+        });
+    }
+
+    // ======== SOUND MANAGEMENT ========
+    public static AudioClip loadSound(String relativePath) {
+        return soundCache.computeIfAbsent(relativePath, path -> {
+            try {
+                URL url = AssetsManager.class.getResource("/" + path);
+                if (url == null) throw new Exception("Sound not found: " + path);
+                System.out.println("[AssetsManager] Cached sound: " + path);
+                return new AudioClip(url.toExternalForm());
+            } catch (Exception e) {
+                System.err.println("[AssetsManager] Error loading sound: " + e.getMessage());
+                return null;
+            }
+        });
+    }
+
+    // ======== FONT MANAGEMENT ========
+    public static Font loadFont(String fileName, double size) {
+        String key = fileName + "@" + size;
+        return fontCache.computeIfAbsent(key, k -> {
+            try (InputStream is = AssetsManager.class.getResourceAsStream("/assets/fonts/" + fileName)) {
+                if (is == null) throw new Exception("Font not found: " + fileName);
+                Font f = Font.loadFont(is, size);
+                System.out.println("[AssetsManager] Loaded font: " + fileName);
+                return f;
+            } catch (Exception e) {
+                System.err.println("[AssetsManager] Error loading font: " + e.getMessage());
+                return Font.getDefault();
+            }
+        });
+    }
+
+    // ======== MUSIC MANAGEMENT ========
+    public static void playMusic(String fileName, boolean loop) {
+        stopMusic();
+        try {
+            URL url = AssetsManager.class.getResource("/assets/music/" + fileName);
+            if (url == null) throw new Exception("Music not found: " + fileName);
+            backgroundMusic = new MediaPlayer(new Media(url.toExternalForm()));
+            backgroundMusic.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
+            backgroundMusic.setVolume(0.6);
+            backgroundMusic.play();
+            System.out.println("[AssetsManager] Playing music: " + fileName + " (loop=" + loop + ")");
+        } catch (Exception e) {
+            System.err.println("[AssetsManager] Error playing music: " + e.getMessage());
+        }
+    }
+
+    public static void stopMusic() {
+        if (backgroundMusic != null) {
+            backgroundMusic.stop();
+            backgroundMusic.dispose();
+            backgroundMusic = null;
+            System.out.println("[AssetsManager] Music stopped");
+        }
+    }
+
+    // ======== VIDEO MANAGEMENT ========
+    public static MediaPlayer playVideo(String fileName, boolean loop) {
+        stopVideo();
+        try {
+            URL url = AssetsManager.class.getResource("/assets/videos/" + fileName);
+            if (url == null) throw new Exception("Video not found: " + fileName);
+            videoPlayer = new MediaPlayer(new Media(url.toExternalForm()));
+            videoPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
+            videoPlayer.setMute(true);
+            videoPlayer.play();
+            System.out.println("[AssetsManager] Playing video: " + fileName);
+            return videoPlayer;
+        } catch (Exception e) {
+            System.err.println("[AssetsManager] Error playing video: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public static void stopVideo() {
+        if (videoPlayer != null) {
+            videoPlayer.stop();
+            videoPlayer.dispose();
+            videoPlayer = null;
+            System.out.println("[AssetsManager] Video stopped");
+        }
+    }
 }

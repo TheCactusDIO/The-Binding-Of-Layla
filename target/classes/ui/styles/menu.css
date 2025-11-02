@@ -1,33 +1,78 @@
-﻿#main-menu-root {
-    -fx-background-color: linear-gradient(to bottom, #1e1e2f, #12121c);
-    -fx-padding: 40;
+#main-menu-root,
+#main-menu-root .label,
+#main-menu-root .button {
+    -fx-font-family: "Upheaval TT (BRK)";
+}
+
+#main-menu-root {
+    -fx-background-color: black;
 }
 
 .menu-container {
     -fx-alignment: center;
-    -fx-spacing: 18;
+    -fx-spacing: 24;
 }
 
 .menu-title {
-    -fx-font-size: 30px;
-    -fx-font-weight: bold;
-    -fx-text-fill: #f0f0f0;
+    -fx-font-size: 56px;
+    -fx-font-family: "main_font", "Segoe UI";
+    -fx-text-fill: #f5f5f5;
+    -fx-effect: dropshadow(gaussian, #000000, 12, 0, 2, 2);
 }
 
 .menu-button {
     -fx-pref-width: 240px;
     -fx-padding: 10 24;
-    -fx-font-size: 16px;
-    -fx-background-color: #2b2b3d;
-    -fx-text-fill: #f7f7f7;
-    -fx-border-radius: 6;
-    -fx-background-radius: 6;
+    -fx-font-size: 18px;
+    -fx-font-family: "main_font", "Segoe UI";
+    -fx-background-color: rgba(40, 40, 60, 0.85);
+    -fx-text-fill: #ffffff;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
 }
 
 .menu-button:hover {
-    -fx-background-color: #3c3c54;
+    -fx-background-color: rgba(100, 100, 100, 0.75);
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+    -fx-text-fill: white;
+    -fx-transition: all 0.25s ease-in-out;
 }
 
 .menu-button:pressed {
-    -fx-background-color: #202030;
+    -fx-background-color: rgba(20, 20, 40, 0.9);
+}
+.menu-button:disabled {
+    -fx-background-color: rgba(80, 80, 80, 0.5);
+    -fx-text-fill: #aaaaaa;
+}
+
+#menuBox {
+  -fx-fill-width: false;
+  -fx-max-width: 640;   /* antes 520 */
+  -fx-min-width: 280;
+  -fx-alignment: center;
+}
+
+.menu-title {
+    -fx-font-size: 42px;
+    -fx-text-fill: #f0f0f0;
+    -fx-font-weight: bold;
+    -fx-alignment: center;
+}
+
+/* Buttons: keep a nice medium width, never stretch full width */
+.menu-button {
+    -fx-font-size: 22px;
+    -fx-text-fill: #f0f0f0;
+    -fx-background-color: rgba(50, 50, 50, 0.6);
+    -fx-background-radius: 10;
+    -fx-padding: 10 30 10 30;
+    -fx-cursor: hand;
+    -fx-alignment: center;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 6, 0, 0, 2);
+}
+
+#contentBox {
+    -fx-alignment: center;
 }

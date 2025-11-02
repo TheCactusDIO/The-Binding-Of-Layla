@@ -1,0 +1,34 @@
+/* =========================
+   GLOBAL FONT CONFIGURATION
+   ========================= */
+
+/* 1️⃣ Define the font-family name */
+@font-face {
+    font-family: "Upheaval TT (BRK)";
+    src: url("/assets/fonts/main_font.ttf");
+}
+
+/* 2️⃣ Apply globally */
+.root {
+    -fx-font-family: "Upheaval TT (BRK)", "Segoe UI", "Arial";
+    -fx-font-size: 16px;
+    -fx-text-fill: #f0f0f0;
+    -fx-background-color: linear-gradient(to bottom, #1a1a1a, #0f0f14);
+
+}
+
+.title {
+    -fx-font-family: "Upheaval TT (BRK)";
+    -fx-font-size: 36px;
+}
+
+.button {
+    -fx-cursor: hand;
+}
+
+#settingsContent {
+  -fx-fill-width: false;
+  -fx-max-width: 600;
+  -fx-min-width: 300;
+  -fx-alignment: center;
+}

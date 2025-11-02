@@ -8,6 +8,8 @@ import javafx.stage.Stage;
 public class App extends Application {
     @Override
     public void start(Stage stage) {
+        stage.setMinWidth(800);
+        stage.setMinHeight(480);
         stage.setTitle("The Binding of Layla");
         SceneRouter.init(stage);
         // Start at the loading screen which will navigate to main menu when assets are ready

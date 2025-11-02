@@ -1,9 +1,17 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.AnchorPane?>
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml" prefHeight="600.0" prefWidth="800.0">
-    <children>
-        <Label text="Settings (placeholder)" AnchorPane.topAnchor="20.0" AnchorPane.leftAnchor="20.0" />
-    </children>
-</AnchorPane>
+<StackPane fx:id="root"
+           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.layla.ui.SettingsController"
+           prefWidth="1280" prefHeight="720"
+           stylesheets="@/ui/styles/global.css,@/ui/styles/menu.css"
+           id="settings-root">
+
+    <VBox fx:id="contentBox" spacing="18" alignment="CENTER" StackPane.alignment="CENTER">
+        <Label text="Settings" styleClass="menu-title"/>
+        <Button text="Back" onAction="#onBack" styleClass="menu-button"/>
+    </VBox>
+</StackPane>
