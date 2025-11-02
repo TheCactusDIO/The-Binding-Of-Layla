@@ -20,6 +20,7 @@ import javafx.scene.media.MediaView;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
 
+
 public class MainMenuController {
 
 
@@ -156,7 +157,7 @@ public class MainMenuController {
     private void onPlayClicked() {
         System.out.println("[MainMenu] Play clicked");
         cleanupMedia();
-        SceneRouter.goWithFade("ui/game.fxml", 1280, 720);
+        SceneRouter.goWithFadeKeepSize("ui/game.fxml");
     }
 
     @FXML
@@ -205,6 +206,11 @@ public class MainMenuController {
             }
         });
     }
+    /** Vuelve al menú principal conservando tamaño. */
+    public void backToMenu() {
+        SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml");
+    }
+
 
     // ===========================================================
     // ===================   LIMPIEZA DE MEDIA   =================
