@@ -20,7 +20,6 @@ import javafx.scene.media.MediaView;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
 
-
 public class MainMenuController {
 
 
@@ -153,12 +152,86 @@ public class MainMenuController {
     // ===========================================================
     // ======================   BOTONES   ========================
     // ===========================================================
-    @FXML
+   @FXML
     private void onPlayClicked() {
         System.out.println("[MainMenu] Play clicked");
+
+        // 1) Cambia a la escena del juego (manteniendo tamaño)
         cleanupMedia();
         SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+
+        // 2) Cuando el GameController esté listo, montamos overlay + audio
+        SceneRouter.whenControllerIs(GameController.class, gc -> {
+            var overlayLayer = gc.getOverlayLayer();
+            if (overlayLayer == null) {
+                System.err.println("[MainMenu] overlayLayer is null; cannot place intro overlay.");
+                // al menos arranca música para no dejar silencio si algo raro pasa
+                gc.startFloorMusicIfNeeded();
+                return;
+            }
+
+            // Overlay negro + textos
+            var overlay = new javafx.scene.layout.StackPane();
+            overlay.setStyle("-fx-background-color: black;");
+            overlay.setOpacity(1.0);
+            overlay.setMouseTransparent(false);
+
+            // ocupa toda la ventana
+            var root = overlayLayer.getScene().getRoot();
+            if (root instanceof javafx.scene.layout.Region r) {
+                overlay.prefWidthProperty().bind(r.widthProperty());
+                overlay.prefHeightProperty().bind(r.heightProperty());
+            }
+
+            var vbox = new javafx.scene.layout.VBox(8);
+            vbox.setAlignment(javafx.geometry.Pos.CENTER);
+            vbox.setMouseTransparent(true);
+
+            var title = new javafx.scene.control.Label("Basement I");
+            title.getStyleClass().add("intro-title");
+            var subtitle = new javafx.scene.control.Label("The Binding of Layla");
+            subtitle.getStyleClass().add("intro-subtitle");
+
+            vbox.getChildren().addAll(title, subtitle);
+            overlay.getChildren().add(vbox);
+            overlayLayer.getChildren().add(overlay);
+
+            // Animación de texto (fade in → hold → fade out)
+            var fadeIn = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), vbox);
+            fadeIn.setFromValue(0); fadeIn.setToValue(1);
+            var hold   = new javafx.animation.PauseTransition(javafx.util.Duration.millis(1600));
+            var fadeOut= new javafx.animation.FadeTransition(javafx.util.Duration.millis(300), vbox);
+            fadeOut.setFromValue(1); fadeOut.setToValue(0);
+            new javafx.animation.SequentialTransition(fadeIn, hold, fadeOut).play();
+
+            // SFX + timing determinista (AudioClip, fiable)
+            final int SFX_MS = 5000; // ajusta a la duración real de tu game_start.wav
+            com.layla.core.AssetsManager.setSfxVolume(1.0);
+            com.layla.core.AssetsManager.playSfx("game_start.wav");
+
+            // (Opcional) último segundo jugable: baja opacidad y desbloquea input
+            int enableAt = Math.max(0, SFX_MS - 1000);
+            var enablePlay = new javafx.animation.PauseTransition(javafx.util.Duration.millis(enableAt));
+            enablePlay.setOnFinished(ev -> {
+                overlay.setMouseTransparent(true);
+                var ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(200), overlay);
+                ft.setFromValue(1.0);
+                ft.setToValue(0.6);
+                ft.play();
+            });
+            enablePlay.play();
+
+            // Fin del SFX: quitar overlay y arrancar música del piso
+            var finish = new javafx.animation.PauseTransition(javafx.util.Duration.millis(SFX_MS));
+            finish.setOnFinished(ev -> {
+                try { overlayLayer.getChildren().remove(overlay); } catch (Exception ignore) {}
+                gc.startFloorMusicIfNeeded();
+            });
+            finish.play();
+        });
     }
+
+
 
     @FXML
     private void onOptionsClicked() {

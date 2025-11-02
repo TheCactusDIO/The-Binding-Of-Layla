@@ -1,7 +1,6 @@
 com\layla\ui\OverlayRouter.class
 com\layla\App.class
 com\layla\ui\ExitConfirmController.class
-com\layla\ui\MainMenuController.class
 com\layla\core\AssetsManager$1.class
 com\layla\core\AssetsManager$Manifest.class
 com\layla\core\AssetsManager.class

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns="http://javafx.com/javafx/17"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.layla.ui.PauseOverlayController"
+           styleClass="game-overlay-backdrop">
+
+    <VBox spacing="16" alignment="CENTER" maxWidth="300" style="-fx-background-color: rgba(0,0,0,0.6); -fx-padding: 24; -fx-background-radius: 10;">
+        <Label text="Game Paused"
+               style="-fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 28px; -fx-text-fill: white;" />
+        <Button fx:id="resumeBtn" text="Resume" />
+        <Button fx:id="menuBtn" text="Back to Menu" />
+    </VBox>
+</StackPane>

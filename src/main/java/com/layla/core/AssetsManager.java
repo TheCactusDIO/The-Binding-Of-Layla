@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,26 +29,43 @@ import javafx.scene.text.Font;
  */
 public class AssetsManager {
 
+    // ======== CACHES ========
     private static final Map<String, Image> imageCache = new HashMap<>();
     private static final Map<String, AudioClip> soundCache = new HashMap<>();
     private static final Map<String, Font> fontCache = new HashMap<>();
 
+    // Evita que los SFX con MediaPlayer sean recolectados antes de tiempo
+    private static final List<MediaPlayer> activeSfx =
+            Collections.synchronizedList(new ArrayList<>());
+
+    // ======== PLAYERS GLOBALES ========
     private static MediaPlayer backgroundMusic;
     private static MediaPlayer videoPlayer;
 
+    // ======== VOLUMEN SFX (0..1) ========
+    private static double sfxVolume = 1.0;
+
+    public static void setSfxVolume(double v) {
+        sfxVolume = Math.max(0.0, Math.min(1.0, v));
+        System.out.println("[AssetsManager] SFX volume set to " + sfxVolume);
+    }
+
+    public static double getSfxVolume() {
+        return sfxVolume;
+    }
+
+    // ======== CARGA MANIFEST ========
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "assets-loader");
         t.setDaemon(true);
         return t;
     });
 
-    // Manifest inner class
     public static class Manifest {
         public List<String> images = new ArrayList<>();
         public List<String> sounds = new ArrayList<>();
     }
 
-    // Task to preload assets listed in manifest.json
     public Task<Void> createLoadTask() {
         return new Task<>() {
             @Override
@@ -63,7 +81,6 @@ public class AssetsManager {
                 List<String> images = Optional.ofNullable(manifest.images).orElse(List.of());
                 List<String> sounds = Optional.ofNullable(manifest.sounds).orElse(List.of());
                 int total = Math.max(1, images.size() + sounds.size());
-
                 int done = 0;
 
                 for (String path : images) {
@@ -86,23 +103,9 @@ public class AssetsManager {
                 return null;
             }
 
-            @Override
-            protected void failed() {
-                super.failed();
-                shutdownExecutor();
-            }
-
-            @Override
-            protected void cancelled() {
-                super.cancelled();
-                shutdownExecutor();
-            }
-
-            @Override
-            protected void succeeded() {
-                super.succeeded();
-                shutdownExecutor();
-            }
+            @Override protected void failed()    { super.failed();    shutdownExecutor(); }
+            @Override protected void cancelled() { super.cancelled(); shutdownExecutor(); }
+            @Override protected void succeeded() { super.succeeded(); shutdownExecutor(); }
         };
     }
 
@@ -119,10 +122,8 @@ public class AssetsManager {
         }
     }
 
-    // GPT — BEGIN: make executor controls public
-    public void submit(javafx.concurrent.Task<?> task) {
-        executor.submit(task);
-    }
+    // Exponer control del executor
+    public void submit(Task<?> task) { executor.submit(task); }
 
     public void shutdownExecutor() {
         try {
@@ -136,9 +137,8 @@ public class AssetsManager {
             System.err.println("[AssetsManager] Error on shutdown: " + e.getMessage());
         }
     }
-    // GPT — END
 
-    // ======== IMAGE MANAGEMENT ========
+    // ======== IMÁGENES ========
     public static Image loadImage(String relativePath) {
         return imageCache.computeIfAbsent(relativePath, path -> {
             try {
@@ -154,7 +154,7 @@ public class AssetsManager {
         });
     }
 
-    // ======== SOUND MANAGEMENT ========
+    // ======== SONIDOS (AudioClip cache) ========
     public static AudioClip loadSound(String relativePath) {
         return soundCache.computeIfAbsent(relativePath, path -> {
             try {
@@ -169,7 +169,88 @@ public class AssetsManager {
         });
     }
 
-    // ======== FONT MANAGEMENT ========
+    // ======== SFX (corto) preferente con AudioClip; fallback a MediaPlayer ========
+    public static void playSfx(String fileName) {
+        final String rel = "assets/sounds/" + fileName; // ruta en resources
+        try {
+            URL url = AssetsManager.class.getResource("/" + rel);
+            if (url == null) {
+                System.err.println("[AssetsManager] SFX path not found: " + rel);
+                return;
+            }
+
+            String lower = fileName.toLowerCase();
+            boolean canUseAudioClip = lower.endsWith(".wav") || lower.endsWith(".aiff") || lower.endsWith(".au");
+
+            if (canUseAudioClip) {
+                AudioClip clip = loadSound(rel); // cacheado
+                if (clip != null) {
+                    clip.setVolume(sfxVolume); // 0..1
+                    clip.play();
+                    System.out.println("[AssetsManager] Playing SFX (AudioClip): " + fileName + " @ vol=" + sfxVolume);
+                    return;
+                } else {
+                    System.err.println("[AssetsManager] AudioClip failed for: " + fileName + " — falling back to MediaPlayer");
+                }
+            }
+
+            // Fallback universal (mp3, etc.) con protección contra GC
+            MediaPlayer mp = new MediaPlayer(new Media(url.toExternalForm()));
+            mp.setVolume(sfxVolume);
+            mp.setCycleCount(1);
+
+            activeSfx.add(mp); // mantener referencia fuerte
+            mp.setOnEndOfMedia(() -> {
+                try { mp.stop(); mp.dispose(); } catch (Exception ignore) {}
+                activeSfx.remove(mp);
+            });
+            mp.setOnError(() -> {
+                System.err.println("[AssetsManager] SFX MediaPlayer error: " + mp.getError());
+                try { mp.stop(); mp.dispose(); } catch (Exception ignore) {}
+                activeSfx.remove(mp);
+            });
+            mp.play();
+            System.out.println("[AssetsManager] Playing SFX (MediaPlayer): " + fileName + " @ vol=" + sfxVolume);
+
+        } catch (Exception e) {
+            System.err.println("[AssetsManager] Error playing SFX: " + e.getMessage());
+        }
+    }
+
+    // ======== SFX con handle (cuando necesitas callbacks externos) ========
+    public static MediaPlayer playSfxWithPlayer(String fileName, double volume) {
+        try {
+            String rel = "/assets/sounds/" + fileName;
+            var url = AssetsManager.class.getResource(rel);
+            if (url == null) {
+                System.err.println("[AssetsManager] SFX not found: " + rel);
+                return null;
+            }
+            var mp = new MediaPlayer(new Media(url.toExternalForm()));
+            mp.setVolume(Math.max(0, Math.min(1, volume)));
+            mp.setCycleCount(1);
+
+            activeSfx.add(mp);
+            mp.setOnEndOfMedia(() -> {
+                try { mp.stop(); mp.dispose(); } catch (Exception ignore) {}
+                activeSfx.remove(mp);
+            });
+            mp.setOnError(() -> {
+                System.err.println("[AssetsManager] SFX MediaPlayer error: " + mp.getError());
+                try { mp.stop(); mp.dispose(); } catch (Exception ignore) {}
+                activeSfx.remove(mp);
+            });
+
+            mp.play();
+            System.out.println("[AssetsManager] Playing SFX (MP) " + fileName + " @ vol=" + volume);
+            return mp;
+        } catch (Exception e) {
+            System.err.println("[AssetsManager] playSfxWithPlayer error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // ======== FUENTES ========
     public static Font loadFont(String fileName, double size) {
         String key = fileName + "@" + size;
         return fontCache.computeIfAbsent(key, k -> {
@@ -185,7 +266,7 @@ public class AssetsManager {
         });
     }
 
-    // ======== MUSIC MANAGEMENT ========
+    // ======== MÚSICA ========
     public static void playMusic(String fileName, boolean loop) {
         stopMusic();
         try {
@@ -201,16 +282,32 @@ public class AssetsManager {
         }
     }
 
+    public static void setMusicVolume(double v) {
+        if (backgroundMusic != null) {
+            double vol = Math.max(0, Math.min(1, v));
+            backgroundMusic.setVolume(vol);
+            System.out.println("[AssetsManager] Music volume set to " + vol);
+        }
+    }
+
+    public static void pauseMusic() {
+        if (backgroundMusic != null) backgroundMusic.pause();
+    }
+
+    public static void resumeMusic() {
+        if (backgroundMusic != null) backgroundMusic.play();
+    }
+
     public static void stopMusic() {
         if (backgroundMusic != null) {
-            backgroundMusic.stop();
-            backgroundMusic.dispose();
+            try { backgroundMusic.stop(); } catch (Exception ignore) {}
+            try { backgroundMusic.dispose(); } catch (Exception ignore) {}
             backgroundMusic = null;
             System.out.println("[AssetsManager] Music stopped");
         }
     }
 
-    // ======== VIDEO MANAGEMENT ========
+    // ======== VÍDEO ========
     public static MediaPlayer playVideo(String fileName, boolean loop) {
         stopVideo();
         try {
@@ -230,8 +327,8 @@ public class AssetsManager {
 
     public static void stopVideo() {
         if (videoPlayer != null) {
-            videoPlayer.stop();
-            videoPlayer.dispose();
+            try { videoPlayer.stop(); } catch (Exception ignore) {}
+            try { videoPlayer.dispose(); } catch (Exception ignore) {}
             videoPlayer = null;
             System.out.println("[AssetsManager] Video stopped");
         }

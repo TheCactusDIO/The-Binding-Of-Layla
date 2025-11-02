@@ -1,8 +1,23 @@
 {
   "images": [
-    "images/sample.png"
+    "assets/images/hearts.png"
   ],
   "sounds": [
-    "sounds/sample.mp3"
+    "assets/sounds/game_start.wav"
+  ],
+  "music": [
+    "assets/music/menu.mp3",
+    "assets/music/basement1.mp3",
+    "assets/music/basement2.mp3",
+    "assets/music/basement3.mp3"
+  ],
+  "videos": [
+    "assets/videos/menu.mp4",
+    "assets/videos/intro1.mp4",
+    "assets/videos/intro2.mp4",
+    "assets/videos/intro3.mp4"
+  ],
+  "fonts": [
+    "assets/fonts/main_font.ttf"
   ]
 }

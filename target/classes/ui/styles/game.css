@@ -57,3 +57,14 @@
 #gameArea {
     -fx-background-color: #111111; /* quítalo cuando metas el render real */
 }
+
+/* Intro textual */
+.intro-title {
+    -fx-text-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 12, 0.3, 2, 2);
+    -fx-opacity: 1.0;
+}
+.intro-subtitle {
+    -fx-text-fill: rgba(255,255,255,0.85);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 10, 0.25, 1, 1);
+}

@@ -16,8 +16,8 @@
            styleClass="game-root">
 
     <children>
-        <!-- Contenedor principal del juego -->
-        <AnchorPane>
+        <!-- Capa base con HUD + área de juego -->
+        <AnchorPane pickOnBounds="false">
             <children>
                 <!-- HUD superior -->
                 <HBox fx:id="hudBar"
@@ -37,7 +37,7 @@
                     </children>
                 </HBox>
 
-                <!-- Área de juego: ocupa todo bajo el HUD -->
+                <!-- Área de juego -->
                 <Pane fx:id="gameArea"
                       AnchorPane.topAnchor="72.0"
                       AnchorPane.bottomAnchor="0.0"
@@ -45,5 +45,11 @@
                       AnchorPane.rightAnchor="0.0"/>
             </children>
         </AnchorPane>
+
+        <!-- 🔝 Capa superior para overlays (intro, pause, etc.) -->
+        <StackPane fx:id="overlayLayer"
+                   pickOnBounds="true"
+                   mouseTransparent="false"
+                   style="-fx-background-color: transparent;"/>
     </children>
 </StackPane>
