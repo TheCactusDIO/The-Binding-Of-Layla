@@ -187,10 +187,24 @@ public class MainMenuController {
             vbox.setAlignment(javafx.geometry.Pos.CENTER);
             vbox.setMouseTransparent(true);
 
-            var title = new javafx.scene.control.Label("Basement I");
+            // --- títulos aleatorios de intro ---
+            String[] INTRO_TITLES = new String[] {
+                "Basement I",
+                "Te amo Maria",
+                "Apruebame pls",
+                "Cargando partida...",
+                "Prepared to die?",
+                "Por nuestra futura Layla"
+            };
+            int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(INTRO_TITLES.length);
+            String chosenTitle = INTRO_TITLES[idx];
+
+            var title = new javafx.scene.control.Label(chosenTitle);
             title.getStyleClass().add("intro-title");
+
             var subtitle = new javafx.scene.control.Label("The Binding of Layla");
             subtitle.getStyleClass().add("intro-subtitle");
+            ;
 
             vbox.getChildren().addAll(title, subtitle);
             overlay.getChildren().add(vbox);

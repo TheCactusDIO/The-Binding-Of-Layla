@@ -24,4 +24,8 @@ public class PauseOverlayController {
     // setters para callbacks
     public void setOnResume(Runnable onResume) { this.onResume = onResume; }
     public void setOnBackToMenu(Runnable onBackToMenu) { this.onBackToMenu = onBackToMenu; }
+
+    // accesores para test / inspección
+    public Button getResumeBtn() { return resumeBtn; }
+    public Button getMenuBtn()   { return menuBtn; }
 }

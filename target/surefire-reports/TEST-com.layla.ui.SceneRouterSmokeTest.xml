@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.layla.ui.SceneRouterSmokeTest" time="6.726" tests="6" errors="0" skipped="1" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.layla.ui.SceneRouterSmokeTest" time="22.134" tests="6" errors="0" skipped="0" failures="1">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="javafx.runtime.version" value="21.0.1+6"/>
@@ -17,8 +17,9 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot\bin"/>
-    <property name="sun.java.command" value="C:\Users\theca\AppData\Local\Temp\surefire15930742296879796546\surefirebooter-20251102152554994_3.jar C:\Users\theca\AppData\Local\Temp\surefire15930742296879796546 2025-11-02T15-25-54_857-jvmRun1 surefire-20251102152554994_1tmp surefire_0-20251102152554994_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\theca\AppData\Local\Temp\surefire11097034305425734249\surefirebooter-20251103153718102_3.jar C:\Users\theca\AppData\Local\Temp\surefire11097034305425734249 2025-11-03T15-37-17_834-jvmRun1 surefire-20251103153718102_1tmp surefire_0-20251103153718102_2tmp"/>
     <property name="jdk.debug" value="release"/>
+    <property name="test" value="SceneRouterSmokeTest"/>
     <property name="surefire.test.class.path" value="C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\target\test-classes;C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\target\classes;C:\Users\theca\.m2\repository\org\openjfx\javafx-controls\21.0.1\javafx-controls-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-controls\21.0.1\javafx-controls-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-graphics\21.0.1\javafx-graphics-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-graphics\21.0.1\javafx-graphics-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-base\21.0.1\javafx-base-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-base\21.0.1\javafx-base-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-fxml\21.0.1\javafx-fxml-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-fxml\21.0.1\javafx-fxml-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-media\21.0.1\javafx-media-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-media\21.0.1\javafx-media-21.0.1-win.jar;C:\Users\theca\.m2\repository\com\google\code\gson\gson\2.11.0\gson-2.11.0.jar;C:\Users\theca\.m2\repository\com\google\errorprone\error_prone_annotations\2.27.0\error_prone_annotations-2.27.0.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.0\junit-jupiter-5.11.0.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.0\junit-jupiter-api-5.11.0.jar;C:\Users\theca\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\theca\.m2\repository\org\junit\platform\junit-platform-commons\1.11.0\junit-platform-commons-1.11.0.jar;C:\Users\theca\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.0\junit-jupiter-params-5.11.0.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.0\junit-jupiter-engine-5.11.0.jar;C:\Users\theca\.m2\repository\org\junit\platform\junit-platform-engine\1.11.0\junit-platform-engine-1.11.0.jar;C:\Users\theca\.m2\repository\org\testfx\testfx-junit5\4.0.16-alpha\testfx-junit5-4.0.16-alpha.jar;C:\Users\theca\.m2\repository\org\testfx\testfx-core\4.0.16-alpha\testfx-core-4.0.16-alpha.jar;C:\Users\theca\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;C:\Users\theca\.m2\repository\org\assertj\assertj-core\3.13.2\assertj-core-3.13.2.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="C:\Users\theca"/>
@@ -32,7 +33,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="C:\Users\theca\AppData\Local\Temp\surefire15930742296879796546\surefirebooter-20251102152554994_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\theca\AppData\Local\Temp\surefire11097034305425734249\surefirebooter-20251103153718102_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.8+9-LTS"/>
@@ -42,6 +43,7 @@
     <property name="os.version" value="10.0"/>
     <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
     <property name="file.encoding" value="UTF-8"/>
+    <property name="testfx.safeExit" value="true"/>
     <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
     <property name="java.vendor.version" value="Temurin-21.0.8+9"/>
     <property name="localRepository" value="C:\Users\theca\.m2\repository"/>
@@ -53,7 +55,7 @@
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
     <property name="sun.os.patch.level" value=""/>
     <property name="native.encoding" value="Cp1252"/>
-    <property name="java.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot\bin;C:\Program Files\Eclipse Adoptium\jdk-25.0.0.36-hotspot\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\dotnet\;C:\Program Files\Apryse Software\Xodo PDF Reader\jre\bin\server;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\Git\cmd;C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\maven\apache-maven-3.9.11\bin;C:\Program Files\GitHub CLI\;C:\Program Files\nodejs\;C:\Users\theca\AppData\Local\Microsoft\WindowsApps;C:\Users\theca\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\theca\AppData\Local\GitHubDesktop\bin;C:\Users\theca\AppData\Local\Programs\Windsurf\bin;C:\Users\theca\AppData\Roaming\npm;."/>
+    <property name="java.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot\bin;C:\Program Files\Eclipse Adoptium\jdk-25.0.0.36-hotspot\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\dotnet\;C:\Program Files\Apryse Software\Xodo PDF Reader\jre\bin\server;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\Git\cmd;C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\maven\apache-maven-3.9.11\bin;C:\Program Files\GitHub CLI\;C:\Program Files\nodejs\;C:\Program Files\CMake\bin;C:\Users\theca\AppData\Local\Microsoft\WindowsApps;C:\Users\theca\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\theca\AppData\Local\GitHubDesktop\bin;C:\Users\theca\AppData\Local\Programs\Windsurf\bin;C:\Users\theca\AppData\Roaming\npm;."/>
     <property name="java.vm.info" value="mixed mode, sharing"/>
     <property name="stderr.encoding" value="Cp1252"/>
     <property name="java.vendor" value="Eclipse Adoptium"/>
@@ -61,17 +63,16 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="mainMenu_loads_buttons_visible_and_styles(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="1.753">
+  <testcase name="mainMenu_loads_buttons_visible_and_styles(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="2.404">
     <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
 [LoadingController] Initializing loading screen
 [LoadingController] Submitting load task to executor
 [AssetsManager] Starting asset loading task
 [AssetsManager] Reading manifest.json...
+[AssetsManager] Cached image: assets/images/hearts.png
+[AssetsManager] Cached sound: assets/sounds/game_start.wav
 [SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
-[AssetsManager] Cached image: images/sample.png
-[AssetsManager] Cached sound: sounds/sample.mp3
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
 [AssetsManager] Shutting down executor
 [SceneRouter] Scene set and displayed: ui/loading.fxml
 [LoadingController] Task message: All assets loaded.
@@ -97,22 +98,22 @@
 [SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
 [SceneRouter] Scene set with fade: ui/main_menu.fxml
 [MainMenu] Background video setup complete
-[MainMenu] Background video ready → play()
 [MainMenu] Background video setup complete
+[MainMenu] Background video ready → play()
+[MainMenu] Background video ready → play()
 ]]></system-out>
-    <system-err><![CDATA[Nov 02, 2025 3:25:55 PM com.sun.javafx.application.PlatformImpl startup
-WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @553a3d88'
+    <system-err><![CDATA[Nov 03, 2025 3:37:19 PM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @32eebfca'
 ]]></system-err>
   </testcase>
-  <testcase name="options_overlay_opens_and_closes(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="1.475">
+  <testcase name="options_overlay_opens_and_closes(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="1.513">
     <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
 [LoadingController] Initializing loading screen
 [LoadingController] Submitting load task to executor
 [AssetsManager] Starting asset loading task
 [AssetsManager] Reading manifest.json...
 [SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
 [AssetsManager] Shutting down executor
 [SceneRouter] Scene set and displayed: ui/loading.fxml
 [LoadingController] Task message: All assets loaded.
@@ -128,8 +129,48 @@ WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed mod
 [SceneRouter] Applied /ui/styles/menu.css
 [SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
 [SceneRouter] Scene set and displayed: ui/main_menu.fxml
-[MainMenu] Background video ready → play()
 [MainMenu] Background video setup complete
+[MainMenu] Background video setup complete
+[LoadingController] Transitioning to main menu
+[SceneRouter] Attempting to load (fade): ui/main_menu.fxml
+[MainMenu] initialize()
+[MainMenu] Custom font loaded successfully
+[AssetsManager] Music stopped
+[AssetsManager] Playing music: menu.mp3 (loop=true)
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Applied /ui/styles/menu.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene set with fade: ui/main_menu.fxml
+[MainMenu] Background video setup complete
+[MainMenu] Background video ready → play()
+]]></system-out>
+    <system-err><![CDATA[[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@1f3db23b] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
+[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@cec053b] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
+]]></system-err>
+  </testcase>
+  <testcase name="play_navigates_to_game_hud_and_intro_title_optional(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="2.145">
+    <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
+[LoadingController] Initializing loading screen
+[LoadingController] Submitting load task to executor
+[AssetsManager] Starting asset loading task
+[AssetsManager] Reading manifest.json...
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
+[AssetsManager] Shutting down executor
+[SceneRouter] Scene set and displayed: ui/loading.fxml
+[LoadingController] Task message: All assets loaded.
+[LoadingController] Progress updated: 100%
+[LoadingController] Assets loaded successfully
+[AssetsManager] Executor already shut down
+[SceneRouter] Attempting to load: ui/main_menu.fxml
+[MainMenu] initialize()
+[MainMenu] Custom font loaded successfully
+[AssetsManager] Music stopped
+[AssetsManager] Playing music: menu.mp3 (loop=true)
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Applied /ui/styles/menu.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene set and displayed: ui/main_menu.fxml
 [MainMenu] Background video setup complete
 [MainMenu] Background video ready → play()
 [LoadingController] Transitioning to main menu
@@ -143,45 +184,67 @@ WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed mod
 [SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
 [SceneRouter] Scene set with fade: ui/main_menu.fxml
 [MainMenu] Background video setup complete
-[MainMenu] Background video setup complete
-[MainMenu] Background video ready → play()
-]]></system-out>
-    <system-err><![CDATA[[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@3a720558] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
-[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@603577d7] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
-]]></system-err>
-  </testcase>
-  <testcase name="play_changes_scene_and_keeps_size(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="1.461">
-    <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
-[LoadingController] Initializing loading screen
-[LoadingController] Submitting load task to executor
-[AssetsManager] Starting asset loading task
-[AssetsManager] Reading manifest.json...
-[SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
-[AssetsManager] Shutting down executor
-[SceneRouter] Scene set and displayed: ui/loading.fxml
-[LoadingController] Task message: All assets loaded.
-[LoadingController] Progress updated: 100%
-[LoadingController] Assets loaded successfully
-[AssetsManager] Executor already shut down
-[SceneRouter] Attempting to load: ui/main_menu.fxml
-[MainMenu] initialize()
-[MainMenu] Custom font loaded successfully
-[AssetsManager] Music stopped
-[AssetsManager] Playing music: menu.mp3 (loop=true)
-[SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
-[SceneRouter] Scene set and displayed: ui/main_menu.fxml
-[MainMenu] Background video setup complete
-[MainMenu] Background video ready → play()
 [MainMenu] Play clicked
 [AssetsManager] Music stopped
 [SceneRouter] Attempting to load (fade): ui/game.fxml
+[GameController] initialize()
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
+[SceneRouter] Scene set with fade: ui/game.fxml
+[GameController] onEnter()
+[TEST] Intro textual visible: Basement I
+[AssetsManager] SFX volume set to 1.0
+[AssetsManager] Playing SFX (AudioClip): game_start.wav @ vol=1.0
+[GameController] Focus requested for gameArea
+[MainMenu] Background video setup complete
+]]></system-out>
+    <system-err><![CDATA[[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@2b5a4e5b] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
+]]></system-err>
+  </testcase>
+  <testcase name="pause_overlay_resume_and_back_to_menu(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="12.26">
+    <failure message="Timeout esperando nodo: #healthLabel" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Timeout esperando nodo: #healthLabel
+	at org.junit.jupiter.api.AssertionUtils.fail(AssertionUtils.java:42)
+	at org.junit.jupiter.api.Assertions.fail(Assertions.java:150)
+	at com.layla.ui.SceneRouterSmokeTest.waitForNode(SceneRouterSmokeTest.java:65)
+	at com.layla.ui.SceneRouterSmokeTest.pause_overlay_resume_and_back_to_menu(SceneRouterSmokeTest.java:234)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: java.util.concurrent.TimeoutException
+	at org.testfx.util.WaitForAsyncUtils.waitFor(WaitForAsyncUtils.java:325)
+	at com.layla.ui.SceneRouterSmokeTest.waitForNode(SceneRouterSmokeTest.java:62)
+	... 4 more
+]]></failure>
+    <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
+[LoadingController] Initializing loading screen
+[LoadingController] Submitting load task to executor
+[GameController] onExit()
+[AssetsManager] Starting asset loading task
+[AssetsManager] Reading manifest.json...
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
+[AssetsManager] Shutting down executor
+[SceneRouter] Scene set and displayed: ui/loading.fxml
+[LoadingController] Task message: All assets loaded.
+[LoadingController] Progress updated: 100%
+[LoadingController] Assets loaded successfully
+[AssetsManager] Executor already shut down
+[SceneRouter] Attempting to load: ui/main_menu.fxml
+[MainMenu] initialize()
+[MainMenu] Custom font loaded successfully
+[AssetsManager] Playing music: menu.mp3 (loop=true)
 [SceneRouter] Applied /ui/styles/global.css
 [SceneRouter] Applied /ui/styles/menu.css
 [SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene set and displayed: ui/main_menu.fxml
+[MainMenu] Background video ready → play()
+[MainMenu] Background video setup complete
+[MainMenu] Play clicked
+[AssetsManager] Music stopped
+[SceneRouter] Attempting to load (fade): ui/game.fxml
+[GameController] initialize()
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
 [SceneRouter] Scene set with fade: ui/game.fxml
 [LoadingController] Transitioning to main menu
 [SceneRouter] Attempting to load (fade): ui/main_menu.fxml
@@ -193,21 +256,27 @@ WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed mod
 [SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
 [SceneRouter] Scene set with fade: ui/main_menu.fxml
 [MainMenu] Background video setup complete
+[GameController] onEnter()
+[AssetsManager] SFX volume set to 1.0
+[AssetsManager] Playing SFX (AudioClip): game_start.wav @ vol=1.0
+[GameController] Focus requested for gameArea
 [MainMenu] Background video ready → play()
+[GameController] Starting floor music: basement1.mp3
+[AssetsManager] Music stopped
+[AssetsManager] Playing music: basement1.mp3 (loop=true)
+[GameController] Starting floor music: basement2.mp3
+[AssetsManager] Music stopped
+[AssetsManager] Playing music: basement2.mp3 (loop=true)
 ]]></system-out>
   </testcase>
-  <testcase name="router_keep_size_vs_reset_size(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="0.0">
-    <skipped message="Pendiente: implementar resize real del Stage en goWithFade(...)"/>
-  </testcase>
-  <testcase name="resizing_does_not_break_basic_layout(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="0.516">
+  <testcase name="resizing_does_not_break_basic_layout(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="0.882">
     <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
 [LoadingController] Initializing loading screen
 [LoadingController] Submitting load task to executor
 [AssetsManager] Starting asset loading task
 [AssetsManager] Reading manifest.json...
 [SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
 [AssetsManager] Shutting down executor
 [SceneRouter] Scene set and displayed: ui/loading.fxml
 [LoadingController] Task message: All assets loaded.
@@ -225,19 +294,29 @@ WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed mod
 [SceneRouter] Scene set and displayed: ui/main_menu.fxml
 [MainMenu] Background video setup complete
 [MainMenu] Background video ready → play()
+[LoadingController] Transitioning to main menu
+[SceneRouter] Attempting to load (fade): ui/main_menu.fxml
+[MainMenu] initialize()
+[MainMenu] Custom font loaded successfully
+[AssetsManager] Music stopped
+[AssetsManager] Playing music: menu.mp3 (loop=true)
+[SceneRouter] Applied /ui/styles/global.css
+[SceneRouter] Applied /ui/styles/menu.css
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene set with fade: ui/main_menu.fxml
 ]]></system-out>
   </testcase>
-  <testcase name="exit_overlay_opens_and_can_cancel_without_killing_tests(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="1.494">
+  <testcase name="exit_overlay_opens_and_can_cancel_without_killing_tests(FxRobot)" classname="com.layla.ui.SceneRouterSmokeTest" time="2.831">
     <system-out><![CDATA[[SceneRouter] Attempting to load: ui/loading.fxml
 [LoadingController] Initializing loading screen
 [LoadingController] Submitting load task to executor
 [AssetsManager] Starting asset loading task
 [AssetsManager] Reading manifest.json...
 [SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
+[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css]
 [AssetsManager] Shutting down executor
 [SceneRouter] Scene set and displayed: ui/loading.fxml
+[MainMenu] Background video setup complete
 [LoadingController] Task message: All assets loaded.
 [LoadingController] Progress updated: 100%
 [LoadingController] Assets loaded successfully
@@ -263,27 +342,10 @@ WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed mod
 [SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
 [SceneRouter] Scene set with fade: ui/main_menu.fxml
 [MainMenu] Background video setup complete
-[MainMenu] Background video setup complete
 [MainMenu] Background video ready → play()
 [MainMenu] Background video setup complete
-[LoadingController] Transitioning to main menu
-[SceneRouter] Attempting to load (fade): ui/main_menu.fxml
-[MainMenu] initialize()
-[MainMenu] Custom font loaded successfully
-[AssetsManager] Music stopped
-[AssetsManager] Playing music: menu.mp3 (loop=true)
-[SceneRouter] Applied /ui/styles/global.css
-[SceneRouter] Applied /ui/styles/menu.css
-[SceneRouter] Scene stylesheets now: [file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/global.css, file:/C:/Users/theca/Documents/DAM/Proyecto/The-Binding-Of-Layla/target/classes/ui/styles/menu.css]
-[SceneRouter] Scene set with fade: ui/main_menu.fxml
-[MainMenu] Background video ready → play()
-[MainMenu] Background video setup complete
-[MainMenu] Background video setup complete
-[MainMenu] Background video ready → play()
 ]]></system-out>
-    <system-err><![CDATA[[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@43b1decc] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
-[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@5eed53f] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
-[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@2a0a0be0] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
+    <system-err><![CDATA[[MainMenu] MediaPlayer ERROR: [com.sun.media.jfxmediaimpl.platform.gstreamer.GSTMediaPlayer@22e20345] ERROR_MEDIA_INVALID: ERROR_MEDIA_INVALID
 ]]></system-err>
   </testcase>
 </testsuite>
