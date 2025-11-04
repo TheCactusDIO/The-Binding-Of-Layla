@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.layla.core.GameLoopEnhancedTest
 -------------------------------------------------------------------------------
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.934 s -- in com.layla.core.GameLoopEnhancedTest
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.988 s -- in com.layla.core.GameLoopEnhancedTest

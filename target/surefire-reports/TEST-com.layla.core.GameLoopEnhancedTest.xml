@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.layla.core.GameLoopEnhancedTest" time="0.934" tests="3" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.layla.core.GameLoopEnhancedTest" time="0.988" tests="3" errors="0" skipped="0" failures="0">
   <properties>
     <property name="javafx.platform" value="Monocle"/>
     <property name="java.specification.version" value="21"/>
@@ -19,7 +19,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot\bin"/>
-    <property name="sun.java.command" value="C:\Users\theca\AppData\Local\Temp\surefire17295061050295877956\surefirebooter-20251104200845547_3.jar C:\Users\theca\AppData\Local\Temp\surefire17295061050295877956 2025-11-04T20-08-45_427-jvmRun1 surefire-20251104200845547_1tmp surefire_0-20251104200845547_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\theca\AppData\Local\Temp\surefire8974199127635304798\surefirebooter-20251104215234325_3.jar C:\Users\theca\AppData\Local\Temp\surefire8974199127635304798 2025-11-04T21-52-34_201-jvmRun1 surefire-20251104215234325_1tmp surefire_0-20251104215234325_2tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\target\test-classes;C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\target\classes;C:\Users\theca\.m2\repository\org\openjfx\javafx-controls\21.0.1\javafx-controls-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-controls\21.0.1\javafx-controls-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-graphics\21.0.1\javafx-graphics-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-graphics\21.0.1\javafx-graphics-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-base\21.0.1\javafx-base-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-base\21.0.1\javafx-base-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-fxml\21.0.1\javafx-fxml-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-fxml\21.0.1\javafx-fxml-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-media\21.0.1\javafx-media-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-media\21.0.1\javafx-media-21.0.1-win.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-swing\21.0.1\javafx-swing-21.0.1.jar;C:\Users\theca\.m2\repository\org\openjfx\javafx-swing\21.0.1\javafx-swing-21.0.1-win.jar;C:\Users\theca\.m2\repository\com\google\code\gson\gson\2.11.0\gson-2.11.0.jar;C:\Users\theca\.m2\repository\com\google\errorprone\error_prone_annotations\2.27.0\error_prone_annotations-2.27.0.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter\5.11.0\junit-jupiter-5.11.0.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.11.0\junit-jupiter-api-5.11.0.jar;C:\Users\theca\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\theca\.m2\repository\org\junit\platform\junit-platform-commons\1.11.0\junit-platform-commons-1.11.0.jar;C:\Users\theca\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.11.0\junit-jupiter-params-5.11.0.jar;C:\Users\theca\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.11.0\junit-jupiter-engine-5.11.0.jar;C:\Users\theca\.m2\repository\org\junit\platform\junit-platform-engine\1.11.0\junit-platform-engine-1.11.0.jar;C:\Users\theca\.m2\repository\org\testfx\testfx-junit5\4.0.16-alpha\testfx-junit5-4.0.16-alpha.jar;C:\Users\theca\.m2\repository\org\testfx\testfx-core\4.0.16-alpha\testfx-core-4.0.16-alpha.jar;C:\Users\theca\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;C:\Users\theca\.m2\repository\org\assertj\assertj-core\3.13.2\assertj-core-3.13.2.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -36,7 +36,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="testfx.robot" value="glass"/>
-    <property name="surefire.real.class.path" value="C:\Users\theca\AppData\Local\Temp\surefire17295061050295877956\surefirebooter-20251104200845547_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\theca\AppData\Local\Temp\surefire8974199127635304798\surefirebooter-20251104215234325_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.8+9-LTS"/>
@@ -69,11 +69,11 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="startAndStopAreIdempotent" classname="com.layla.core.GameLoopEnhancedTest" time="0.064">
-    <system-err><![CDATA[Nov 04, 2025 8:08:46 PM com.sun.javafx.application.PlatformImpl startup
+  <testcase name="startAndStopAreIdempotent" classname="com.layla.core.GameLoopEnhancedTest" time="0.06">
+    <system-err><![CDATA[Nov 04, 2025 9:52:35 PM com.sun.javafx.application.PlatformImpl startup
 WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @1e7c7811'
 ]]></system-err>
   </testcase>
-  <testcase name="loopUpdatesAndStopsProperly" classname="com.layla.core.GameLoopEnhancedTest" time="0.289"/>
-  <testcase name="collisionsAreDetected" classname="com.layla.core.GameLoopEnhancedTest" time="0.123"/>
+  <testcase name="loopUpdatesAndStopsProperly" classname="com.layla.core.GameLoopEnhancedTest" time="0.315"/>
+  <testcase name="collisionsAreDetected" classname="com.layla.core.GameLoopEnhancedTest" time="0.137"/>
 </testsuite>

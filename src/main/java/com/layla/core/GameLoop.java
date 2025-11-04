@@ -201,7 +201,7 @@ public final class GameLoop {
 
     // ---------- BUCLE DE FRAME ----------
     /** Lógica por frame (invocada por AnimationTimer). */
-    private void onFrame(long now) {
+   private void onFrame(long now) {
         // Primer tick tras start(): inicializa marco temporal y aplica colas.
         if (lastFrameTimeNanos < 0L) {
             lastFrameTimeNanos = now;
@@ -209,10 +209,15 @@ public final class GameLoop {
             return;
         }
 
-        // Calcular dt en segundos
-        final double dt = (now - lastFrameTimeNanos) / NANOS_TO_SECONDS;
+        // Calcular dt en segundos (mutable para poder clamp)
+        double dt = (now - lastFrameTimeNanos) / NANOS_TO_SECONDS;
         lastFrameTimeNanos = now;
-        lastDeltaTime = dt;
+
+        // 🔧 Clamp del delta time para estabilidad (≈60 FPS lógico)
+        if (dt < 1e-5) dt = 1e-5;            // evita dt=0
+        if (dt > 1.0 / 60.0) dt = 1.0 / 60.0; // máx ≈ 16.67 ms
+
+        lastDeltaTime = dt;  // guardar el dt realmente usado
         frameCount++;
 
         // Aplicar altas/bajas pendientes antes de iterar
@@ -233,6 +238,7 @@ public final class GameLoop {
             LOG.fine(String.format("[GameLoop] frame=%d dt=%.6f", frameCount, dt));
         }
     }
+
 
     // ---------- ETAPAS DEL FRAME ----------
     private void updateAll(List<GameEntity> snapshot, double dt) {

@@ -12,13 +12,16 @@ package com.layla.ui;
 
 import com.layla.core.AssetsManager;
 import com.layla.core.GameLoop;
+import com.layla.core.InputService;
 import com.layla.entities.DummyEntity;
+import com.layla.entities.Player;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -57,7 +60,9 @@ public class GameController implements ViewLifecycle {
 
     // Game loop
     private GameLoop gameLoop;
+    private Player player;
     private boolean demoEntitiesAdded = false;
+    private boolean playerSpawnListenerAdded = false;
 
     // Settings desde pausa: evitar “doble ESC”
     private boolean settingsOpen = false;
@@ -66,6 +71,9 @@ public class GameController implements ViewLifecycle {
     @SuppressWarnings("unused")
     private static volatile boolean INTRO_GATE = false;
     public static void setIntroGate(boolean v) { INTRO_GATE = v; }
+
+    // Input
+    private InputService input;
 
     // ===================== CONTROLES PAUSA =====================
     /**
@@ -243,7 +251,7 @@ public class GameController implements ViewLifecycle {
             ft.play();
         }
 
-        // Asegurar input ESC
+        // Asegurar ESC para pausa
         Platform.runLater(() -> {
             var scene = gameArea.getScene();
             if (scene == null) {
@@ -274,6 +282,28 @@ public class GameController implements ViewLifecycle {
             gameLoop = new GameLoop(gameArea);
             // gameLoop.setDebugLoggingEnabled(true);
         }
+        if (!playerSpawnListenerAdded) {
+            playerSpawnListenerAdded = true;
+            gameArea.widthProperty().addListener((obs, oldW, newW) -> maybeSpawnPlayer());
+            gameArea.heightProperty().addListener((obs, oldH, newH) -> maybeSpawnPlayer());
+        }
+        maybeSpawnPlayer();
+
+        // === INPUT: adjuntar InputService cuando la Scene está lista ===
+        Platform.runLater(() -> {
+            Scene scene = gameArea.getScene();
+            if (scene == null) return;
+
+            if (input == null) {
+                input = new InputService();
+            }
+            input.attach(scene);
+
+            gameArea.requestFocus();
+            scene.setOnMouseClicked(e -> gameArea.requestFocus());
+
+            maybeSpawnPlayer();
+        });
 
         // Timer HUD
         startHudTimerIfNeeded();
@@ -282,6 +312,7 @@ public class GameController implements ViewLifecycle {
         // Entidades de demo: añadir cuando haya ancho disponible
         if (!demoEntitiesAdded) {
             gameArea.widthProperty().addListener((obs, oldW, newW) -> {
+                maybeSpawnPlayer();
                 if (!demoEntitiesAdded && newW.doubleValue() > 0) {
                     double maxX = newW.doubleValue();
                     var d1 = new DummyEntity(50, 80, 0, maxX);
@@ -305,6 +336,7 @@ public class GameController implements ViewLifecycle {
                 demoEntitiesAdded = true;
                 System.out.println("[GameController] Demo entities added immediately & GameLoop started");
             }
+            maybeSpawnPlayer();
         }
     }
 
@@ -315,8 +347,13 @@ public class GameController implements ViewLifecycle {
             gameLoop.stop();
             System.out.println("[GameController] GameLoop stopped on exit");
         }
+        if (player != null && gameLoop != null) {
+            gameLoop.removeEntity(player);
+            player = null;
+        }
         stopHudTimer();
         settingsOpen = false;
+        // No hace falta desmontar InputService: la escena cambia y GC limpia handlers.
     }
 
     // ===== Arranque real del gameplay (sincronizado con el final del loader + game_start.wav) =====
@@ -366,6 +403,23 @@ public class GameController implements ViewLifecycle {
             } catch (Exception ex) {
                 System.err.println("[GameController] Could not play music: " + ex.getMessage());
             }
+        }
+    }
+
+    private void maybeSpawnPlayer() {
+        if (player != null || input == null || gameLoop == null) return;
+        double width = gameArea.getWidth();
+        double height = gameArea.getHeight();
+        if (width <= 0 || height <= 0) return;
+
+        player = new Player(input, gameArea);
+        double startX = Math.max(0.0, (width - player.getWidth()) / 2.0);
+        double startY = Math.max(0.0, (height - player.getHeight()) / 2.0);
+        player.setPosition(startX, startY);
+        gameLoop.addEntity(player);
+
+        if (!gameLoop.isRunning()) {
+            gameLoop.start();
         }
     }
 }
