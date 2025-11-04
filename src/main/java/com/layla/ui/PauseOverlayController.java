@@ -1,31 +1,17 @@
 package com.layla.ui;
 
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
 
 public class PauseOverlayController {
+    private Runnable onResume = () -> {};
+    private Runnable onBackToMenu = () -> {};
+    private Runnable onSettings = () -> {};
 
-    @FXML private Button resumeBtn;
-    @FXML private Button menuBtn;
+    public void setOnResume(Runnable r) { this.onResume = (r != null ? r : () -> {}); }
+    public void setOnBackToMenu(Runnable r) { this.onBackToMenu = (r != null ? r : () -> {}); }
+    public void setOnSettings(Runnable r) { this.onSettings = (r != null ? r : () -> {}); }
 
-    private Runnable onResume;
-    private Runnable onBackToMenu;
-
-    @FXML
-    private void initialize() {
-        resumeBtn.setOnAction(e -> {
-            if (onResume != null) onResume.run();
-        });
-        menuBtn.setOnAction(e -> {
-            if (onBackToMenu != null) onBackToMenu.run();
-        });
-    }
-
-    // setters para callbacks
-    public void setOnResume(Runnable onResume) { this.onResume = onResume; }
-    public void setOnBackToMenu(Runnable onBackToMenu) { this.onBackToMenu = onBackToMenu; }
-
-    // accesores para test / inspección
-    public Button getResumeBtn() { return resumeBtn; }
-    public Button getMenuBtn()   { return menuBtn; }
+    @FXML private void onResume()     { onResume.run(); }
+    @FXML private void onBackToMenu() { onBackToMenu.run(); }
+    @FXML private void onSettings()   { onSettings.run(); }
 }

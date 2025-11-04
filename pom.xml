@@ -18,7 +18,6 @@
   </properties>
 
   <dependencies>
-    <!-- JavaFX -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
@@ -34,15 +33,17 @@
       <artifactId>javafx-media</artifactId>
       <version>${javafx.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-swing</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
 
-    <!-- Gson para manifest.json -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.11.0</version>
     </dependency>
-
-    <!-- JUnit 5 (opcional) -->
 
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -57,11 +58,9 @@
       <version>4.0.16-alpha</version>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
 
   <build>
-    <!-- Copiar recursos multimedia al classpath -->
     <resources>
       <resource>
         <directory>src/main/resources</directory>
@@ -96,8 +95,12 @@
         <version>0.0.8</version>
         <configuration>
           <mainClass>com.layla.App</mainClass>
+          <jvmArgs>
+            <arg>-Djava.util.logging.config.file=${project.basedir}/src/main/resources/logging.properties</arg>
+          </jvmArgs>
         </configuration>
       </plugin>
+
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -107,32 +110,18 @@
           <includes>
             <include>**/*Test.java</include>
           </includes>
-          <argLine>
-            -Dtestfx.safeExit=true
-            --add-opens javafx.graphics/com.sun.glass.ui=ALL-UNNAMED
-            --add-opens javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED
-            --add-opens javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED
-          </argLine>
+          <systemPropertyVariables>
+            <testfx.headless>true</testfx.headless>
+            <testfx.robot>glass</testfx.robot>
+            <prism.order>sw</prism.order>
+            <javafx.platform>Monocle</javafx.platform>
+            <monocle.platform>Headless</monocle.platform>
+            <testfx.disableMedia>true</testfx.disableMedia>
+            <testfx.safeExit>true</testfx.safeExit>
+          </systemPropertyVariables>
+          <argLine></argLine>
         </configuration>
       </plugin>
-
-       <plugin>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-surefire-plugin</artifactId>
-      <version>3.2.5</version>
-      <configuration>
-        <includes>
-          <include>**/*Test.java</include>
-        </includes>
-        <!-- Primero sin headless para que sea más fácil ver fallos -->
-        <argLine>
-          --add-opens javafx.graphics/com.sun.glass.ui=ALL-UNNAMED
-          --add-opens javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED
-          --add-opens javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED
-        </argLine>
-      </configuration>
-    </plugin>
-
     </plugins>
   </build>
 </project>

@@ -19,6 +19,7 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
+import com.layla.core.TestEnv;
 
 public class MainMenuController {
 
@@ -44,6 +45,28 @@ public class MainMenuController {
             System.out.println("[MainMenu] Custom font loaded successfully");
         } catch (Exception e) {
             System.err.println("[MainMenu] Font not found: " + e.getMessage());
+        }
+
+        // --- Modo test/headless: NO inicializamos vídeo para evitar GStreamer y timing raro ---
+        if (TestEnv.disableMedia()) {
+            if (backgroundVideo != null) {
+                backgroundVideo.setVisible(false);
+                backgroundVideo.setManaged(false);
+                backgroundVideo.setMediaPlayer(null);
+            }
+            System.out.println("[MainMenu] Headless/test env → skipping background video init");
+        } else {
+            // ---------- Fondo de vídeo ----------
+            backgroundVideo.setPreserveRatio(true);
+            backgroundVideo.fitWidthProperty().bind(root.widthProperty());
+            backgroundVideo.fitHeightProperty().bind(root.heightProperty());
+            backgroundVideo.setOpacity(0);
+
+            Platform.runLater(() -> {
+                PauseTransition delay = new PauseTransition(Duration.millis(120));
+                delay.setOnFinished(e -> startBackgroundVideoSafely());
+                delay.play();
+            });
         }
 
         // ---------- Tamaños responsivos ----------
@@ -223,29 +246,20 @@ public class MainMenuController {
             com.layla.core.AssetsManager.setSfxVolume(1.0);
             com.layla.core.AssetsManager.playSfx("game_start.wav");
 
-            // (Opcional) último segundo jugable: baja opacidad y desbloquea input
-            int enableAt = Math.max(0, SFX_MS - 1000);
-            var enablePlay = new javafx.animation.PauseTransition(javafx.util.Duration.millis(enableAt));
-            enablePlay.setOnFinished(ev -> {
-                overlay.setMouseTransparent(true);
-                var ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(200), overlay);
-                ft.setFromValue(1.0);
-                ft.setToValue(0.6);
-                ft.play();
-            });
-            enablePlay.play();
-
             // Fin del SFX: quitar overlay y arrancar música del piso
             var finish = new javafx.animation.PauseTransition(javafx.util.Duration.millis(SFX_MS));
             finish.setOnFinished(ev -> {
                 try { overlayLayer.getChildren().remove(overlay); } catch (Exception ignore) {}
+
+                // 1) Arranca el gameplay real (timer 00:00, score 500, inputs, etc.)
+                gc.signalGameStart();
+
+                // 2) Arranca la música del piso (misma pista que hubieras elegido)
                 gc.startFloorMusicIfNeeded();
             });
             finish.play();
         });
     }
-
-
 
     @FXML
     private void onOptionsClicked() {
