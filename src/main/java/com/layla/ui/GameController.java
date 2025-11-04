@@ -13,8 +13,10 @@ package com.layla.ui;
 import com.layla.core.AssetsManager;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
+import com.layla.core.GameEntity;          // <— para el ticker
 import com.layla.entities.DummyEntity;
 import com.layla.entities.Player;
+import com.layla.entities.Projectile;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -22,11 +24,16 @@ import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;
+import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
+
+import static java.lang.Math.hypot;
+import static java.lang.Math.max;
 
 public class GameController implements ViewLifecycle {
 
@@ -75,11 +82,12 @@ public class GameController implements ViewLifecycle {
     // Input
     private InputService input;
 
+    // === SHOOTING: temporizadores y bias ===
+    private double shootTimer = 0.0;            // decrece cada frame
+    private double bias = 0.35;                 // cuánto influye el movimiento en el tiro
+    private boolean tickerAdded = false;        // para añadir el ticker una sola vez
+
     // ===================== CONTROLES PAUSA =====================
-    /**
-     * Llamado al pulsar ESC (o botón de pausa).
-     * Abre overlay de pausa y detiene el GameLoop. Resume lo vuelve a arrancar.
-     */
     @FXML
     private void onPausePressed() {
         System.out.println("[GameController] onPausePressed() called");
@@ -148,7 +156,6 @@ public class GameController implements ViewLifecycle {
 
     // ===================== HELPERS PAUSA + HUD TIMER =====================
 
-    // RESUME: cierra overlay, reanuda loop/timer y limpia flag
     private void resumeFromPause() {
         if (pauseOverlay != null) {
             OverlayRouter.closeOverlay(overlayLayer, pauseOverlay);
@@ -181,7 +188,6 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    // mm:ss
     private static String formatMMSS(long totalSeconds) {
         long shown = Math.max(0, totalSeconds);
         long mm = shown / 60;
@@ -189,7 +195,6 @@ public class GameController implements ViewLifecycle {
         return String.format("%02d:%02d", mm, ss);
     }
 
-    // Actualiza HUD (score, piso, vida, tiempo)
     private void updateHudLabels() {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
         if (floorLabel != null) floorLabel.setText("Floor: 1");
@@ -197,7 +202,6 @@ public class GameController implements ViewLifecycle {
         if (healthLabel != null) healthLabel.setText("HP: 100");
     }
 
-    // Arranca el timer del HUD (score ↓1/s hasta 0)
     private void startHudTimerIfNeeded() {
         if (hudTimer != null) return;
         elapsedSeconds = 0;
@@ -259,16 +263,13 @@ public class GameController implements ViewLifecycle {
                 return;
             }
             scene.setOnKeyPressed(e -> {
-                switch (e.getCode()) {
-                    case ESCAPE -> {
-                        if (settingsOpen) return; // Settings consumirá ESC y se cerrará
-                        if (pauseOverlay != null || paused) {
-                            resumeFromPause();
-                        } else {
-                            onPausePressed();
-                        }
+                if (e.getCode() == KeyCode.ESCAPE) {
+                    if (settingsOpen) return;
+                    if (pauseOverlay != null || paused) {
+                        resumeFromPause();
+                    } else {
+                        onPausePressed();
                     }
-                    default -> {}
                 }
             });
 
@@ -294,22 +295,29 @@ public class GameController implements ViewLifecycle {
             Scene scene = gameArea.getScene();
             if (scene == null) return;
 
-            if (input == null) {
-                input = new InputService();
-            }
+            if (input == null) input = new InputService();
             input.attach(scene);
+
+            // Disparo instantáneo al presionar flechas
+            scene.addEventHandler(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+                KeyCode c = e.getCode();
+                if (c == KeyCode.UP || c == KeyCode.DOWN || c == KeyCode.LEFT || c == KeyCode.RIGHT) {
+                    tryShootNow(); // intento inmediato al presionar flecha
+                }
+            });
 
             gameArea.requestFocus();
             scene.setOnMouseClicked(e -> gameArea.requestFocus());
 
             maybeSpawnPlayer();
+            addTickerIfNeeded(); // <— añade el ticker que gestiona cooldown + autofire
         });
 
         // Timer HUD
         startHudTimerIfNeeded();
         updateHudLabels();
 
-        // Entidades de demo: añadir cuando haya ancho disponible
+        // Entidades de demo
         if (!demoEntitiesAdded) {
             gameArea.widthProperty().addListener((obs, oldW, newW) -> {
                 maybeSpawnPlayer();
@@ -325,7 +333,6 @@ public class GameController implements ViewLifecycle {
                 }
             });
 
-            // Si ya hay ancho, iniciar de inmediato
             if (gameArea.getWidth() > 0) {
                 double maxX = gameArea.getWidth();
                 var d1 = new DummyEntity(50, 80, 0, maxX);
@@ -356,7 +363,6 @@ public class GameController implements ViewLifecycle {
         // No hace falta desmontar InputService: la escena cambia y GC limpia handlers.
     }
 
-    // ===== Arranque real del gameplay (sincronizado con el final del loader + game_start.wav) =====
     public void signalGameStart() {
         if (gameStarted) return;
         gameStarted = true;
@@ -369,7 +375,6 @@ public class GameController implements ViewLifecycle {
         System.out.println("[GameController] signalGameStart(): gameplay started");
     }
 
-    // ====================== HUD ================================
     /** Actualiza el HUD con valores concretos (si hiciera falta). */
     public void setHUD(int score, int floor, int health) {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
@@ -383,12 +388,10 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
-    // ================== NAVEGACIÓN =============================
     public void backToMenu() {
         SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml");
     }
 
-    // ================== API usada por MainMenuController =======
     public StackPane getOverlayLayer() { return overlayLayer; }
 
     public void startFloorMusicIfNeeded() {
@@ -421,5 +424,99 @@ public class GameController implements ViewLifecycle {
         if (!gameLoop.isRunning()) {
             gameLoop.start();
         }
+    }
+
+    // ==================== SHOOTING IMPLEMENTATION ====================
+
+    /** Añade un "ticker" invisible al GameLoop para cooldown + autofire continuo. */
+    private void addTickerIfNeeded() {
+        if (tickerAdded || gameLoop == null) return;
+
+        GameEntity ticker = new GameEntity() {
+            private final Group view = new Group(); // invisible, sin hijos
+
+            @Override public void update(double dt) {
+                // actualiza cooldown
+                shootTimer = max(0.0, shootTimer - dt);
+
+                if (player == null || input == null) return;
+
+                // autofire si hay flecha pulsada y cooldown listo
+                double[] ar = input.getAimArrowCardinal(); // cardinal solo
+                if ((ar[0] != 0 || ar[1] != 0) && shootTimer == 0.0) {
+                    spawnProjectileWithAim(ar[0], ar[1]);
+                    shootTimer = getFireCooldown(); // TODO(stats)
+                }
+            }
+            @Override public javafx.scene.Node getView() { return view; }
+            @Override public void onCollision(GameEntity other) { /* no-op */ }
+        };
+
+        gameLoop.addEntity(ticker);
+        tickerAdded = true;
+    }
+
+    /** Disparo inmediato al presionar una flecha (sin esperar al frame siguiente). */
+    private void tryShootNow() {
+        if (shootTimer > 0 || player == null || input == null) return;
+        double[] ar = input.getAimArrowCardinal();
+        if (ar[0] == 0 && ar[1] == 0) return;
+        spawnProjectileWithAim(ar[0], ar[1]);
+        shootTimer = getFireCooldown(); // TODO(stats)
+    }
+
+    /** Crea y añade el proyectil con “sesgo” por movimiento WASD. */
+    private void spawnProjectileWithAim(double ax, double ay) {
+        if (player == null || gameLoop == null) return;
+
+        // movimiento del jugador (WASD) normalizado
+        double[] mv = input.getMoveVector();
+        double mvx = mv[0], mvy = mv[1];
+        double mvlen = hypot(mvx, mvy);
+        if (mvlen > 0.0001) { mvx /= mvlen; mvy /= mvlen; } else { mvx = 0; mvy = 0; }
+
+        // aplica sesgo: finalAim = normalize(aimArrow + bias * moveDir)
+        double fx = ax + bias * mvx;
+        double fy = ay + bias * mvy;
+        double flen = hypot(fx, fy);
+        if (flen < 0.0001) { fx = ax; fy = ay; flen = hypot(fx, fy); }
+        fx /= flen; fy /= flen;
+
+        // centro del jugador (ajusta si Player expone distinto)
+        double px = player.getView().getTranslateX() + player.getWidth() / 2.0 - 4.0; // -4 por radio/mitad del proyectil (8x8)
+        double py = player.getView().getTranslateY() + player.getHeight() / 2.0 - 4.0;
+
+        // === Stats de disparo: usar helpers (luego leerán del Player)
+        double speed = getProjectileSpeed();             // TODO(stats)
+        double lifetime = getProjectileLifetimeByRange(); // TODO(stats) convierte "rango" a vida en segundos
+
+        Projectile p = new Projectile(fx, fy, speed, lifetime, gameArea, gameLoop::removeEntity);
+        p.getView().setTranslateX(px);
+        p.getView().setTranslateY(py);
+
+        gameLoop.addEntity(p);
+    }
+
+    // ==================== TODO(stats): centralizar lecturas ====================
+
+    /** Velocidad de la lágrima (px/s). Sustituir por Player/Stats más adelante. */
+    private double getProjectileSpeed() {
+        // TODO(stats): return player.getStats().getTearSpeed();
+        return 520.0;
+    }
+
+    /** Fire rate / cooldown entre lágrimas (s). Sustituir por Player/Stats. */
+    private double getFireCooldown() {
+        // TODO(stats): return player.getStats().getFireCooldownSeconds();
+        return 0.25;
+    }
+
+    /** A partir del “rango” convertir a lifetime (s) según la velocidad. */
+    private double getProjectileLifetimeByRange() {
+        // TODO(stats):
+        // double rangePx = player.getStats().getRangePixels();
+        // return rangePx / getProjectileSpeed();
+        double defaultRangePx = 520.0 * 1.2; // mismo efecto que lifetime 1.2s con speed 520
+        return defaultRangePx / getProjectileSpeed();
     }
 }
