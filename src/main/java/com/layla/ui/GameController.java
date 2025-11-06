@@ -287,6 +287,7 @@ public class GameController implements ViewLifecycle {
         }
         stopHudTimer();
         settingsOpen = false;
+        if (input != null) input.detach();
     }
 
     public void signalGameStart() {

@@ -8,19 +8,26 @@ import com.layla.services.StatsService;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.ImageCursor;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.*;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.Border;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
 /** HUD lateral izquierdo: stats + salud. */
 public final class HudView extends VBox {
 
     private final StatsService stats;
-    private Player player; // opcional si necesitas salud del player
+    private final Player player; // usado para salud
     private final DecimalFormat df1 = new DecimalFormat("0.0");
     private final DecimalFormat df0 = new DecimalFormat("0");
 
@@ -91,12 +98,7 @@ public final class HudView extends VBox {
 
     /** Llamar cada X frames o en un AnimationTimer throttled. */
     public void refresh() {
-        // Isaac-style:
-        // - Speed: px/s (normalizado a 2 decimales)
-        // - Tears: disparos por segundo = 1 / cooldown
-        // - Shot Speed: projectileSpeed
-        // - Range: en px
-        // - Damage: stat base
+        // Stats:
         double speed = stats.getMoveSpeed();
         double cooldown = Math.max(1e-6, stats.getFireCooldown());
         double tearsPerSec = 1.0 / cooldown;
@@ -110,33 +112,70 @@ public final class HudView extends VBox {
         lblRange.setText(df0.format(range));
         lblDamage.setText(df1.format(damage));
 
-        // Health: si Player expone health (ej. getHealth()/getMaxHealth())
-        heartsBox.getChildren().clear();
-        if (player != null) {
-            int hp = (int)Math.round(player.getHealth());      // ajusta a tu API real
-            int max = (int)Math.round(player.getMaxHealth());  // ajusta a tu API real
-            int fullHearts = hp / 2;
-            boolean half = (hp % 2) == 1;
-            // Dibujado muy simple con heart_icon.png repetido (mejorable con sprite sheet)
-            for (int i = 0; i < fullHearts; i++) heartsBox.getChildren().add(smallHeart());
-            if (half) heartsBox.getChildren().add(halfHeart());
-            // Opcional: añadir corazones vacíos hasta max
-            // int slots = max/2; while (heartsBox.getChildren().size() < slots) heartsBox.getChildren().add(emptyHeart());
-        }
+        // Hearts:
+        updateHearts();
     }
 
-    private Node smallHeart() {
-        Image img = new Image(getClass().getResourceAsStream("/assets/images/hearts.png"));
+    // ==================== HEART ICONS ====================
+
+    private static final double HEART_SIZE = 12.0;
+
+    private Node fullHeart() {
+        Image img = new Image(Objects.requireNonNull(
+            getClass().getResourceAsStream("/assets/images/full_heart_icon.png"),
+            "No se encontró /assets/images/full_heart_icon.png"
+        ));
         ImageView iv = new ImageView(img);
-        iv.setFitWidth(12);
-        iv.setFitHeight(12);
+        iv.setFitWidth(HEART_SIZE);
+        iv.setFitHeight(HEART_SIZE);
         iv.setSmooth(false);
         iv.setPreserveRatio(true);
         return iv;
     }
 
     private Node halfHeart() {
-        // Por simplicidad, usa el mismo sprite (puedes recortar con ImageView.setViewport si tu sheet lo permite)
-        return smallHeart();
+        Image img = new Image(Objects.requireNonNull(
+            getClass().getResourceAsStream("/assets/images/half_heart_icon.png"),
+            "No se encontró /assets/images/half_heart_icon.png"
+        ));
+        ImageView iv = new ImageView(img);
+        iv.setFitWidth(HEART_SIZE);
+        iv.setFitHeight(HEART_SIZE);
+        iv.setSmooth(false);
+        iv.setPreserveRatio(true);
+        return iv;
+    }
+
+    private Node emptyHeart() {
+        Image img = new Image(Objects.requireNonNull(
+            getClass().getResourceAsStream("/assets/images/empty_heart_icon.png"),
+            "No se encontró /assets/images/empty_heart_icon.png"
+        ));
+        ImageView iv = new ImageView(img);
+        iv.setFitWidth(HEART_SIZE);
+        iv.setFitHeight(HEART_SIZE);
+        iv.setSmooth(false);
+        iv.setPreserveRatio(true);
+        return iv;
+    }
+
+    /** Actualiza los corazones del HUD según la salud actual del jugador. */
+    private void updateHearts() {
+        heartsBox.getChildren().clear();
+        if (player == null) return;
+
+        int hp = (int)Math.round(player.getHealth());      // 2 HP = 1 corazón
+        int max = (int)Math.round(player.getMaxHealth());
+        int slots = Math.max(1, max / 2);
+
+        int full = hp / 2;
+        boolean half = (hp % 2) == 1;
+
+        // corazones llenos
+        for (int i = 0; i < full && i < slots; i++) heartsBox.getChildren().add(fullHeart());
+        // medio corazón
+        if (half && full < slots) heartsBox.getChildren().add(halfHeart());
+        // corazones vacíos
+        while (heartsBox.getChildren().size() < slots) heartsBox.getChildren().add(emptyHeart());
     }
 }
