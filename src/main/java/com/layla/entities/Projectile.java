@@ -13,19 +13,21 @@ public final class Projectile implements GameEntity {
   private final double dx, dy;       // dirección normalizada
   private final double speed;        // px/s
   private final double lifetime;     // s
+  private final double damage;
   private double elapsed = 0.0;
   private final Pane boundsPane;
   private final Consumer<GameEntity> onRemove;
   private final Circle view;         // círculo como bala
 
   public Projectile(double dx, double dy, double speed, double lifetimeSeconds,
-                    Pane boundsPane, Consumer<GameEntity> onRemove) {
+                    double damage, Pane boundsPane, Consumer<GameEntity> onRemove) {
     double len = Math.hypot(dx, dy);
     if (len == 0) { dx = 0; dy = -1; len = 1; }
     this.dx = dx / len;
     this.dy = dy / len;
     this.speed = speed;
     this.lifetime = lifetimeSeconds;
+    this.damage = damage;
     this.boundsPane = boundsPane;
     this.onRemove = onRemove;
 
@@ -53,9 +55,13 @@ public final class Projectile implements GameEntity {
     }
   }
 
+  public double getDamage() {
+    return damage;
+  }
+
   private boolean isOutOfPaneBounds() {
-    double x = view.getTranslateX();
-    double y = view.getTranslateY();
+    double x = view.getLayoutX();
+    double y = view.getLayoutY();
     double r = view.getRadius();
     double w = boundsPane.getWidth();
     double h = boundsPane.getHeight();

@@ -1,15 +1,16 @@
 package com.layla.entities;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import com.layla.services.StatsService;
 
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
-
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 
 class PlayerMovementTest {
 
@@ -26,12 +27,13 @@ class PlayerMovementTest {
         FakeInput input = new FakeInput();
         input.set(1.0, 0.0);
 
-        Player player = new Player(input, pane);
+        StatsService stats = new StatsService();
+        Player player = new Player(input, pane, stats);
         player.setPosition(100, 100);
 
         runFrames(player, 35);
 
-        assertTrue(player.getView().getTranslateX() > 100.0,
+        assertTrue(player.getView().getLayoutX() > 100.0,
                 "Player should have moved to the right when input is present");
     }
 
@@ -41,14 +43,15 @@ class PlayerMovementTest {
         FakeInput input = new FakeInput();
         input.set(1.0, 0.0);
 
-        Player player = new Player(input, pane);
+        StatsService stats = new StatsService();
+        Player player = new Player(input, pane, stats);
         double startX = 800.0 - player.getWidth() - 0.5;
         player.setPosition(startX, 200);
 
         runFrames(player, 60);
 
         double maxX = 800.0 - player.getWidth();
-        assertTrue(player.getView().getTranslateX() <= maxX + 1e-6,
+        assertTrue(player.getView().getLayoutX() <= maxX + 1e-6,
                 "Player should clamp to the right boundary");
     }
 
@@ -56,20 +59,21 @@ class PlayerMovementTest {
     void diagonalMovementIsNormalized() {
         Pane pane = createPane(800, 600);
 
+        StatsService stats = new StatsService();
         FakeInput horizontalInput = new FakeInput();
         horizontalInput.set(1.0, 0.0);
-        Player horizontal = new Player(horizontalInput, pane);
+        Player horizontal = new Player(horizontalInput, pane, stats);
         horizontal.setPosition(0, 0);
         runFrames(horizontal, 120);
-        double horizontalDistance = horizontal.getView().getTranslateX();
+        double horizontalDistance = horizontal.getView().getLayoutX();
 
         FakeInput diagonalInput = new FakeInput();
         diagonalInput.set(1.0, 1.0);
-        Player diagonal = new Player(diagonalInput, pane);
+        Player diagonal = new Player(diagonalInput, pane, stats);
         diagonal.setPosition(0, 0);
         runFrames(diagonal, 120);
         Node diagView = diagonal.getView();
-        double diagonalDistance = Math.hypot(diagView.getTranslateX(), diagView.getTranslateY());
+        double diagonalDistance = Math.hypot(diagView.getLayoutX(), diagView.getLayoutY());
 
         assertTrue(diagonalDistance <= horizontalDistance * 1.05,
                 "Diagonal speed should be normalized relative to axial movement");

@@ -1,0 +1,11 @@
+.hud-title {
+  -fx-text-fill: #eaeaea;
+  -fx-font-size: 12px;
+  -fx-font-family: "Consolas", "Monaco", "monospace";
+}
+
+.hud-value {
+  -fx-text-fill: #ffd54a; /* dorado suave */
+  -fx-font-size: 12px;
+  -fx-font-family: "Consolas", "Monaco", "monospace";
+}

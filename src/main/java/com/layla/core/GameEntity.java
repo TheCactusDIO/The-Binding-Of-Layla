@@ -3,38 +3,21 @@ package com.layla.core;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 
-/**
- * Contract for objects that participate in the game loop and collision system.
- */
+/** Entidad del juego actualizada por el GameLoop. */
 public interface GameEntity {
-
-    /**
-     * Updates this entity state based on the elapsed time.
-     *
-     * @param dt time since the previous frame in seconds
-     */
+    /** dt en segundos. */
     void update(double dt);
 
-    /**
-     * @return JavaFX node used to render this entity within the scene graph
-     */
+    /** Nodo JavaFX que representa la entidad. */
     Node getView();
 
-    /**
-     * Returns the current bounds used for collision detection.
-     *
-     * @return bounds in parent coordinates
-     */
+    /** Bounds en coordenadas del padre (por defecto, bounds del view). */
     default Bounds getBounds() {
         return getView().getBoundsInParent();
     }
 
-    /**
-     * Hook invoked when this entity collides with another entity.
-     *
-     * @param other entity that intersected with this one
-     */
+    /** Hook de colisión (no-op por defecto). */
     default void onCollision(GameEntity other) {
-        // default no-op
+        // no-op
     }
 }

@@ -1,6 +1,7 @@
 package com.layla.ui;
 
 import java.lang.ref.WeakReference;
+
 import javafx.animation.FadeTransition;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
