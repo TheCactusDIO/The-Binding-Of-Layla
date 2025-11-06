@@ -32,17 +32,40 @@ public final class InputService {
   };
   private Scene attachedScene;
 
-  public void attach(Scene scene) {
+    public void attach(Scene scene) {
     Objects.requireNonNull(scene, "scene");
+
     if (attachedScene != null) {
-      attachedScene.removeEventHandler(KeyEvent.KEY_PRESSED, pressedHandler);
-      attachedScene.removeEventHandler(KeyEvent.KEY_RELEASED, releasedHandler);
+        attachedScene.removeEventHandler(KeyEvent.KEY_PRESSED, pressedHandler);
+        attachedScene.removeEventHandler(KeyEvent.KEY_RELEASED, releasedHandler);
     }
+
     pressed.clear();
     arrowOrder.clear();
     arrowSeq = 0L;
+
     scene.addEventHandler(KeyEvent.KEY_PRESSED, pressedHandler);
     scene.addEventHandler(KeyEvent.KEY_RELEASED, releasedHandler);
+
+    // --- NUEVO: limpiar teclas al perder foco de ventana o escena ---
+    // Si la escena cambia de ventana (stage), esperar al windowReady
+    scene.windowProperty().addListener((obs, oldWindow, newWindow) -> {
+        if (newWindow != null) {
+            newWindow.focusedProperty().addListener((o, oldFocused, nowFocused) -> {
+                if (!nowFocused) {
+                    pressed.clear();
+                    arrowOrder.clear();
+                }
+            });
+        }
+    });
+    // Filtro adicional: si la escena pierde focus dentro del mismo Stage
+    scene.addEventFilter(javafx.event.Event.ANY, e -> {
+        if (e.getEventType().getName().equals("WINDOW_HIDDEN")) {
+            pressed.clear();
+            arrowOrder.clear();
+        }
+    });
     attachedScene = scene;
   }
 

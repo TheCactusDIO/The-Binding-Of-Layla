@@ -37,8 +37,8 @@ public final class Projectile implements GameEntity {
 
   @Override public void update(double dt) {
     elapsed += dt;
-    view.setTranslateX(view.getTranslateX() + dx * speed * dt);
-    view.setTranslateY(view.getTranslateY() + dy * speed * dt);
+    view.setLayoutX(view.getLayoutX() + dx * speed * dt);
+    view.setLayoutY(view.getLayoutY() + dy * speed * dt);
 
     if (elapsed >= lifetime || isOutOfPaneBounds()) {
       onRemove.accept(this);

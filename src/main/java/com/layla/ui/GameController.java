@@ -13,7 +13,8 @@ package com.layla.ui;
 import com.layla.core.AssetsManager;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
-import com.layla.core.GameEntity;          // <— para el ticker
+import com.layla.core.VideoSettings;
+import com.layla.core.GameEntity;          // <- para el ticker
 import com.layla.entities.DummyEntity;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
@@ -23,13 +24,20 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
+import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 import static java.lang.Math.hypot;
@@ -59,7 +67,12 @@ public class GameController implements ViewLifecycle {
     private Timeline hudTimer;
     private long elapsedSeconds = 0;
     private int score = 500;
-    private Label timeLabel;          // etiqueta para el tiempo en el HUD
+    private Label timeLabel;
+
+    // Viewport virtual configurable
+    private StackPane viewportLayer;
+    private Group worldGroup;
+    private boolean viewportConfigured = false;
 
     // Estado
     private boolean gameStarted = false;
@@ -241,10 +254,14 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
+
     // ==================== CICLO DE VIDA (router) ====================
     @Override
     public void onEnter() {
         System.out.println("[GameController] onEnter()");
+
+        removeLegacyViewportCodeIfAny();
+        configureVirtualViewportIfNeeded();
 
         // Fade-in HUD
         if (hudBar != null) {
@@ -323,8 +340,8 @@ public class GameController implements ViewLifecycle {
                 maybeSpawnPlayer();
                 if (!demoEntitiesAdded && newW.doubleValue() > 0) {
                     double maxX = newW.doubleValue();
-                    var d1 = new DummyEntity(50, 80, 0, maxX);
-                    var d2 = new DummyEntity(200, 120, 0, maxX);
+                    var d1 = new DummyEntity(50, 80,  90, gameArea);
+                    var d2 = new DummyEntity(200, 120, 60, gameArea);
                     gameLoop.addEntity(d1);
                     gameLoop.addEntity(d2);
                     if (!gameLoop.isRunning()) gameLoop.start();
@@ -335,10 +352,12 @@ public class GameController implements ViewLifecycle {
 
             if (gameArea.getWidth() > 0) {
                 double maxX = gameArea.getWidth();
-                var d1 = new DummyEntity(50, 80, 0, maxX);
-                var d2 = new DummyEntity(200, 120, 0, maxX);
+                var d1 = new DummyEntity(50, 80,  90, gameArea);   // velocidad 90 px/s a modo ejemplo
+                var d2 = new DummyEntity(200,120, 60, gameArea);
+
                 gameLoop.addEntity(d1);
                 gameLoop.addEntity(d2);
+
                 if (!gameLoop.isRunning()) gameLoop.start();
                 demoEntitiesAdded = true;
                 System.out.println("[GameController] Demo entities added immediately & GameLoop started");
@@ -482,9 +501,9 @@ public class GameController implements ViewLifecycle {
         if (flen < 0.0001) { fx = ax; fy = ay; flen = hypot(fx, fy); }
         fx /= flen; fy /= flen;
 
-        // centro del jugador (ajusta si Player expone distinto)
-        double px = player.getView().getTranslateX() + player.getWidth() / 2.0 - 4.0; // -4 por radio/mitad del proyectil (8x8)
-        double py = player.getView().getTranslateY() + player.getHeight() / 2.0 - 4.0;
+        // Usar layoutX/layoutY para posiciones absolutas del mundo
+        double px = player.getView().getLayoutX() + player.getWidth() / 2.0 - 4.0;
+        double py = player.getView().getLayoutY() + player.getHeight() / 2.0 - 4.0;
 
         // === Stats de disparo: usar helpers (luego leerán del Player)
         double speed = getProjectileSpeed();             // TODO(stats)
@@ -519,4 +538,100 @@ public class GameController implements ViewLifecycle {
         double defaultRangePx = 520.0 * 1.2; // mismo efecto que lifetime 1.2s con speed 520
         return defaultRangePx / getProjectileSpeed();
     }
+
+    public void setVirtualResolution(int w, int h) {
+        w = Math.max(320, w);
+        h = Math.max(240, h);
+        VideoSettings.get().setResolution(w, h);
+    }
+
+   private void configureVirtualViewportIfNeeded() {
+        if (viewportConfigured || gameArea == null || root == null) return;
+
+        // 1) Saca gameArea de su AnchorPane (el HUD se queda en el AnchorPane)
+        javafx.scene.layout.AnchorPane anchorParent = (javafx.scene.layout.AnchorPane) gameArea.getParent();
+        if (anchorParent != null) {
+            anchorParent.getChildren().remove(gameArea);
+        }
+
+        // 2) El mundo no debe afectar al layout del padre
+        gameArea.setManaged(false);
+
+        // 3) Capa de viewport que rellena TODO el root
+        viewportLayer = new StackPane(gameArea);                // <-- metemos gameArea directamente
+        viewportLayer.setPickOnBounds(true);
+        viewportLayer.setStyle("-fx-background-color: black;");
+        StackPane.setAlignment(gameArea, Pos.CENTER);
+
+        // 4) Hacer que el viewport ocupe todo el root
+        viewportLayer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        viewportLayer.prefWidthProperty().bind(root.widthProperty());
+        viewportLayer.prefHeightProperty().bind(root.heightProperty());
+
+        // 5) Insertar EL PRIMERO (debajo del HUD y del overlay)
+        if (!root.getChildren().contains(viewportLayer)) {
+            root.getChildren().add(0, viewportLayer);
+        }
+
+        // 6) Clip del tamaño visible del viewport (no escalado)
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(viewportLayer.widthProperty());
+        clip.heightProperty().bind(viewportLayer.heightProperty());
+        viewportLayer.setClip(clip);
+
+        // 7) Mantener tamaño FIJO del mundo (resolución virtual)
+        Runnable applyWorldSize = () -> {
+            int vw = com.layla.core.VideoSettings.get().getVirtualWidth();
+            int vh = com.layla.core.VideoSettings.get().getVirtualHeight();
+            gameArea.setMinSize(vw, vh);
+            gameArea.setPrefSize(vw, vh);
+            gameArea.setMaxSize(vw, vh);
+        };
+        applyWorldSize.run();
+        com.layla.core.VideoSettings.get().virtualWidthProperty().addListener((o, a, b) -> applyWorldSize.run());
+        com.layla.core.VideoSettings.get().virtualHeightProperty().addListener((o, a, b) -> applyWorldSize.run());
+
+        // 8) ESCALAR SOLO gameArea (Region de tamaño fijo) → sin derivas
+        Runnable applyScale = () -> {
+            double availW = viewportLayer.getWidth();
+            double availH = viewportLayer.getHeight();
+            int vw = com.layla.core.VideoSettings.get().getVirtualWidth();
+            int vh = com.layla.core.VideoSettings.get().getVirtualHeight();
+            if (availW <= 0 || availH <= 0 || vw <= 0 || vh <= 0) return;
+
+            double scale = Math.min(availW / vw, availH / vh);
+            gameArea.setScaleX(scale);
+            gameArea.setScaleY(scale);
+            // NADA de translate/layout sobre gameArea: el StackPane ya centra por nosotros
+        };
+
+        viewportLayer.widthProperty().addListener((o, ow, nw) -> applyScale.run());
+        viewportLayer.heightProperty().addListener((o, oh, nh) -> applyScale.run());
+        com.layla.core.VideoSettings.get().virtualWidthProperty().addListener((o, a, b) -> applyScale.run());
+        com.layla.core.VideoSettings.get().virtualHeightProperty().addListener((o, a, b) -> applyScale.run());
+        javafx.application.Platform.runLater(applyScale);
+
+        viewportLayer.setOnMouseClicked(e -> gameArea.requestFocus());
+
+        viewportConfigured = true;
+    }
+
+    private void removeLegacyViewportCodeIfAny() {
+        if (gameArea == null) return;
+        gameArea.setScaleX(1);
+        gameArea.setScaleY(1);
+        if (gameArea.getClip() != null) {
+            gameArea.setClip(null);
+        }
+    }
+
+    private enum BorderRegion {
+        TOP,
+        BOTTOM,
+        LEFT,
+        RIGHT,
+        CENTER,
+        NONE
+    }
+
 }

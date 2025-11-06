@@ -1,6 +1,6 @@
 /* Raíz del game: dejamos ver lo de detrás si hubiera video */
 .game-root {
-    -fx-background-color: transparent;
+    -fx-background-color:#000000;
     -fx-font-family: "Upheaval TT (BRK)", "Segoe UI";
 }
 
