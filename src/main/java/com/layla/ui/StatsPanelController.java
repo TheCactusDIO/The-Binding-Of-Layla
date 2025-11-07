@@ -73,8 +73,29 @@ public class StatsPanelController {
     @FXML
     private void onCancel() { onClose.run(); }
 
+    /** Botón “Restaurar”: rellena los campos con valores de fábrica (no aplica hasta pulsar Aplicar). */
+    @FXML
+    private void onRestoreDefaults() {
+        // Stats por defecto desde una instancia “fresca”
+        StatsService fresh = new StatsService();
+        put(moveSpeedField, fresh.getStat(StatType.MOVE_SPEED));
+        put(fireRateField,  fresh.getStat(StatType.FIRE_RATE));
+        put(projSpeedField, fresh.getStat(StatType.PROJECTILE_SPEED));
+        put(projRangeField, fresh.getStat(StatType.PROJECTILE_RANGE));
+        put(projDamageField,fresh.getStat(StatType.PROJECTILE_DAMAGE));
+
+        // Balance básico por defecto
+        put(startHpField, 6.0);
+        put(maxHpField,   6.0);
+        put(enemyHpField,    6.0);
+        put(enemySpeedField, 120.0);
+        put(enemyScoreKField,5.0);
+
+        if (persistCheck != null) persistCheck.setSelected(false);
+    }
+
     // ---------- Helpers ----------
-    private static void put(TextField f, double v) { f.setText(Double.toString(v)); }
+    private static void put(TextField f, double v) { if (f != null) f.setText(Double.toString(v)); }
     private static double get(TextField f, double def) {
         try { return Double.parseDouble(f.getText().trim()); } catch (Exception e) { return def; }
     }

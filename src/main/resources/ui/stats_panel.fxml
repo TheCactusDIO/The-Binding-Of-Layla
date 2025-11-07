@@ -65,6 +65,7 @@
 
                     <HBox spacing="10">
                         <children>
+                            <Button text="Restaurar" onAction="#onRestoreDefaults" styleClass="menu-button"/>
                             <Region HBox.hgrow="ALWAYS"/>
                             <Button text="Cancelar" onAction="#onCancel"  styleClass="menu-button"/>
                             <Button text="Aplicar"  onAction="#onApply"   styleClass="menu-button"/>
