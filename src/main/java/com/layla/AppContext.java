@@ -13,11 +13,17 @@ public final class AppContext {
         // Player
         public double startHp = 6.0;
         public double maxHp   = 6.0;
-
         // Enemy defaults
         public double enemyBaseHp   = 6.0;   // vida base al spawnear
         public double enemySpeedAvg = 120.0; // velocidad media
         public double enemyScoreK   = 5.0;   // K en bonus: HP^0.2 * K
+        public void resetDefaults() {
+            this.startHp = 6.0;       // 3 corazones (2 HP = 1 corazón)
+            this.maxHp   = 6.0;
+            this.enemyBaseHp   = 6.0;
+            this.enemySpeedAvg = 130.0;
+            this.enemyScoreK   = 5.0;
+        }
     }
     private static final GameBalance BALANCE = new GameBalance();
     public static GameBalance balance() { return BALANCE; }

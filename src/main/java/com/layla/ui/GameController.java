@@ -156,17 +156,41 @@ public class GameController implements ViewLifecycle {
         settingsOpen = false;
     }
 
-    /** Abre el Stats Panel sobre el overlayLayer del juego (helper si lo necesitas en otro sitio). */
+    /** Abre el Stats Panel sobre el overlayLayer del juego, con live-sync al HUD. */
     private void openStatsPanel() {
         final javafx.scene.Node[] statsNode = new javafx.scene.Node[1];
         statsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/stats_panel.fxml", 0.90, controller -> {
             if (controller instanceof StatsPanelController sp) {
                 sp.setStatsService(com.layla.AppContext.stats());
                 sp.setOnClose(() -> OverlayRouter.closeOverlay(overlayLayer, statsNode[0]));
+                sp.setOnStatsChanged(() -> {
+                    // 1) Refresca el HUD inmediatamente
+                    if (hud != null) hud.refresh();
+                    // 2) Aplica cambios de balance (HP máx/clamp) al jugador activo
+                    applyBalanceToRuntimePlayer();
+                });
                 sp.onShow();
             }
         });
     }
+
+    /** Aplica en runtime el balance (maxHp/startHp) al player actual sin romper la partida. */
+    private void applyBalanceToRuntimePlayer() {
+        if (player == null) return;
+        var bal = com.layla.AppContext.balance();
+
+        // Ajusta la vida máxima al vuelo y clampa la actual si es necesario.
+        double prevMax = player.getMaxHealth();
+        player.setMaxHealth(bal.maxHp);
+
+        // Si el maxHp baja por debajo de la salud actual, setMaxHealth ya la clampa.
+        // Si quieres que al subir maxHp NO cambie la actual, no hagas nada más.
+
+        // Opcional: si quieres que al tocar startHp en el panel, se aplique SOLO al respawn,
+        // no modificamos la actual aquí. Si prefieres que se aplique en caliente, descomenta:
+        // player.setHealth(Math.min(player.getHealth(), player.getMaxHealth()));
+    }
+
 
     // ===================== HUD TIMER =====================
     private void pauseHudTimer()  { if (hudTimer != null) hudTimer.pause(); }

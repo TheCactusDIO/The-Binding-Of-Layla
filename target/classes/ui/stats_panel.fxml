@@ -25,50 +25,98 @@
                         </columnConstraints>
                         <children>
                             <!-- Player HP -->
-                            <Label text="Start HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="startHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                            <Label text="Start HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Vida inicial del jugador en 'half-hearts' (2 HP = 1 corazón)."/></tooltip>
+                            </Label>
+                            <TextField fx:id="startHpField" GridPane.rowIndex="0" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 6 = 3 corazones completos."/></tooltip>
+                            </TextField>
 
-                            <Label text="Max HP" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="maxHpField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                            <Label text="Max HP" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Vida máxima permitida (se clampa la actual si supera este valor)."/></tooltip>
+                            </Label>
+                            <TextField fx:id="maxHpField" GridPane.rowIndex="1" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 6 = 3 corazones máximos."/></tooltip>
+                            </TextField>
 
                             <!-- Player stats -->
-                            <Label text="Move Speed (px/s)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="moveSpeedField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                            <Label text="Move Speed (px/s)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Velocidad horizontal/vertical del jugador en píxeles por segundo."/></tooltip>
+                            </Label>
+                            <TextField fx:id="moveSpeedField" GridPane.rowIndex="2" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Valores típicos: 120–320 px/s."/></tooltip>
+                            </TextField>
 
-                            <Label text="Fire Rate (shots/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="fireRateField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                            <Label text="Fire Rate (shots/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Disparos por segundo. (Cooldown = 1 / Fire Rate)"/></tooltip>
+                            </Label>
+                            <TextField fx:id="fireRateField" GridPane.rowIndex="3" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 3.0 = 3 disparos por segundo."/></tooltip>
+                            </TextField>
 
-                            <Label text="Projectile Speed (px/s)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="projSpeedField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                            <Label text="Projectile Speed (px/s)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Velocidad de las balas en píxeles por segundo."/></tooltip>
+                            </Label>
+                            <TextField fx:id="projSpeedField" GridPane.rowIndex="4" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Valores típicos: 300–600 px/s."/></tooltip>
+                            </TextField>
 
-                            <Label text="Projectile Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+                            <Label text="Projectile Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Vida del proyectil en segundos (distancia = speed * range)."/></tooltip>
+                            </Label>
+                            <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 1.2 s → a 500 px/s recorre ~600 px."/></tooltip>
+                            </TextField>
 
-                            <Label text="Projectile Damage" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="projDamageField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+                            <Label text="Projectile Damage" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Daño base que inflige cada proyectil al Impactar."/></tooltip>
+                            </Label>
+                            <TextField fx:id="projDamageField" GridPane.rowIndex="6" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 3.5 de daño por proyectil."/></tooltip>
+                            </TextField>
 
                             <!-- Enemy defaults -->
-                            <Label text="Enemy Base HP" GridPane.rowIndex="7" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyHpField" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Base HP" GridPane.rowIndex="7" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Vida base de los enemigos que spawnean en el piso actual."/></tooltip>
+                            </Label>
+                            <TextField fx:id="enemyHpField" GridPane.rowIndex="7" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 6.0 (3 corazones)."/></tooltip>
+                            </TextField>
 
-                            <Label text="Enemy Avg Speed" GridPane.rowIndex="8" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemySpeedField" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Avg Speed" GridPane.rowIndex="8" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Velocidad media de los enemigos que te persiguen."/></tooltip>
+                            </Label>
+                            <TextField fx:id="enemySpeedField" GridPane.rowIndex="8" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 120–160 px/s."/></tooltip>
+                            </TextField>
 
-                            <Label text="Enemy Score K" GridPane.rowIndex="9" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyScoreKField" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Score K" GridPane.rowIndex="9" GridPane.columnIndex="0" style="-fx-text-fill: white;">
+                                <tooltip><Tooltip text="Factor de puntuación: bonus = (HP^0.2) * K al matar."/></tooltip>
+                            </Label>
+                            <TextField fx:id="enemyScoreKField" GridPane.rowIndex="9" GridPane.columnIndex="1">
+                                <tooltip><Tooltip text="Ej: 5.0."/></tooltip>
+                            </TextField>
                         </children>
                     </GridPane>
 
                     <CheckBox fx:id="persistCheck"
                               text="Persistir en JSON (usuario)"
-                              style="-fx-text-fill: white;"/>
+                              style="-fx-text-fill: white;">
+                        <tooltip><Tooltip text="Si está activado, guarda los valores en ~/.layla/stats.json al pulsar Aplicar o Reset."/></tooltip>
+                    </CheckBox>
 
                     <HBox spacing="10">
                         <children>
-                            <Button text="Restaurar" onAction="#onRestoreDefaults" styleClass="menu-button"/>
                             <Region HBox.hgrow="ALWAYS"/>
-                            <Button text="Cancelar" onAction="#onCancel"  styleClass="menu-button"/>
-                            <Button text="Aplicar"  onAction="#onApply"   styleClass="menu-button"/>
+                            <Button text="Cancelar" onAction="#onCancel"  styleClass="menu-button">
+                                <tooltip><Tooltip text="Cerrar sin aplicar cambios."/></tooltip>
+                            </Button>
+                            <Button text="Reset"    onAction="#onReset"   styleClass="menu-button">
+                                <tooltip><Tooltip text="Restaurar valores por defecto y aplicarlos al instante."/></tooltip>
+                            </Button>
+                            <Button text="Aplicar"  onAction="#onApply"   styleClass="menu-button">
+                                <tooltip><Tooltip text="Guardar y aplicar los valores introducidos."/></tooltip>
+                            </Button>
                         </children>
                     </HBox>
                 </children>

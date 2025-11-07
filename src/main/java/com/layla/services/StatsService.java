@@ -85,6 +85,9 @@ public final class StatsService {
         Objects.requireNonNull(type, "type");
         baseStats.setBase(type, clampStat(type, value));
     }
+    public void resetDefaults() {
+        baseStats.resetDefaults(); // delegate to PlayerStats
+    }
 
     private double clampStat(StatType type, double value) {
         return switch (type) {
@@ -93,7 +96,7 @@ public final class StatsService {
         };
     }
 
-    // ---- Typed getters for convenience ----
+   // Typed getters
     public double getMoveSpeed()         { return getStat(StatType.MOVE_SPEED); }
     public double getFireRate()          { return getStat(StatType.FIRE_RATE); }
     public double getProjectileSpeed()   { return getStat(StatType.PROJECTILE_SPEED); }

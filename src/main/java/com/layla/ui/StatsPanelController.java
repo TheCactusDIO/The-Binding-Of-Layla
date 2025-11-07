@@ -9,6 +9,7 @@ import javafx.scene.control.TextField;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class StatsPanelController {
     @FXML private TextField startHpField, maxHpField, moveSpeedField;
@@ -17,13 +18,19 @@ public class StatsPanelController {
     @FXML private CheckBox persistCheck;
 
     private Runnable onClose = () -> {};
+    /** Se llama cuando cambian stats/balance (para refrescar HUD, clamping de HP, etc.). */
+    private Runnable onStatsChanged = () -> {};
     private StatsService stats = com.layla.AppContext.stats();
 
-    public void setOnClose(Runnable r) { this.onClose = (r!=null)? r : ()->{}; }
-    public void setStatsService(StatsService s) { if (s!=null) this.stats = s; }
+    public void setOnClose(Runnable r)            { this.onClose = (r!=null)? r : ()->{}; }
+    public void setOnStatsChanged(Runnable r)     { this.onStatsChanged = (r!=null)? r : ()->{}; }
+    public void setStatsService(StatsService s)   { if (s!=null) this.stats = s; }
 
     @FXML
-    private void initialize() { /* no-op */ }
+    private void initialize() {
+        // Enlazados "live": al escribir valores válidos se aplican al momento.
+        installLiveBindings();
+    }
 
     /** Precarga campos desde el balance/stats globales. */
     public void onShow() {
@@ -44,6 +51,8 @@ public class StatsPanelController {
 
         loadUserJsonIfExists(); // opcional: sobreescribe con fichero del usuario
     }
+
+    // --------- ACCIONES ---------
 
     @FXML
     private void onApply() {
@@ -67,35 +76,80 @@ public class StatsPanelController {
 
         if (persistCheck.isSelected()) saveUserJson();
 
+        onStatsChanged.run(); // notifica para HUD/HP clamp etc.
         onClose.run();
+    }
+
+    @FXML
+    private void onReset() {
+        // Restaurar por defecto
+        stats.getBaseStats().resetDefaults();
+        var bal = com.layla.AppContext.balance();
+        bal.resetDefaults();
+
+        // Repintar campos
+        onShow();
+
+        if (persistCheck.isSelected()) saveUserJson();
+
+        onStatsChanged.run(); // refresco inmediato
     }
 
     @FXML
     private void onCancel() { onClose.run(); }
 
-    /** Botón “Restaurar”: rellena los campos con valores de fábrica (no aplica hasta pulsar Aplicar). */
-    @FXML
-    private void onRestoreDefaults() {
-        // Stats por defecto desde una instancia “fresca”
-        StatsService fresh = new StatsService();
-        put(moveSpeedField, fresh.getStat(StatType.MOVE_SPEED));
-        put(fireRateField,  fresh.getStat(StatType.FIRE_RATE));
-        put(projSpeedField, fresh.getStat(StatType.PROJECTILE_SPEED));
-        put(projRangeField, fresh.getStat(StatType.PROJECTILE_RANGE));
-        put(projDamageField,fresh.getStat(StatType.PROJECTILE_DAMAGE));
+    // ---------- LIVE BINDINGS (actualiza al escribir si el valor es válido) ----------
+    private void installLiveBindings() {
+        // Helper para stats numéricos
+        Consumer<TextField> selectAllOnFocus = tf -> tf.focusedProperty().addListener((o, oldV, newV) -> {
+            if (Boolean.TRUE.equals(newV)) tf.selectAll();
+        });
 
-        // Balance básico por defecto
-        put(startHpField, 6.0);
-        put(maxHpField,   6.0);
-        put(enemyHpField,    6.0);
-        put(enemySpeedField, 120.0);
-        put(enemyScoreKField,5.0);
+        selectAllOnFocus.accept(startHpField);
+        selectAllOnFocus.accept(maxHpField);
+        selectAllOnFocus.accept(moveSpeedField);
+        selectAllOnFocus.accept(fireRateField);
+        selectAllOnFocus.accept(projSpeedField);
+        selectAllOnFocus.accept(projRangeField);
+        selectAllOnFocus.accept(projDamageField);
+        selectAllOnFocus.accept(enemyHpField);
+        selectAllOnFocus.accept(enemySpeedField);
+        selectAllOnFocus.accept(enemyScoreKField);
 
-        if (persistCheck != null) persistCheck.setSelected(false);
+        // Stats del jugador/armas (se aplican si el texto es parseable)
+        liveNumber(moveSpeedField, v -> { stats.setStat(StatType.MOVE_SPEED, v); onStatsChanged.run(); });
+        liveNumber(fireRateField,  v -> { stats.setStat(StatType.FIRE_RATE, v); onStatsChanged.run(); });
+        liveNumber(projSpeedField, v -> { stats.setStat(StatType.PROJECTILE_SPEED, v); onStatsChanged.run(); });
+        liveNumber(projRangeField, v -> { stats.setStat(StatType.PROJECTILE_RANGE, v); onStatsChanged.run(); });
+        liveNumber(projDamageField,v -> { stats.setStat(StatType.PROJECTILE_DAMAGE, v); onStatsChanged.run(); });
+
+        // Balance (HP y enemigos)
+        liveNumber(startHpField, v -> { var b = com.layla.AppContext.balance(); b.startHp = v; onStatsChanged.run(); });
+        liveNumber(maxHpField,   v -> { var b = com.layla.AppContext.balance(); b.maxHp   = v; onStatsChanged.run(); });
+        liveNumber(enemyHpField, v -> { var b = com.layla.AppContext.balance(); b.enemyBaseHp   = v; onStatsChanged.run(); });
+        liveNumber(enemySpeedField, v -> { var b = com.layla.AppContext.balance(); b.enemySpeedAvg = v; onStatsChanged.run(); });
+        liveNumber(enemyScoreKField, v -> { var b = com.layla.AppContext.balance(); b.enemyScoreK   = v; onStatsChanged.run(); });
+    }
+
+    private void liveNumber(TextField tf, Consumer<Double> onValidNumber) {
+        tf.textProperty().addListener((obs, oldV, newV) -> {
+            Double val = tryParse(newV);
+            if (val != null) {
+                onValidNumber.accept(val);
+            }
+        });
+    }
+
+    private static Double tryParse(String s) {
+        try {
+            return Double.parseDouble(s.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ---------- Helpers ----------
-    private static void put(TextField f, double v) { if (f != null) f.setText(Double.toString(v)); }
+    private static void put(TextField f, double v) { f.setText(Double.toString(v)); }
     private static double get(TextField f, double def) {
         try { return Double.parseDouble(f.getText().trim()); } catch (Exception e) { return def; }
     }
