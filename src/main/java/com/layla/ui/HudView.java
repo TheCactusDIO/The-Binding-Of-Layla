@@ -3,6 +3,7 @@ package com.layla.ui;
 import java.text.DecimalFormat;
 import java.util.Objects;
 
+import com.layla.AppContext;
 import com.layla.entities.Player;
 import com.layla.services.StatsService;
 
@@ -26,8 +27,8 @@ import javafx.scene.paint.Color;
 /** HUD lateral izquierdo: stats + salud. */
 public final class HudView extends VBox {
 
-    private final StatsService stats;
-    private final Player player; // usado para salud
+    private final StatsService stats;        // <- fuente de stats (global o inyectada)
+    private final Player player;             // usado para salud
     private final DecimalFormat df1 = new DecimalFormat("0.0");
     private final DecimalFormat df0 = new DecimalFormat("0");
 
@@ -38,9 +39,11 @@ public final class HudView extends VBox {
     private final Label lblDamage = new Label();
     private final HBox heartsBox = new HBox(4);
 
-    public HudView(StatsService stats, Player player) {
-        this.stats = Objects.requireNonNull(stats, "stats");
+    public HudView(StatsService statsService, Player player) {
+        // si te pasan null, cae al servicio global
+        this.stats  = (statsService != null) ? statsService : AppContext.stats();
         this.player = player;
+
         setSpacing(8);
         setPadding(new Insets(12));
         setAlignment(Pos.TOP_LEFT);
@@ -54,9 +57,9 @@ public final class HudView extends VBox {
 
         getChildren().addAll(
             statLine(icon("speed_icon.png"), "Speed", lblSpeed),
-            statLine(icon("tears_icon.png"), "Tears", lblTears),
+            statLine(icon("tears_icon.png"), "Fire Rate (shots/s)", lblTears),
             statLine(icon("shotspeed_icon.png"), "Shot Spd", lblShotSpeed),
-            statLine(icon("range_icon.png"), "Range", lblRange),
+            statLine(icon("range_icon.png"), "Proj Range (s)", lblRange),
             statLine(icon("damage_icon.png"), "Damage", lblDamage),
             heartLine(icon("health_icon.png"))
         );
@@ -98,18 +101,17 @@ public final class HudView extends VBox {
 
     /** Llamar cada X frames o en un AnimationTimer throttled. */
     public void refresh() {
-        // Stats:
-        double speed = stats.getMoveSpeed();
-        double cooldown = Math.max(1e-6, stats.getFireCooldown());
-        double tearsPerSec = 1.0 / cooldown;
-        double shotSpeed = stats.getProjectileSpeed();
-        double range = stats.getRangePixels();
-        double damage = stats.getDamage();
+        // Stats desde el servicio
+        double speed        = stats.getMoveSpeed();
+        double fireRate     = stats.getFireRate();
+        double shotSpeed    = stats.getProjectileSpeed();
+        double rangeSeconds = stats.getProjectileRange();
+        double damage       = stats.getProjectileDamage();
 
         lblSpeed.setText(df1.format(speed));
-        lblTears.setText(df1.format(tearsPerSec));
+        lblTears.setText(df1.format(fireRate));
         lblShotSpeed.setText(df1.format(shotSpeed));
-        lblRange.setText(df0.format(range));
+        lblRange.setText(df1.format(rangeSeconds));
         lblDamage.setText(df1.format(damage));
 
         // Hearts:
@@ -164,18 +166,15 @@ public final class HudView extends VBox {
         heartsBox.getChildren().clear();
         if (player == null) return;
 
-        int hp = (int)Math.round(player.getHealth());      // 2 HP = 1 corazón
-        int max = (int)Math.round(player.getMaxHealth());
+        int hp   = (int)Math.round(player.getHealth());      // 2 HP = 1 corazón
+        int max  = (int)Math.round(player.getMaxHealth());
         int slots = Math.max(1, max / 2);
 
         int full = hp / 2;
         boolean half = (hp % 2) == 1;
 
-        // corazones llenos
         for (int i = 0; i < full && i < slots; i++) heartsBox.getChildren().add(fullHeart());
-        // medio corazón
         if (half && full < slots) heartsBox.getChildren().add(halfHeart());
-        // corazones vacíos
         while (heartsBox.getChildren().size() < slots) heartsBox.getChildren().add(emptyHeart());
     }
 }

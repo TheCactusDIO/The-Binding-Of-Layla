@@ -17,11 +17,11 @@ public final class PlayerStats {
     }
 
     public void resetDefaults() {
-        setBase(StatType.MOVE_SPEED, 320.0);
-        setBase(StatType.FIRE_COOLDOWN, 0.25);
-        setBase(StatType.PROJECTILE_SPEED, 520.0);
-        setBase(StatType.RANGE_PIXELS, 624.0); // ~1.2s lifetime at 520px/s
-        setBase(StatType.DAMAGE, 3.5);
+        setBase(StatType.MOVE_SPEED,        160.0);
+        setBase(StatType.FIRE_RATE,         3.0);
+        setBase(StatType.PROJECTILE_SPEED,  400.0);
+        setBase(StatType.PROJECTILE_RANGE,  1.0);
+        setBase(StatType.PROJECTILE_DAMAGE, 1.0);
     }
 
     public double getBase(StatType type) {

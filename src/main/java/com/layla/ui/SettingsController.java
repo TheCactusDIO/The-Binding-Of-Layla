@@ -1,66 +1,72 @@
 package com.layla.ui;
 
-import javafx.application.Platform;
-import javafx.event.EventHandler;
+import com.layla.services.StatsService;
 import javafx.fxml.FXML;
-import javafx.scene.Scene;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
+import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 
-/**
- * Overlay de Settings.
- * Captura ESC a nivel de Scene en fase de "filter" (captura) y lo consume
- * para que NO llegue al handler global del GameController.
- * Limpia el filter al cerrar para no dejar escuchas colgando.
- */
 public class SettingsController {
+
+    @FXML private Button btnCancel;
+    @FXML private Button btnApply;
+    @FXML private Button btnOpenStats;
+
     private Runnable onClose = () -> {};
-    public void setOnClose(Runnable r) { this.onClose = (r != null ? r : () -> {}); }
+    private StatsService statsService = com.layla.AppContext.stats();
 
-    @FXML private StackPane root;
+    // Host donde se montan los overlays (lo setean los que abren este Settings)
+    private StackPane overlayHost;
 
-    // Guardamos el filter para poder quitarlo al cerrar
-    private EventHandler<KeyEvent> escFilter;
+    public void setOnClose(Runnable r) {
+        this.onClose = (r != null) ? r : () -> {};
+    }
+
+    public void setStatsService(StatsService s) {
+        if (s != null) this.statsService = s;
+    }
+
+    /** Debe llamarse al abrir este Settings para que onOpenStats sepa dónde montar el panel. */
+    public void setOverlayHost(StackPane host) {
+        this.overlayHost = host;
+    }
 
     @FXML
     private void initialize() {
-        // Cuando el overlay tenga Scene, añadimos un FILTER en la Scene (fase de captura)
-        root.sceneProperty().addListener((obs, oldScene, newScene) -> {
-            if (oldScene != null && escFilter != null) {
-                oldScene.removeEventFilter(KeyEvent.KEY_PRESSED, escFilter);
-            }
-            if (newScene != null) {
-                escFilter = evt -> {
-                    if (evt.getCode() == KeyCode.ESCAPE) {
-                        evt.consume();   // BLOQUEA propagación al GameController
-                        closeSelf(newScene);
-                    }
-                };
-                newScene.addEventFilter(KeyEvent.KEY_PRESSED, escFilter);
-            }
-        });
-
-        // Foco visual al cargar
-        Platform.runLater(() -> {
-            root.setFocusTraversable(true);
-            root.requestFocus();
-        });
+        // Si prefieres, deja el estilo en el FXML y elimina estas líneas
+        if (btnCancel != null)    btnCancel.getStyleClass().addAll("menu-button","btn-secondary");
+        if (btnApply != null)     btnApply.getStyleClass().addAll("menu-button","btn-primary");
+        if (btnOpenStats != null) btnOpenStats.getStyleClass().addAll("menu-button","btn-accent");
     }
 
     @FXML
-    private void onBack() {
-        Scene scene = root.getScene();
-        closeSelf(scene);
+    private void onCancel() {
+        onClose.run();
     }
 
-    /** Cierre centralizado: quita el filter y dispara onClose() para que el host quite el overlay. */
-    private void closeSelf(Scene scene) {
-        try {
-            if (scene != null && escFilter != null) {
-                scene.removeEventFilter(KeyEvent.KEY_PRESSED, escFilter);
-            }
-        } catch (Exception ignore) {}
+    @FXML
+    private void onApply() {
+        // aplica opciones generales de Settings si las hay
         onClose.run();
+    }
+
+    @FXML
+    private void onOpenStats() {
+        if (overlayHost == null) {
+            System.err.println("[SettingsController] overlayHost es null; no puedo abrir stats_panel.fxml");
+            return;
+        }
+        final javafx.scene.Node[] statsNode = new javafx.scene.Node[1];
+        statsNode[0] = OverlayRouter.showOverlay(
+            overlayHost,
+            "ui/stats_panel.fxml",
+            0.90,
+            controller -> {
+                if (controller instanceof StatsPanelController sp) {
+                    sp.setStatsService(statsService);
+                    sp.setOnClose(() -> OverlayRouter.closeOverlay(overlayHost, statsNode[0]));
+                    sp.onShow();
+                }
+            }
+        );
     }
 }

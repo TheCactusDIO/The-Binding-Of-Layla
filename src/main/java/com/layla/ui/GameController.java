@@ -1,16 +1,19 @@
-// Issue 6 – Bucle del juego (AnimationTimer)
-// Archivo: src/main/java/com/layla/ui/GameController.java
-
 package com.layla.ui;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
 import com.layla.entities.DummyEntity;
+import com.layla.entities.Enemy;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
 import com.layla.services.ShootingService;
+import com.layla.services.SoundService;
 import com.layla.services.StatsService;
 
 import javafx.animation.FadeTransition;
@@ -33,9 +36,9 @@ import javafx.util.Duration;
 public class GameController implements ViewLifecycle {
 
     // ---------- ÁREA PRINCIPAL ----------
-    @FXML private Pane gameArea; // fx:id="gameArea"
+    @FXML private Pane gameArea;
 
-    // ---------- HUD ----------
+    // ---------- HUD (barra superior) ----------
     @FXML private HBox hudBar;
     @FXML private Label scoreLabel;
     @FXML private Label floorLabel;
@@ -45,46 +48,59 @@ public class GameController implements ViewLifecycle {
     @FXML private StackPane root;
     @FXML private StackPane overlayLayer;
     private javafx.scene.Node pauseOverlay;
+    private javafx.scene.Node gameOverOverlay;
 
     // ---------- MÚSICA ----------
     private String currentTrack = null;
     private boolean musicStarted = false;
 
-    // ===== HUD: timer y score =====
-    private Timeline hudTimer;        // <-- Reloj MM:SS
+    // ---------- HUD: timer y score ----------
+    private Timeline hudTimer;        // Reloj MM:SS
     private long elapsedSeconds = 0;
     private int score = 500;
     private Label timeLabel;
 
-    // Estado
+    // ---------- Estado ----------
     private boolean gameStarted = false;
     private boolean paused = false;
+    private boolean settingsOpen = false;
+    private boolean gameOverShown = false;
 
-    // Game loop
+    // ---------- Game loop / entidades ----------
     private GameLoop gameLoop;
     private Player player;
     private boolean demoEntitiesAdded = false;
     private boolean playerSpawnListenerAdded = false;
 
-    // Settings desde pausa
-    private boolean settingsOpen = false;
-
-    // Input
+    // ---------- Input / servicios ----------
     private InputService input;
-    private final StatsService statsService = new StatsService();
-
-    // Disparo
+    private final StatsService statsService = com.layla.AppContext.stats();
     private ShootingService shootingService;
-    private double bias = 0.35;        // cuánto influye el movimiento en el tiro
+    private final SoundService sound = new SoundService();
+
+    // Disparo (bias WASD sobre flechas)
+    private double bias = 0.2;
+
+    // Ticker auxiliar
     private boolean tickerAdded = false;
 
-    // HUD lateral (stats)
-    private HudView hud;
-    private double hudRefreshTimer = 0.0; // <-- REFRESCO HUD de stats
+    // Enemigos
+    private final List<Enemy> enemies = new ArrayList<>();
+    private boolean enemiesSpawned = false;
+    private double enemy_maxHP = 6.0;
 
-    // ===================== CONTROLES PAUSA =====================
+    // HUD lateral (estadísticas)
+    private HudView hud;
+    private double hudRefreshTimer = 0.0;
+
+    // Anti-spam de disparo tras spawn del player
+    private boolean shootingArmed = false;
+    private double shootingArmTimer = 0.6; // s
+
+    // ===================== PAUSA =====================
     @FXML
     private void onPausePressed() {
+        if (gameOverShown) return; // No permitir pausa en Game Over
         if (pauseOverlay != null || paused) return;
         paused = true;
 
@@ -112,13 +128,17 @@ public class GameController implements ViewLifecycle {
                     settingsOpen = true;
                     java.util.function.Consumer<Object> settingsConsumer = c -> {
                         if (c instanceof SettingsController sc) {
+                            sc.setStatsService(statsService);
+                            sc.setOverlayHost(overlayLayer); // <<<<< IMPORTANTE: host para abrir stats_panel.fxml
                             sc.setOnClose(() -> {
                                 OverlayRouter.closeOverlay(overlayLayer, settingsNode[0]);
                                 settingsOpen = false;
                             });
                         }
                     };
-                    settingsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/settings.fxml", 0.90, settingsConsumer);
+                    settingsNode[0] = OverlayRouter.showOverlay(
+                            overlayLayer, "ui/settings.fxml", 0.90, settingsConsumer
+                    );
                 });
             }
         });
@@ -137,9 +157,22 @@ public class GameController implements ViewLifecycle {
         settingsOpen = false;
     }
 
-    private void pauseHudTimer() { if (hudTimer != null) hudTimer.pause(); }
-    private void resumeHudTimer() { if (hudTimer != null) hudTimer.play(); }
-    private void stopHudTimer() { if (hudTimer != null) { hudTimer.stop(); hudTimer = null; } }
+    /** Abre el Stats Panel sobre el overlayLayer del juego. */
+    private void openStatsPanel() {
+        final javafx.scene.Node[] statsNode = new javafx.scene.Node[1];
+        statsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/stats_panel.fxml", 0.90, controller -> {
+            if (controller instanceof StatsPanelController sp) {
+                sp.setStatsService(com.layla.AppContext.stats());
+                sp.setOnClose(() -> OverlayRouter.closeOverlay(overlayLayer, statsNode[0]));
+                sp.onShow();
+            }
+        });
+    }
+
+    // ===================== HUD TIMER =====================
+    private void pauseHudTimer()  { if (hudTimer != null) hudTimer.pause(); }
+    private void resumeHudTimer() { if (hudTimer != null) hudTimer.play();  }
+    private void stopHudTimer()   { if (hudTimer != null) { hudTimer.stop(); hudTimer = null; } }
 
     private static String formatMMSS(long totalSeconds) {
         long shown = Math.max(0, totalSeconds);
@@ -152,7 +185,7 @@ public class GameController implements ViewLifecycle {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
         if (floorLabel != null) floorLabel.setText("Floor: 1");
         if (timeLabel  != null) timeLabel.setText("Time: " + formatMMSS(elapsedSeconds));
-        if (healthLabel != null) healthLabel.setText("HP: 100");
+        if (healthLabel != null) healthLabel.setText("HP");
     }
 
     private void startHudTimerIfNeeded() {
@@ -190,7 +223,6 @@ public class GameController implements ViewLifecycle {
     // ==================== CICLO DE VIDA (router) ====================
     @Override
     public void onEnter() {
-        // Layout plano: gameArea tal cual bajo el HUD
         resetPlainGameArea();
 
         // Fade-in HUD
@@ -208,6 +240,7 @@ public class GameController implements ViewLifecycle {
             if (scene == null) return;
             scene.setOnKeyPressed(e -> {
                 if (e.getCode() == KeyCode.ESCAPE) {
+                    if (gameOverShown) return;
                     if (settingsOpen) return;
                     if (pauseOverlay != null || paused) resumeFromPause(); else onPausePressed();
                 }
@@ -219,18 +252,27 @@ public class GameController implements ViewLifecycle {
         // GameLoop
         if (gameLoop == null) gameLoop = new GameLoop(gameArea);
 
+        // Listeners de tamaño (spawn player + enemigos al tener medidas)
         if (!playerSpawnListenerAdded) {
             playerSpawnListenerAdded = true;
-            gameArea.widthProperty().addListener((obs, ow, nw) -> maybeSpawnPlayer());
-            gameArea.heightProperty().addListener((obs, oh, nh) -> maybeSpawnPlayer());
+            gameArea.widthProperty().addListener((obs, ow, nw) -> {
+                maybeSpawnPlayer();
+                trySpawnInitialEnemies();
+            });
+            gameArea.heightProperty().addListener((obs, oh, nh) -> {
+                maybeSpawnPlayer();
+                trySpawnInitialEnemies();
+            });
         }
+
+        // Intento inicial
         maybeSpawnPlayer();
+        trySpawnInitialEnemies();
 
         // Input
         Platform.runLater(() -> {
             Scene scene = gameArea.getScene();
             if (scene == null) return;
-
             if (input == null) input = new InputService();
             input.attach(scene);
 
@@ -238,7 +280,7 @@ public class GameController implements ViewLifecycle {
             scene.addEventHandler(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
                 KeyCode c = e.getCode();
                 if (c == KeyCode.UP || c == KeyCode.DOWN || c == KeyCode.LEFT || c == KeyCode.RIGHT) {
-                    tryShootNow();  // flechas (cardinal + bias WASD)
+                    tryShootNow();
                 }
             });
 
@@ -253,7 +295,7 @@ public class GameController implements ViewLifecycle {
         startHudTimerIfNeeded();
         updateHudLabels();
 
-        // Dummies de demo
+        // Dummies de demo (opcional)
         if (!demoEntitiesAdded) {
             if (gameArea.getWidth() > 0) {
                 var d1 = new DummyEntity(50, 80,  90, gameArea);
@@ -274,22 +316,55 @@ public class GameController implements ViewLifecycle {
                     }
                 });
             }
-            maybeSpawnPlayer();
         }
     }
 
     @Override
     public void onExit() {
         if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
+
+        // Cerrar overlays si estaban abiertos
+        if (gameOverOverlay != null) {
+            OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+            gameOverOverlay = null;
+        }
+        if (pauseOverlay != null) {
+            OverlayRouter.closeOverlay(overlayLayer, pauseOverlay);
+            pauseOverlay = null;
+        }
+        gameOverShown = false;
+        paused = false;
+
+        // Quitar player
         if (player != null && gameLoop != null) {
             gameLoop.removeEntity(player);
             player = null;
         }
+
+        // Quitar enemigos
+        if (!enemies.isEmpty() && gameLoop != null) {
+            for (Enemy enemy : new ArrayList<>(enemies)) {
+                gameLoop.removeEntity(enemy);
+            }
+        }
+        enemies.clear();
+        enemiesSpawned = false;
+
+        // Quitar HUD lateral
+        if (hud != null) {
+            if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
+            else if (gameArea != null) gameArea.getChildren().remove(hud);
+            hud = null;
+        }
+
+        shootingService = null;
         stopHudTimer();
         settingsOpen = false;
         if (input != null) input.detach();
+        tickerAdded = false;
     }
 
+    // ==================== API PÚBLICA BÁSICA ====================
     public void signalGameStart() {
         if (gameStarted) return;
         gameStarted = true;
@@ -329,17 +404,20 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // ==================== SPAWN PLAYER ====================
     private void maybeSpawnPlayer() {
         if (player != null || input == null || gameLoop == null) return;
+
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
         if (width <= 0 || height <= 0) return;
 
         player = new Player(input, gameArea, statsService);
-        // Servicio de disparo (lee siempre de StatsService)
         shootingService = new ShootingService(statsService);
 
-        // HUD lateral
+        shootingArmed = false;
+        shootingArmTimer = 0.6;
+
         hud = new HudView(statsService, player);
         hud.setTranslateX(12);
         hud.setTranslateY(12);
@@ -347,7 +425,6 @@ public class GameController implements ViewLifecycle {
             overlayLayer.getChildren().add(hud);
             StackPane.setAlignment(hud, Pos.TOP_LEFT);
         } else {
-            // fallback por si no hay overlayLayer
             gameArea.getChildren().add(hud);
         }
 
@@ -357,46 +434,62 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(player);
 
         if (!gameLoop.isRunning()) gameLoop.start();
+
+        trySpawnInitialEnemies();
+        Platform.runLater(() -> { enemiesSpawned = false; trySpawnInitialEnemies(); });
     }
 
     // ==================== SHOOTING (solo flechas) ====================
-
-    /** Ticker invisible: cooldown flechas + refresco HUD. */
     private void addTickerIfNeeded() {
         if (tickerAdded || gameLoop == null) return;
 
         GameEntity ticker = new GameEntity() {
             private final Group view = new Group(); // invisible
+            private double spawnRetryTimer = 0.75;
+            private boolean spawnRetried = false;
 
             @Override public void update(double dt) {
-                // Actualiza cooldown interno y aim basado en movimiento
+                if (!shootingArmed) {
+                    shootingArmTimer -= dt;
+                    if (shootingArmTimer <= 0.0) shootingArmed = true;
+                }
+
                 if (shootingService != null && input != null) {
                     shootingService.update(dt, input.getMoveVector());
                 }
-                // Disparo con flechas (cardinal + bias por WASD)
-                if (player != null && input != null && shootingService != null) {
+
+                if (shootingArmed && !paused && player != null && !player.isDead() && input != null && shootingService != null) {
                     double[] ar = input.getAimArrowCardinal();
                     if (ar[0] != 0 || ar[1] != 0) {
-                        // Bias estilo Isaac: flecha + 20% del WASD si hay
                         double[] mv = input.getMoveVector();
-                        double fx = ar[0], fy = ar[1];
-                        if ((mv[0] != 0 || mv[1] != 0)) {
-                            fx = 0.8 * ar[0] + 0.2 * mv[0];
-                            fy = 0.8 * ar[1] + 0.2 * mv[1];
-                        }
+                        double fx = (1.0 - bias) * ar[0] + bias * mv[0];
+                        double fy = (1.0 - bias) * ar[1] + bias * mv[1];
                         shootingService.setAim(fx, fy);
-                        // Centro del player como origen (ShootingService ya compensa el radio del proyectil)
+
                         double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
                         double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-                        shootingService.tryShoot(gameArea, gameLoop, px, py, (Projectile p) -> {});
+
+                        shootingService.tryShoot(gameArea, gameLoop, px, py, (Projectile p) -> sound.play("shot"));
                     }
                 }
 
-                // Refresco del HUD de stats (cada 100ms aprox)
                 hudRefreshTimer -= dt;
                 if (hud != null && hudRefreshTimer <= 0.0) {
                     hud.refresh();
                     hudRefreshTimer = 0.1;
+                }
+
+                if (!gameOverShown && player != null && player.isDead()) {
+                    showGameOverOverlay();
+                    return;
+                }
+
+                if (!enemiesSpawned && !spawnRetried) {
+                    spawnRetryTimer -= dt;
+                    if (spawnRetryTimer <= 0.0) {
+                        trySpawnInitialEnemies();
+                        spawnRetried = true;
+                    }
                 }
             }
             @Override public javafx.scene.Node getView() { return view; }
@@ -407,32 +500,184 @@ public class GameController implements ViewLifecycle {
         tickerAdded = true;
     }
 
-    // Disparo inmediato (si mantienes esta acción fuera del loop)
     private void tryShootNow() {
-        if (player == null || input == null || shootingService == null) return;
+        if (!shootingArmed || paused) return;
+        if (player == null || player.isDead() || input == null || shootingService == null) return;
+
         double[] ar = input.getAimArrowCardinal();
         if (ar[0] == 0 && ar[1] == 0) return;
+
         double[] mv = input.getMoveVector();
-        double fx = 0.8 * ar[0] + 0.2 * mv[0];
-        double fy = 0.8 * ar[1] + 0.2 * mv[1];
+        double fx = (1.0 - bias) * ar[0] + bias * mv[0];
+        double fy = (1.0 - bias) * ar[1] + bias * mv[1];
         shootingService.setAim(fx, fy);
+
         double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
         double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-        shootingService.tryShoot(gameArea, gameLoop, px, py, (Projectile p) -> {});
+
+        shootingService.tryShoot(gameArea, gameLoop, px, py, (Projectile p) -> sound.play("shot"));
     }
 
-    // ==================== LAYOUT PLANO (sin viewport) ====================
-    /** Garantiza layout plano: gameArea bajo HUD, sin clips/escalas. */
+    // ==================== ENEMIGOS ====================
+    private double[] getPlayerCenter() {
+        double px, py;
+        if (player != null) {
+            px = player.getView().getLayoutX() + player.getWidth() * 0.5;
+            py = player.getView().getLayoutY() + player.getHeight() * 0.5;
+        } else if (gameArea != null) {
+            px = gameArea.getWidth() * 0.5;
+            py = gameArea.getHeight() * 0.5;
+        } else {
+            px = 0.0;
+            py = 0.0;
+        }
+        return new double[] { px, py };
+    }
+
+    private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
+        double[] center = getPlayerCenter();
+        double enemyCx = ex + ew * 0.5;
+        double enemyCy = ey + eh * 0.5;
+        double dx = center[0] - enemyCx;
+        double dy = center[1] - enemyCy;
+        return Math.hypot(dx, dy) > 50.0;
+    }
+
+    private void spawnEnemies(int count) {
+        if (gameLoop == null || gameArea == null) return;
+        double width = gameArea.getWidth();
+        double height = gameArea.getHeight();
+        if (width <= 0.0 || height <= 0.0) return;
+
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+
+        for (int i = 0; i < count; i++) {
+            double speed = 120.0 + rng.nextDouble(30.0);
+            Enemy enemy = new Enemy(
+                    gameArea,
+                    this::getPlayerCenter,
+                    speed,
+                    enemy_maxHP,
+                    e -> {
+                        gameLoop.removeEntity(e);
+                        enemies.remove(e);
+                        int bonus = (int)Math.round(Math.pow(enemy_maxHP, 0.2) * 5.0);
+                        score = Math.max(0, score + bonus);
+                        updateHudLabels();
+                    },
+                    ge -> gameLoop.addEntity(ge),
+                    k -> sound.play(k)
+            );
+
+            double enemyWidth = enemy.getWidth();
+            double enemyHeight = enemy.getHeight();
+            double maxX = Math.max(0.0, width - enemyWidth);
+            double maxY = Math.max(0.0, height - enemyHeight);
+
+            double posX = 0.0;
+            double posY = 0.0;
+            boolean placed = false;
+
+            for (int attempt = 0; attempt < 20; attempt++) {
+                double candidateX = maxX <= 0.0 ? 0.0 : rng.nextDouble(0.0, maxX);
+                double candidateY = maxY <= 0.0 ? 0.0 : rng.nextDouble(0.0, maxY);
+                if (isValidSpawn(candidateX, candidateY, enemyWidth, enemyHeight)) {
+                    posX = candidateX;
+                    posY = candidateY;
+                    placed = true;
+                    break;
+                }
+            }
+
+            if (!placed) {
+                posX = Math.max(0.0, Math.min(maxX, width * 0.5 - enemyWidth * 0.5));
+                posY = Math.max(0.0, Math.min(maxY, height * 0.5 - enemyHeight * 0.5));
+            }
+
+            enemy.setPosition(posX, posY);
+            enemies.add(enemy);
+            gameLoop.addEntity(enemy);
+        }
+    }
+
+    private void trySpawnInitialEnemies() {
+        if (enemiesSpawned) return;
+        if (player == null || gameArea == null) return;
+        if (gameArea.getWidth() <= 0.0 || gameArea.getHeight() <= 0.0) return;
+        spawnEnemies(5);
+        enemiesSpawned = true;
+    }
+
+    // ==================== GAME OVER ====================
+    private void showGameOverOverlay() {
+        if (gameOverShown) return;
+        gameOverShown = true;
+
+        if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
+        pauseHudTimer();
+
+        gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
+            if (controller instanceof GameOverController goc) {
+                goc.setOnRetry(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    restartGame();
+                });
+                goc.setOnBackToMenu(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    backToMenu();
+                });
+            }
+        });
+    }
+
+    private void restartGame() {
+        if (pauseOverlay != null) {
+            OverlayRouter.closeOverlay(overlayLayer, pauseOverlay);
+            pauseOverlay = null;
+        }
+        paused = false;
+
+        if (gameLoop != null) {
+            if (player != null) gameLoop.removeEntity(player);
+            for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
+        }
+        enemies.clear();
+        enemiesSpawned = false;
+
+        tickerAdded = false;
+        shootingArmed = false;
+        gameOverShown = false;
+
+        elapsedSeconds = 0;
+        score = 500;
+        updateHudLabels();
+        stopHudTimer();
+        startHudTimerIfNeeded();
+
+        if (hud != null) {
+            if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
+            else if (gameArea != null) gameArea.getChildren().remove(hud);
+            hud = null;
+        }
+
+        player = null;
+        maybeSpawnPlayer();
+        addTickerIfNeeded();
+
+        if (gameLoop != null && !gameLoop.isRunning()) gameLoop.start();
+    }
+
+    // ==================== LAYOUT PLANO ====================
     private void resetPlainGameArea() {
         if (gameArea == null || root == null) return;
 
-        // Quitar posibles restos de envoltorios previos
         gameArea.setScaleX(1.0);
         gameArea.setScaleY(1.0);
         gameArea.setManaged(true);
         gameArea.setClip(null);
 
-        // Reinsertar en el AnchorPane del FXML (primer hijo del root)
         AnchorPane anchor = null;
         for (var n : root.getChildren()) {
             if (n instanceof AnchorPane ap) { anchor = ap; break; }
@@ -452,7 +697,6 @@ public class GameController implements ViewLifecycle {
         gameArea.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
         gameArea.setMaxSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
 
-        // Fondo por si el CSS no cargó
         gameArea.setStyle("-fx-background-color: #111111;");
     }
 }

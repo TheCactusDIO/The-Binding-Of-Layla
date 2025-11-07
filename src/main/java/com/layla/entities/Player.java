@@ -1,6 +1,7 @@
 package com.layla.entities;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import com.layla.core.GameEntity;
@@ -16,9 +17,6 @@ import javafx.scene.shape.Rectangle;
 
 /**
  * Controllable player entity driven by keyboard input.
- * - Movimiento en coordenadas de mundo usando layoutX/layoutY (no translate).
- * - Suavizado con constantes de tiempo (tau) por eje.
- * - Clamping dentro de boundsPane.
  */
 public final class Player implements GameEntity {
 
@@ -29,7 +27,7 @@ public final class Player implements GameEntity {
     private final Rectangle view = new Rectangle(26, 26);
     private final Supplier<double[]> moveSupplier;
     private final Pane boundsPane;
-    private final StatsService statsService;
+    private final StatsService statsService; // <- asignado una única vez en el ctor
 
     private double vx;
     private double vy;
@@ -37,22 +35,45 @@ public final class Player implements GameEntity {
     // --- HEALTH ---
     private double health = 6.0;      // 3 corazones completos (2 HP = 1 corazón)
     private double maxHealth = 6.0;   // 3 corazones por defecto
+    private boolean dead = false;
+
+    // I-frames tras recibir daño
+    private double invulnTimer = 0.0;
+    private static final double INVULN_DURATION = 0.6; // segundos
+
+    // SFX desacoplado
+    private final Consumer<String> playSfx; // keys esperadas: "hurt", "dead"
+
+    // -------------------- CONSTRUCTORES --------------------
 
     public Player(InputService input, Pane boundsPane, StatsService statsService) {
-        this(Objects.requireNonNull(input, "input")::getMoveVector, boundsPane, statsService);
+        this(Objects.requireNonNull(input, "input")::getMoveVector, boundsPane, statsService, null);
     }
 
     public Player(Supplier<double[]> moveSupplier, Pane boundsPane, StatsService statsService) {
+        this(moveSupplier, boundsPane, statsService, null);
+    }
+
+    public Player(Supplier<double[]> moveSupplier,
+                  Pane boundsPane,
+                  StatsService statsService,
+                  Consumer<String> playSfx) {
         this.moveSupplier = Objects.requireNonNull(moveSupplier, "moveSupplier");
         this.boundsPane   = Objects.requireNonNull(boundsPane, "boundsPane");
-        this.statsService = Objects.requireNonNull(statsService, "statsService");
+        // si te pasan null, usa el global
+        this.statsService = (statsService != null) ? statsService : com.layla.AppContext.stats();
+        this.playSfx      = (playSfx != null ? playSfx : k -> {});
+        this.invulnTimer = 1.0; // i-frames iniciales
         view.setFill(Color.RED);
         view.setStroke(Color.BLACK);
     }
 
     @Override
     public void update(double dt) {
-        if (dt <= 0) return;
+        if (dt <= 0 || dead) return;
+
+        // Tictac i-frames
+        if (invulnTimer > 0.0) invulnTimer = Math.max(0.0, invulnTimer - dt);
 
         // 1) Input (-1..1) -> velocidad objetivo
         double[] mv = moveSupplier.get();
@@ -116,7 +137,20 @@ public final class Player implements GameEntity {
 
     @Override
     public void onCollision(GameEntity other) {
-        // No-op por ahora (se gestionará más adelante)
+        if (dead) return;
+
+        // Balas enemigas dañan al player (½ corazón = 1.0 HP por ejemplo)
+        if (other instanceof Projectile proj) {
+            if (proj.isFromEnemy()) {
+                takeDamage(1.0);
+            }
+            return;
+        }
+
+        // Contacto con enemigos: ignorado aquí. Lo aplica Enemy->Player.
+        if (other instanceof Enemy) {
+            return;
+        }
     }
 
     // --- Utilidades públicas ---
@@ -131,27 +165,47 @@ public final class Player implements GameEntity {
 
     // ==================== HEALTH SYSTEM ====================
 
-    public double getHealth() {
-        return health;
-    }
-
-    public double getMaxHealth() {
-        return maxHealth;
-    }
+    public double getHealth() { return health; }
+    public double getMaxHealth() { return maxHealth; }
+    public boolean isDead() { return dead; }
 
     /** Ajusta la salud actual, con clamping [0, maxHealth]. */
     public void setHealth(double health) {
         this.health = Math.max(0.0, Math.min(health, maxHealth));
+        if (this.health <= 0.0) die();
     }
 
-    /** Aumenta o reduce la salud (ej: daño o curación). */
+    /** Aumenta o reduce la salud (ej: curación negativa = daño). */
     public void addHealth(double delta) {
         setHealth(this.health + delta);
     }
 
-    /** Ajusta la vida máxima. */
+    /** Ajusta la vida máxima y clampa la actual. */
     public void setMaxHealth(double maxHealth) {
         this.maxHealth = Math.max(0.0, maxHealth);
         if (health > this.maxHealth) health = this.maxHealth;
+        if (health <= 0.0 && !dead) die();
+    }
+
+    /** Aplica daño directo respetando i-frames. */
+    public void takeDamage(double amount) {
+        if (dead || amount <= 0.0) return;
+        if (invulnTimer > 0.0) return; // i-frames activos
+
+        health = Math.max(0.0, health - amount);
+        if (health <= 0.0) {
+            die();
+        } else {
+            invulnTimer = INVULN_DURATION;
+            playSfx.accept("hurt");
+        }
+    }
+
+    private void die() {
+        if (dead) return;
+        dead = true;
+        health = 0.0;
+        playSfx.accept("dead");
+        // Notificación de Game Over se gestiona en GameController (detecta player.isDead()).
     }
 }

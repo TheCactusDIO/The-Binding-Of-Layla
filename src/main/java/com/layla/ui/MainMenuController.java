@@ -20,9 +20,9 @@ import javafx.scene.media.MediaView;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
 import com.layla.core.TestEnv;
+import com.layla.services.StatsService;
 
 public class MainMenuController {
-
 
     @FXML private StackPane root;
     @FXML private VBox menuBox;
@@ -34,29 +34,27 @@ public class MainMenuController {
     private boolean retriedVideoOnce = false;
     private Node settingsOverlay;
     private Node exitOverlay;
+    private final StatsService statsService = com.layla.AppContext.stats();
 
     @FXML
     private void initialize() {
         System.out.println("[MainMenu] initialize()");
 
-        // ---------- Fuente personalizada ----------
+        // Fuente
         try {
             Font.loadFont(getClass().getResourceAsStream("/assets/fonts/main_font.ttf"), 16);
-            System.out.println("[MainMenu] Custom font loaded successfully");
         } catch (Exception e) {
             System.err.println("[MainMenu] Font not found: " + e.getMessage());
         }
 
-        // --- Modo test/headless: NO inicializamos vídeo para evitar GStreamer y timing raro ---
+        // Vídeo (omitido en tests/headless)
         if (TestEnv.disableMedia()) {
             if (backgroundVideo != null) {
                 backgroundVideo.setVisible(false);
                 backgroundVideo.setManaged(false);
                 backgroundVideo.setMediaPlayer(null);
             }
-            System.out.println("[MainMenu] Headless/test env → skipping background video init");
         } else {
-            // ---------- Fondo de vídeo ----------
             backgroundVideo.setPreserveRatio(true);
             backgroundVideo.fitWidthProperty().bind(root.widthProperty());
             backgroundVideo.fitHeightProperty().bind(root.heightProperty());
@@ -69,55 +67,36 @@ public class MainMenuController {
             });
         }
 
-        // ---------- Tamaños responsivos ----------
+        // Layout responsive
         menuBox.prefWidthProperty().unbind();
         menuBox.setMinWidth(300);
         menuBox.setMaxWidth(640);
         menuBox.prefWidthProperty().bind(min(640.0, max(300.0, root.widthProperty().multiply(0.5))));
         menuBox.setFillWidth(false);
 
-        // Botones responsivos
         var btnWidthBinding = min(360.0, max(220.0, menuBox.widthProperty().multiply(0.55)));
         for (var b : new Button[]{playBtn, optionsBtn, exitBtn}) {
             b.setMaxWidth(Region.USE_PREF_SIZE);
             b.prefWidthProperty().bind(btnWidthBinding);
         }
 
-        // Título adaptable
         titleLabel.setWrapText(true);
         titleLabel.maxWidthProperty().bind(menuBox.widthProperty());
 
-        // ---------- Fondo de vídeo ----------
-        backgroundVideo.setPreserveRatio(true);
-        backgroundVideo.fitWidthProperty().bind(root.widthProperty());
-        backgroundVideo.fitHeightProperty().bind(root.heightProperty());
-        backgroundVideo.setOpacity(0);
-
-        // Esperar un instante tras cargar la escena para iniciar el vídeo (evita errores intermitentes)
-        Platform.runLater(() -> {
-            PauseTransition delay = new PauseTransition(Duration.millis(120));
-            delay.setOnFinished(e -> startBackgroundVideoSafely());
-            delay.play();
-        });
-
-        // ---------- Música ----------
+        // Música del menú
         AssetsManager.playMusic("menu.mp3", true);
         root.opacityProperty().set(1.0);
     }
 
-    // ===========================================================
-    // ============    VÍDEO DE FONDO CON RECUPERACIÓN   =========
-    // ===========================================================
+    // ===================== VÍDEO FONDO =====================
     private void startBackgroundVideoSafely() {
         try {
             backgroundVideo.setMediaPlayer(null);
-
             var url = getClass().getResource("/assets/videos/menu.mp4");
             if (url == null) {
                 System.err.println("[MainMenu] Video not found at /assets/videos/menu.mp4");
                 return;
             }
-
             var media = new Media(url.toExternalForm());
             videoPlayer = new MediaPlayer(media);
             videoPlayer.setMute(true);
@@ -134,22 +113,17 @@ public class MainMenuController {
             });
 
             backgroundVideo.setMediaPlayer(videoPlayer);
-
             videoPlayer.setOnReady(() -> {
                 videoPlayer.play();
-                System.out.println("[MainMenu] Background video ready → play()");
                 FadeTransition ft = new FadeTransition(Duration.seconds(1.0), backgroundVideo);
                 ft.setFromValue(0);
                 ft.setToValue(1);
                 ft.play();
             });
-
             videoPlayer.setOnEndOfMedia(() -> {
                 videoPlayer.seek(Duration.ZERO);
                 videoPlayer.play();
             });
-
-            System.out.println("[MainMenu] Background video setup complete");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -158,82 +132,57 @@ public class MainMenuController {
     private void retryVideoPlayerOnce() {
         if (retriedVideoOnce) return;
         retriedVideoOnce = true;
-
         try {
             if (backgroundVideo != null) backgroundVideo.setMediaPlayer(null);
             if (videoPlayer != null) {
                 videoPlayer.stop();
-                videoPlayer = null;
+                try { videoPlayer.dispose(); } catch (Exception ignore) {}
             }
         } catch (Exception ignore) {}
-
+        videoPlayer = null;
         PauseTransition wait = new PauseTransition(Duration.millis(150));
         wait.setOnFinished(e -> startBackgroundVideoSafely());
         wait.play();
     }
 
-    // ===========================================================
-    // ======================   BOTONES   ========================
-    // ===========================================================
-   @FXML
+    // ====================== BOTONES ======================
+    @FXML
     private void onPlayClicked() {
         System.out.println("[MainMenu] Play clicked");
-
-        // 1) Cambia a la escena del juego (manteniendo tamaño)
         cleanupMedia();
         SceneRouter.goWithFadeKeepSize("ui/game.fxml");
 
-        // 2) Cuando el GameController esté listo, montamos overlay + audio
+        // Intro rápida + arranque música de piso
         SceneRouter.whenControllerIs(GameController.class, gc -> {
             var overlayLayer = gc.getOverlayLayer();
             if (overlayLayer == null) {
-                System.err.println("[MainMenu] overlayLayer is null; cannot place intro overlay.");
-                // al menos arranca música para no dejar silencio si algo raro pasa
                 gc.startFloorMusicIfNeeded();
                 return;
             }
-
-            // Overlay negro + textos
             var overlay = new javafx.scene.layout.StackPane();
             overlay.setStyle("-fx-background-color: black;");
             overlay.setOpacity(1.0);
-            overlay.setMouseTransparent(false);
-
-            // ocupa toda la ventana
-            var root = overlayLayer.getScene().getRoot();
-            if (root instanceof javafx.scene.layout.Region r) {
+            var rootPane = overlayLayer.getScene().getRoot();
+            if (rootPane instanceof javafx.scene.layout.Region r) {
                 overlay.prefWidthProperty().bind(r.widthProperty());
                 overlay.prefHeightProperty().bind(r.heightProperty());
             }
-
             var vbox = new javafx.scene.layout.VBox(8);
             vbox.setAlignment(javafx.geometry.Pos.CENTER);
             vbox.setMouseTransparent(true);
-
-            // --- títulos aleatorios de intro ---
-            String[] INTRO_TITLES = new String[] {
-                "Basement I",
-                "Te amo Maria",
-                "Apruebame pls",
-                "Cargando partida...",
-                "Prepared to die?",
-                "Por nuestra futura Layla"
+            String[] INTRO_TITLES = {
+                "Basement I","Te amo Maria","Apruebame pls",
+                "Cargando partida...","Prepared to die?","Por nuestra futura Layla"
             };
             int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(INTRO_TITLES.length);
-            String chosenTitle = INTRO_TITLES[idx];
-
-            var title = new javafx.scene.control.Label(chosenTitle);
+            var title = new javafx.scene.control.Label(INTRO_TITLES[idx]);
             title.getStyleClass().add("intro-title");
-
             var subtitle = new javafx.scene.control.Label("The Binding of Layla");
             subtitle.getStyleClass().add("intro-subtitle");
-            ;
-
             vbox.getChildren().addAll(title, subtitle);
             overlay.getChildren().add(vbox);
             overlayLayer.getChildren().add(overlay);
 
-            // Animación de texto (fade in → hold → fade out)
             var fadeIn = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), vbox);
             fadeIn.setFromValue(0); fadeIn.setToValue(1);
             var hold   = new javafx.animation.PauseTransition(javafx.util.Duration.millis(1600));
@@ -241,20 +190,13 @@ public class MainMenuController {
             fadeOut.setFromValue(1); fadeOut.setToValue(0);
             new javafx.animation.SequentialTransition(fadeIn, hold, fadeOut).play();
 
-            // SFX + timing determinista (AudioClip, fiable)
-            final int SFX_MS = 5000; // ajusta a la duración real de tu game_start.wav
+            final int SFX_MS = 5000;
             com.layla.core.AssetsManager.setSfxVolume(1.0);
             com.layla.core.AssetsManager.playSfx("game_start.wav");
-
-            // Fin del SFX: quitar overlay y arrancar música del piso
             var finish = new javafx.animation.PauseTransition(javafx.util.Duration.millis(SFX_MS));
             finish.setOnFinished(ev -> {
-                try { overlayLayer.getChildren().remove(overlay); } catch (Exception ignore) {}
-
-                // 1) Arranca el gameplay real (timer 00:00, score 500, inputs, etc.)
+                overlayLayer.getChildren().remove(overlay);
                 gc.signalGameStart();
-
-                // 2) Arranca la música del piso (misma pista que hubieras elegido)
                 gc.startFloorMusicIfNeeded();
             });
             finish.play();
@@ -266,6 +208,8 @@ public class MainMenuController {
         if (settingsOverlay != null) return; // ya abierto
         settingsOverlay = OverlayRouter.showOverlay(root, "ui/settings.fxml", controller -> {
             if (controller instanceof SettingsController sc) {
+                sc.setStatsService(com.layla.AppContext.stats());
+                sc.setOverlayHost(root); // <<<<< IMPORTANTE: host donde abrirá el Stats Panel
                 sc.setOnClose(() -> {
                     OverlayRouter.closeOverlay(root, settingsOverlay);
                     settingsOverlay = null;
@@ -284,14 +228,10 @@ public class MainMenuController {
                     exitOverlay = null;
                 });
                 ec.setOnConfirm(() -> {
-                    // cerrar overlay primero
                     OverlayRouter.closeOverlay(root, exitOverlay);
                     exitOverlay = null;
-
-                    // comportamiento según modo test o normal
                     boolean safeExit = Boolean.getBoolean("testfx.safeExit");
                     if (safeExit) {
-                        // En tests: no matar la JVM. Oculta solo la ventana.
                         try {
                             if (root != null && root.getScene() != null && root.getScene().getWindow() != null) {
                                 root.getScene().getWindow().hide();
@@ -299,33 +239,24 @@ public class MainMenuController {
                         } catch (Exception ignore) {}
                         return;
                     }
-                    // Runtime normal:
                     cleanupMedia();
-                    // Mejor no usar System.exit(0); con JavaFX basta:
                     javafx.application.Platform.exit();
                 });
             }
         });
     }
+
     /** Vuelve al menú principal conservando tamaño. */
     public void backToMenu() {
         SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml");
     }
 
-
-    // ===========================================================
-    // ===================   LIMPIEZA DE MEDIA   =================
-    // ===========================================================
     private void cleanupMedia() {
         try {
-            if (backgroundVideo != null) {
-            backgroundVideo.setMediaPlayer(null);
-            }
+            if (backgroundVideo != null) backgroundVideo.setMediaPlayer(null);
             if (videoPlayer != null) {
                 videoPlayer.stop();
-                try {
-                    videoPlayer.dispose();
-                } catch (Exception ignore) {}
+                try { videoPlayer.dispose(); } catch (Exception ignore) {}
             }
         } catch (Exception ignore) {}
         videoPlayer = null;

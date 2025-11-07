@@ -1,16 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<StackPane fx:id="root"
-           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml"
-           fx:controller="com.layla.ui.SettingsController"
-           prefWidth="1280" prefHeight="720"
-           id="settings-root">
+<StackPane fx:controller="com.layla.ui.SettingsController"
+           xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           style="-fx-background-color: #222;">
+    <AnchorPane>
+        <children>
+            <VBox spacing="12"
+                  AnchorPane.topAnchor="20"
+                  AnchorPane.leftAnchor="20"
+                  AnchorPane.rightAnchor="20"
+                  AnchorPane.bottomAnchor="20">
+                <children>
+                    <Label text="SETTINGS"
+                           style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold;"/>
 
-    <VBox fx:id="contentBox" spacing="18" alignment="CENTER" StackPane.alignment="CENTER">
-        <Label text="Settings" styleClass="menu-title"/>
-        <Button text="Back" onAction="#onBack" styleClass="menu-button"/>
-    </VBox>
+                    <!-- Aquí puedes añadir más opciones de settings -->
+
+                    <HBox spacing="10">
+                        <children>
+                            <Button fx:id="btnOpenStats"
+                                    text="Advanced Stats…"
+                                    onAction="#onOpenStats"
+                                    styleClass="menu-button btn-primary"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="btnCancel"
+                                    text="Cancelar"
+                                    onAction="#onCancel"
+                                    styleClass="menu-button btn-secondary"/>
+                            <Button fx:id="btnApply"
+                                    text="Aplicar"
+                                    onAction="#onApply"
+                                    styleClass="menu-button btn-primary"/>
+                        </children>
+                    </HBox>
+                </children>
+                <padding>
+                    <Insets top="16" right="16" bottom="16" left="16"/>
+                </padding>
+            </VBox>
+        </children>
+    </AnchorPane>
 </StackPane>

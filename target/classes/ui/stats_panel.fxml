@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane fx:controller="com.layla.ui.StatsPanelController"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           style="-fx-background-color: rgba(0,0,0,0.85);">
+    <AnchorPane>
+        <children>
+            <VBox spacing="14"
+                  AnchorPane.topAnchor="20"
+                  AnchorPane.leftAnchor="20"
+                  AnchorPane.rightAnchor="20"
+                  AnchorPane.bottomAnchor="20">
+                <children>
+                    <Label text="STATS PANEL"
+                           style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold;"/>
+
+                    <GridPane hgap="10" vgap="8">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="40"/>
+                            <ColumnConstraints percentWidth="60"/>
+                        </columnConstraints>
+                        <children>
+                            <!-- Player HP -->
+                            <Label text="Start HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="startHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Max HP" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="maxHpField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <!-- Player stats -->
+                            <Label text="Move Speed (px/s)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="moveSpeedField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                            <Label text="Fire Rate (shots/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="fireRateField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                            <Label text="Projectile Speed (px/s)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="projSpeedField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                            <Label text="Projectile Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                            <Label text="Projectile Damage" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="projDamageField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+                            <!-- Enemy defaults -->
+                            <Label text="Enemy Base HP" GridPane.rowIndex="7" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyHpField" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+                            <Label text="Enemy Avg Speed" GridPane.rowIndex="8" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemySpeedField" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+
+                            <Label text="Enemy Score K" GridPane.rowIndex="9" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyScoreKField" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+                        </children>
+                    </GridPane>
+
+                    <CheckBox fx:id="persistCheck"
+                              text="Persistir en JSON (usuario)"
+                              style="-fx-text-fill: white;"/>
+
+                    <HBox spacing="10">
+                        <children>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="Cancelar" onAction="#onCancel"  styleClass="menu-button"/>
+                            <Button text="Aplicar"  onAction="#onApply"   styleClass="menu-button"/>
+                        </children>
+                    </HBox>
+                </children>
+                <padding>
+                    <Insets top="16" right="16" bottom="16" left="16"/>
+                </padding>
+            </VBox>
+        </children>
+    </AnchorPane>
+</StackPane>

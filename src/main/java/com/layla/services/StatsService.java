@@ -81,17 +81,22 @@ public final class StatsService {
         return clampStat(type, value);
     }
 
+    public void setStat(StatType type, double value) {
+        Objects.requireNonNull(type, "type");
+        baseStats.setBase(type, clampStat(type, value));
+    }
+
     private double clampStat(StatType type, double value) {
         return switch (type) {
-            case MOVE_SPEED, PROJECTILE_SPEED, RANGE_PIXELS, DAMAGE -> Math.max(0.0, value);
-            case FIRE_COOLDOWN -> Math.max(0.0, value);
+            case MOVE_SPEED, FIRE_RATE, PROJECTILE_SPEED, PROJECTILE_RANGE, PROJECTILE_DAMAGE ->
+                    Math.max(0.0, value);
         };
     }
 
     // ---- Typed getters for convenience ----
-    public double getMoveSpeed()        { return getStat(StatType.MOVE_SPEED); }
-    public double getFireCooldown()     { return getStat(StatType.FIRE_COOLDOWN); }
-    public double getProjectileSpeed()  { return getStat(StatType.PROJECTILE_SPEED); }
-    public double getRangePixels()      { return getStat(StatType.RANGE_PIXELS); }
-    public double getDamage()           { return getStat(StatType.DAMAGE); }
+    public double getMoveSpeed()         { return getStat(StatType.MOVE_SPEED); }
+    public double getFireRate()          { return getStat(StatType.FIRE_RATE); }
+    public double getProjectileSpeed()   { return getStat(StatType.PROJECTILE_SPEED); }
+    public double getProjectileRange()   { return getStat(StatType.PROJECTILE_RANGE); }
+    public double getProjectileDamage()  { return getStat(StatType.PROJECTILE_DAMAGE); }
 }
