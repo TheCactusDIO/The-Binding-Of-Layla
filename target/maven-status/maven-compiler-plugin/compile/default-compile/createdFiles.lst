@@ -7,6 +7,7 @@ com\layla\ui\StatsPanelController$Json.class
 com\layla\core\GameLoop$1.class
 com\layla\services\StatsService$1.class
 com\layla\core\GameLoop.class
+com\layla\AppContext$GameBalance.class
 com\layla\core\AssetsManager$1.class
 com\layla\core\AssetsManager$Manifest.class
 com\layla\model\StatType.class

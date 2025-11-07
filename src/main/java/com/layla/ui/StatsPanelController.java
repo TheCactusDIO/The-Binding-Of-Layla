@@ -17,78 +17,53 @@ public class StatsPanelController {
     @FXML private CheckBox persistCheck;
 
     private Runnable onClose = () -> {};
-    private StatsService stats;
+    private StatsService stats = com.layla.AppContext.stats();
 
-    // Parámetros de enemigo / jugador que también usa GameController
-    private double enemyScoreK  = 5.0;   // K por defecto (EnemyBonus = HP^0.2 * K)
-    private double enemySpeedAvg = 120;  // velocidad media enemigo
-    private double enemyBaseHp   = 6.0;  // vida base enemigo
-    private double startHp       = 6.0;  // vida inicial jugador
-    private double maxHp         = 6.0;  // vida máxima jugador
-
-    public void setOnClose(Runnable r) { this.onClose = (r != null) ? r : () -> {}; }
-    public void setStatsService(StatsService s) { this.stats = s; }
-
-    // Getters para GameController (leer tras Apply)
-    public double getEnemyScoreK()   { return enemyScoreK; }
-    public double getEnemySpeedAvg() { return enemySpeedAvg; }
-    public double getEnemyBaseHp()   { return enemyBaseHp; }
-    public double getStartHp()       { return startHp; }
-    public double getMaxHp()         { return maxHp; }
+    public void setOnClose(Runnable r) { this.onClose = (r!=null)? r : ()->{}; }
+    public void setStatsService(StatsService s) { if (s!=null) this.stats = s; }
 
     @FXML
-    private void initialize() {
-        // Si se abre antes de setStatsService, onShow() se encargará.
-    }
+    private void initialize() { /* no-op */ }
 
-    /** Llamar tras setStatsService() desde GameController para precargar campos. */
+    /** Precarga campos desde el balance/stats globales. */
     public void onShow() {
-        // 1) Cargar valores persistidos (si existen) ANTES de pintar
-        loadUserJsonIfExists();
+        var bal = com.layla.AppContext.balance();
 
-        // 2) Rellenar campos desde el estado actual
-        put(startHpField, startHp);
-        put(maxHpField,   maxHp);
+        put(startHpField, bal.startHp);
+        put(maxHpField,   bal.maxHp);
 
-        if (stats != null) {
-            put(moveSpeedField, stats.getStat(StatType.MOVE_SPEED));
-            put(fireRateField,  stats.getStat(StatType.FIRE_RATE));
-            put(projSpeedField, stats.getStat(StatType.PROJECTILE_SPEED));
-            put(projRangeField, stats.getStat(StatType.PROJECTILE_RANGE));
-            put(projDamageField,stats.getStat(StatType.PROJECTILE_DAMAGE));
-        } else {
-            // Valores de reserva si aún no inyectaron stats
-            put(moveSpeedField, 160.0);
-            put(fireRateField,  3.0);
-            put(projSpeedField, 400.0);
-            put(projRangeField, 1.0);
-            put(projDamageField,1.0);
-        }
+        put(moveSpeedField, stats.getStat(StatType.MOVE_SPEED));
+        put(fireRateField,  stats.getStat(StatType.FIRE_RATE));
+        put(projSpeedField, stats.getStat(StatType.PROJECTILE_SPEED));
+        put(projRangeField, stats.getStat(StatType.PROJECTILE_RANGE));
+        put(projDamageField,stats.getStat(StatType.PROJECTILE_DAMAGE));
 
-        // Enemigos (usados por GameController al spawnear)
-        put(enemyHpField,     enemyBaseHp);
-        put(enemySpeedField,  enemySpeedAvg);
-        put(enemyScoreKField, enemyScoreK);
+        put(enemyHpField,     bal.enemyBaseHp);
+        put(enemySpeedField,  bal.enemySpeedAvg);
+        put(enemyScoreKField, bal.enemyScoreK);
+
+        loadUserJsonIfExists(); // opcional: sobreescribe con fichero del usuario
     }
 
     @FXML
     private void onApply() {
-        // Player
-        startHp = get(startHpField, startHp);
-        maxHp   = get(maxHpField,   maxHp);
+        var bal = com.layla.AppContext.balance();
 
-        if (stats != null) {
-            stats.setStat(StatType.MOVE_SPEED,        get(moveSpeedField, stats.getStat(StatType.MOVE_SPEED)));
-            stats.setStat(StatType.FIRE_RATE,         get(fireRateField,  stats.getStat(StatType.FIRE_RATE)));
-            stats.setStat(StatType.PROJECTILE_SPEED,  get(projSpeedField, stats.getStat(StatType.PROJECTILE_SPEED)));
-            stats.setStat(StatType.PROJECTILE_RANGE,  get(projRangeField, stats.getStat(StatType.PROJECTILE_RANGE)));
-            stats.setStat(StatType.PROJECTILE_DAMAGE, get(projDamageField,stats.getStat(StatType.PROJECTILE_DAMAGE)));
-        }
+        // Player HP (balance global)
+        bal.startHp = get(startHpField, bal.startHp);
+        bal.maxHp   = get(maxHpField,   bal.maxHp);
 
-        // Enemigos
-        enemyBaseHp    = get(enemyHpField,     enemyBaseHp);
-        enemySpeedAvg  = get(enemySpeedField,  enemySpeedAvg);
-        enemyScoreK    = get(enemyScoreKField, enemyScoreK);
+        // Player/shooting stats (StatsService global)
+        stats.setStat(StatType.MOVE_SPEED,        get(moveSpeedField, stats.getStat(StatType.MOVE_SPEED)));
+        stats.setStat(StatType.FIRE_RATE,         get(fireRateField,  stats.getStat(StatType.FIRE_RATE)));
+        stats.setStat(StatType.PROJECTILE_SPEED,  get(projSpeedField, stats.getStat(StatType.PROJECTILE_SPEED)));
+        stats.setStat(StatType.PROJECTILE_RANGE,  get(projRangeField, stats.getStat(StatType.PROJECTILE_RANGE)));
+        stats.setStat(StatType.PROJECTILE_DAMAGE, get(projDamageField,stats.getStat(StatType.PROJECTILE_DAMAGE)));
+
+        // Enemy defaults (balance global)
+        bal.enemyBaseHp   = get(enemyHpField,    bal.enemyBaseHp);
+        bal.enemySpeedAvg = get(enemySpeedField, bal.enemySpeedAvg);
+        bal.enemyScoreK   = get(enemyScoreKField,bal.enemyScoreK);
 
         if (persistCheck.isSelected()) saveUserJson();
 
@@ -98,20 +73,10 @@ public class StatsPanelController {
     @FXML
     private void onCancel() { onClose.run(); }
 
-    @FXML
-    private void onClose() { onClose.run(); }
-
     // ---------- Helpers ----------
-    private static void put(TextField f, double v) {
-        if (f != null) f.setText(Double.toString(v));
-    }
+    private static void put(TextField f, double v) { f.setText(Double.toString(v)); }
     private static double get(TextField f, double def) {
-        try {
-            String t = (f != null && f.getText() != null) ? f.getText().trim() : "";
-            return Double.parseDouble(t);
-        } catch (Exception e) {
-            return def;
-        }
+        try { return Double.parseDouble(f.getText().trim()); } catch (Exception e) { return def; }
     }
 
     private Path cfgPath() {
@@ -127,58 +92,55 @@ public class StatsPanelController {
             Map<String, Double> m = Json.minimalParse(json);
             if (m == null) return;
 
-            // Player
-            if (m.containsKey("startHp"))  startHp = m.get("startHp");
-            if (m.containsKey("maxHp"))    maxHp   = m.get("maxHp");
+            var bal = com.layla.AppContext.balance();
 
-            if (stats != null) {
-                if (m.containsKey("moveSpeed"))   stats.setStat(StatType.MOVE_SPEED,         m.get("moveSpeed"));
-                if (m.containsKey("fireRate"))    stats.setStat(StatType.FIRE_RATE,          m.get("fireRate"));
-                if (m.containsKey("projSpeed"))   stats.setStat(StatType.PROJECTILE_SPEED,   m.get("projSpeed"));
-                if (m.containsKey("projRange"))   stats.setStat(StatType.PROJECTILE_RANGE,   m.get("projRange"));
-                if (m.containsKey("projDamage"))  stats.setStat(StatType.PROJECTILE_DAMAGE,  m.get("projDamage"));
+            if (m.containsKey("startHp")) bal.startHp = m.get("startHp");
+            if (m.containsKey("maxHp"))   bal.maxHp   = m.get("maxHp");
 
-                // Compatibilidad con claves antiguas
-                if (m.containsKey("fireCooldown")) {
-                    double cooldown = m.get("fireCooldown");
-                    double rate = cooldown > 0.0 ? 1.0 / cooldown : 0.0;
-                    stats.setStat(StatType.FIRE_RATE, rate);
-                }
-                if (m.containsKey("rangePixels")) {
-                    double pixels = m.get("rangePixels");
-                    double speed = stats.getStat(StatType.PROJECTILE_SPEED);
-                    if (speed > 0.0) {
-                        stats.setStat(StatType.PROJECTILE_RANGE, pixels / speed);
-                    }
-                }
-                if (m.containsKey("damage")) {
-                    stats.setStat(StatType.PROJECTILE_DAMAGE, m.get("damage"));
-                }
+            if (m.containsKey("moveSpeed"))    stats.setStat(StatType.MOVE_SPEED,    m.get("moveSpeed"));
+            if (m.containsKey("fireRate"))     stats.setStat(StatType.FIRE_RATE,     m.get("fireRate"));
+            if (m.containsKey("projSpeed"))    stats.setStat(StatType.PROJECTILE_SPEED, m.get("projSpeed"));
+            if (m.containsKey("projRange"))    stats.setStat(StatType.PROJECTILE_RANGE, m.get("projRange"));
+            if (m.containsKey("projDamage"))   stats.setStat(StatType.PROJECTILE_DAMAGE, m.get("projDamage"));
+
+            // Compatibilidad antigua
+            if (m.containsKey("fireCooldown")) {
+                double cooldown = m.get("fireCooldown");
+                double rate = cooldown > 0.0 ? 1.0 / cooldown : 0.0;
+                stats.setStat(StatType.FIRE_RATE, rate);
+            }
+            if (m.containsKey("rangePixels")) {
+                double pixels = m.get("rangePixels");
+                double speed = stats.getStat(StatType.PROJECTILE_SPEED);
+                if (speed > 0.0) stats.setStat(StatType.PROJECTILE_RANGE, pixels / speed);
+            }
+            if (m.containsKey("damage")) {
+                stats.setStat(StatType.PROJECTILE_DAMAGE, m.get("damage"));
             }
 
-            // Enemigos
-            if (m.containsKey("enemyBaseHp"))  enemyBaseHp   = m.get("enemyBaseHp");
-            if (m.containsKey("enemySpeed"))   enemySpeedAvg = m.get("enemySpeed");
-            if (m.containsKey("enemyScoreK"))  enemyScoreK   = m.get("enemyScoreK");
-
+            if (m.containsKey("enemyBaseHp"))  bal.enemyBaseHp   = m.get("enemyBaseHp");
+            if (m.containsKey("enemySpeed"))   bal.enemySpeedAvg = m.get("enemySpeed");
+            if (m.containsKey("enemyScoreK"))  bal.enemyScoreK   = m.get("enemyScoreK");
         } catch (Exception ignored) {}
     }
 
     private void saveUserJson() {
         try {
+            var bal = com.layla.AppContext.balance();
+
             Path p = cfgPath();
             Files.createDirectories(p.getParent());
             String json = Json.toJson(Map.of(
-                "startHp",     startHp,
-                "maxHp",       maxHp,
-                "moveSpeed",   (stats != null ? stats.getStat(StatType.MOVE_SPEED)        : 160.0),
-                "fireRate",    (stats != null ? stats.getStat(StatType.FIRE_RATE)         : 3.0),
-                "projSpeed",   (stats != null ? stats.getStat(StatType.PROJECTILE_SPEED)   : 400.0),
-                "projRange",   (stats != null ? stats.getStat(StatType.PROJECTILE_RANGE)   : 1.0),
-                "projDamage",  (stats != null ? stats.getStat(StatType.PROJECTILE_DAMAGE)  : 1.0),
-                "enemyBaseHp", enemyBaseHp,
-                "enemySpeed",  enemySpeedAvg,
-                "enemyScoreK", enemyScoreK
+                "startHp",     bal.startHp,
+                "maxHp",       bal.maxHp,
+                "moveSpeed",   stats.getStat(StatType.MOVE_SPEED),
+                "fireRate",    stats.getStat(StatType.FIRE_RATE),
+                "projSpeed",   stats.getStat(StatType.PROJECTILE_SPEED),
+                "projRange",   stats.getStat(StatType.PROJECTILE_RANGE),
+                "projDamage",  stats.getStat(StatType.PROJECTILE_DAMAGE),
+                "enemyBaseHp", bal.enemyBaseHp,
+                "enemySpeed",  bal.enemySpeedAvg,
+                "enemyScoreK", bal.enemyScoreK
             ));
             Files.writeString(p, json);
         } catch (Exception ignored) {}
@@ -189,36 +151,26 @@ public class StatsPanelController {
         static Map<String, Double> minimalParse(String json) {
             try {
                 java.util.HashMap<String, Double> out = new java.util.HashMap<>();
-                String s = (json == null ? "" : json.trim());
+                String s = json.trim();
                 if (!s.startsWith("{") || !s.endsWith("}")) return null;
-                s = s.substring(1, s.length() - 1).trim();
+                s = s.substring(1, s.length()-1).trim();
                 if (s.isEmpty()) return out;
-
-                // Divide por comas de primer nivel (no soporta anidación, intencionado)
                 for (String part : s.split(",")) {
-                    String kvs = part.trim();
-                    int idx = kvs.indexOf(':');
-                    if (idx <= 0) continue;
-                    String k = kvs.substring(0, idx).trim();
-                    String v = kvs.substring(idx + 1).trim();
-                    k = k.replaceAll("^\"|\"$", ""); // quitar comillas
-                    out.put(k, Double.parseDouble(v));
+                    String[] kv = part.split(":");
+                    String k = kv[0].trim().replaceAll("^\"|\"$", "");
+                    Double v = Double.parseDouble(kv[1].trim());
+                    out.put(k, v);
                 }
                 return out;
-            } catch (Exception e) {
-                return null;
-            }
+            } catch (Exception e) { return null; }
         }
-
         static String toJson(Map<String, Double> m) {
             StringBuilder sb = new StringBuilder("{");
             boolean first = true;
             for (var e : m.entrySet()) {
                 if (!first) sb.append(',');
                 first = false;
-                sb.append('"').append(e.getKey()).append('"')
-                  .append(':')
-                  .append(e.getValue());
+                sb.append('"').append(e.getKey()).append('"').append(':').append(e.getValue());
             }
             return sb.append('}').toString();
         }

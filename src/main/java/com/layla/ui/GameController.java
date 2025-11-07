@@ -87,7 +87,6 @@ public class GameController implements ViewLifecycle {
     // Enemigos
     private final List<Enemy> enemies = new ArrayList<>();
     private boolean enemiesSpawned = false;
-    private double enemy_maxHP = 6.0;
 
     // HUD lateral (estadísticas)
     private HudView hud;
@@ -129,7 +128,7 @@ public class GameController implements ViewLifecycle {
                     java.util.function.Consumer<Object> settingsConsumer = c -> {
                         if (c instanceof SettingsController sc) {
                             sc.setStatsService(statsService);
-                            sc.setOverlayHost(overlayLayer); // <<<<< IMPORTANTE: host para abrir stats_panel.fxml
+                            sc.setOverlayHost(overlayLayer); // host para abrir stats_panel.fxml encima del juego
                             sc.setOnClose(() -> {
                                 OverlayRouter.closeOverlay(overlayLayer, settingsNode[0]);
                                 settingsOpen = false;
@@ -137,7 +136,7 @@ public class GameController implements ViewLifecycle {
                         }
                     };
                     settingsNode[0] = OverlayRouter.showOverlay(
-                            overlayLayer, "ui/settings.fxml", 0.90, settingsConsumer
+                        overlayLayer, "ui/settings.fxml", 0.90, settingsConsumer
                     );
                 });
             }
@@ -157,7 +156,7 @@ public class GameController implements ViewLifecycle {
         settingsOpen = false;
     }
 
-    /** Abre el Stats Panel sobre el overlayLayer del juego. */
+    /** Abre el Stats Panel sobre el overlayLayer del juego (helper si lo necesitas en otro sitio). */
     private void openStatsPanel() {
         final javafx.scene.Node[] statsNode = new javafx.scene.Node[1];
         statsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/stats_panel.fxml", 0.90, controller -> {
@@ -413,6 +412,12 @@ public class GameController implements ViewLifecycle {
         if (width <= 0 || height <= 0) return;
 
         player = new Player(input, gameArea, statsService);
+
+        // Aplica balance global de vida
+        var bal = com.layla.AppContext.balance();
+        player.setMaxHealth(bal.maxHp);
+        player.setHealth(bal.startHp);
+
         shootingService = new ShootingService(statsService);
 
         shootingArmed = false;
@@ -440,6 +445,7 @@ public class GameController implements ViewLifecycle {
     }
 
     // ==================== SHOOTING (solo flechas) ====================
+    /** Ticker invisible: cooldown flechas, refresco HUD, watchdog de spawn y GameOver. */
     private void addTickerIfNeeded() {
         if (tickerAdded || gameLoop == null) return;
 
@@ -550,23 +556,27 @@ public class GameController implements ViewLifecycle {
         if (width <= 0.0 || height <= 0.0) return;
 
         ThreadLocalRandom rng = ThreadLocalRandom.current();
+        var bal = com.layla.AppContext.balance();
 
         for (int i = 0; i < count; i++) {
-            double speed = 120.0 + rng.nextDouble(30.0);
+            // velocidad alrededor de la media (±15)
+            double speed = bal.enemySpeedAvg - 15.0 + rng.nextDouble(30.0);
+
             Enemy enemy = new Enemy(
-                    gameArea,
-                    this::getPlayerCenter,
-                    speed,
-                    enemy_maxHP,
-                    e -> {
-                        gameLoop.removeEntity(e);
-                        enemies.remove(e);
-                        int bonus = (int)Math.round(Math.pow(enemy_maxHP, 0.2) * 5.0);
-                        score = Math.max(0, score + bonus);
-                        updateHudLabels();
-                    },
-                    ge -> gameLoop.addEntity(ge),
-                    k -> sound.play(k)
+                gameArea,
+                this::getPlayerCenter,
+                speed,
+                bal.enemyBaseHp,
+                e -> {
+                    gameLoop.removeEntity(e);
+                    enemies.remove(e);
+                    // bonus configurable
+                    int bonus = (int) Math.round(Math.pow(bal.enemyBaseHp, 0.2) * bal.enemyScoreK);
+                    score = Math.max(0, score + bonus);
+                    updateHudLabels();
+                },
+                ge -> gameLoop.addEntity(ge),
+                k -> sound.play(k)
             );
 
             double enemyWidth = enemy.getWidth();
