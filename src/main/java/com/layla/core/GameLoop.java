@@ -10,8 +10,10 @@
 package com.layla.core;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -20,6 +22,9 @@ import javafx.application.Platform;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
+
+import com.layla.AppContext;
+import com.layla.entities.Projectile;
 
 /**
  * Bucle de juego basado en {@link AnimationTimer}.
@@ -226,11 +231,12 @@ public final class GameLoop {
         // Crear snapshot inmutable para iterar sin ConcurrentModification
         final List<GameEntity> snapshot = entities.isEmpty() ? List.of() : List.copyOf(entities);
 
-        // 1) Update
-        updateAll(snapshot, dt);
+        // 1) Update (con micro-step opcional para proyectiles rápidos)
+        final Set<GameEntity> microHandledProjectiles = new HashSet<>();
+        updateAll(snapshot, dt, microHandledProjectiles);
 
         // 2) Colisiones AABB
-        checkCollisions(snapshot);
+        checkCollisions(snapshot, microHandledProjectiles);
 
         // 3) (Render implícito en update: mover Nodes)
 
@@ -241,42 +247,113 @@ public final class GameLoop {
 
 
     // ---------- ETAPAS DEL FRAME ----------
-    private void updateAll(List<GameEntity> snapshot, double dt) {
+    private void updateAll(List<GameEntity> snapshot, double dt, Set<GameEntity> microHandledProjectiles) {
+        final double maxLinearStep = AppContext.balance().projectileMicroStepPx;
+        final int maxSubSteps = AppContext.balance().projectileMaxSubSteps;
+        final boolean microEnabled = maxLinearStep > 0.0 && maxSubSteps > 1;
+
         for (GameEntity entity : snapshot) {
-            try {
-                entity.update(dt);
-            } catch (Throwable t) {
-                LOG.log(Level.SEVERE, "[GameLoop] Exception in entity.update()", t);
+            if (microEnabled && entity instanceof Projectile projectile) {
+                boolean handled = runProjectileWithMicroSteps(
+                        projectile, snapshot, dt, microHandledProjectiles, maxLinearStep, maxSubSteps);
+                if (handled) {
+                    continue;
+                }
             }
+            safeUpdate(entity, dt);
         }
     }
 
-    private void checkCollisions(List<GameEntity> snapshot) {
+    private void checkCollisions(List<GameEntity> snapshot, Set<GameEntity> projectilesHandledAlready) {
         final int size = snapshot.size();
         for (int i = 0; i < size; i++) {
             final GameEntity a = snapshot.get(i);
+            if (projectilesHandledAlready.contains(a)) continue;
             final Bounds aBounds = safeBounds(a);
             if (aBounds == null) continue;
 
             for (int j = i + 1; j < size; j++) {
                 final GameEntity b = snapshot.get(j);
+                if (projectilesHandledAlready.contains(b)) continue;
                 final Bounds bBounds = safeBounds(b);
                 if (bBounds == null) continue;
 
                 // AABB simple usando Bounds#intersects
                 if (aBounds.intersects(bBounds)) {
-                    try {
-                        a.onCollision(b);
-                    } catch (Throwable t) {
-                        LOG.log(Level.SEVERE, "[GameLoop] Exception in a.onCollision()", t);
-                    }
-                    try {
-                        b.onCollision(a);
-                    } catch (Throwable t) {
-                        LOG.log(Level.SEVERE, "[GameLoop] Exception in b.onCollision()", t);
-                    }
+                    handleCollisionPair(a, b);
                 }
             }
+        }
+    }
+
+    private void safeUpdate(GameEntity entity, double dt) {
+        try {
+            entity.update(dt);
+        } catch (Throwable t) {
+            LOG.log(Level.SEVERE, "[GameLoop] Exception in entity.update()", t);
+        }
+    }
+
+    /**
+     * Returns true if the projectile was sub-stepped this frame.
+     */
+    private boolean runProjectileWithMicroSteps(
+            Projectile projectile,
+            List<GameEntity> snapshot,
+            double dt,
+            Set<GameEntity> microHandledProjectiles,
+            double maxLinearStep,
+            int maxSubSteps) {
+
+        final double displacement = projectile.getSpeed() * dt;
+        if (!(displacement > maxLinearStep)) {
+            // Movement small enough: fallback to regular path (handled later).
+            return false;
+        }
+
+        int steps = (int) Math.ceil(displacement / maxLinearStep);
+        steps = Math.min(maxSubSteps, Math.max(1, steps));
+        final double subDt = dt / steps;
+
+        for (int i = 0; i < steps; i++) {
+            if (isMarkedForRemoval(projectile)) break;
+            safeUpdate(projectile, subDt);
+            if (isMarkedForRemoval(projectile)) break;
+            runCollisionsForEntity(projectile, snapshot);
+            if (isMarkedForRemoval(projectile)) break;
+        }
+
+        microHandledProjectiles.add(projectile);
+        return true;
+    }
+
+    private void runCollisionsForEntity(GameEntity entity, List<GameEntity> snapshot) {
+        for (GameEntity other : snapshot) {
+            if (other == entity) continue;
+            if (isMarkedForRemoval(entity)) return;
+
+            final Bounds aBounds = safeBounds(entity);
+            if (aBounds == null) return;
+            final Bounds bBounds = safeBounds(other);
+            if (bBounds == null) continue;
+
+            if (aBounds.intersects(bBounds)) {
+                handleCollisionPair(entity, other);
+                if (isMarkedForRemoval(entity)) return;
+            }
+        }
+    }
+
+    private void handleCollisionPair(GameEntity a, GameEntity b) {
+        try {
+            a.onCollision(b);
+        } catch (Throwable t) {
+            LOG.log(Level.SEVERE, "[GameLoop] Exception in a.onCollision()", t);
+        }
+        try {
+            b.onCollision(a);
+        } catch (Throwable t) {
+            LOG.log(Level.SEVERE, "[GameLoop] Exception in b.onCollision()", t);
         }
     }
 
@@ -286,6 +363,12 @@ public final class GameLoop {
         final Node view = entity.getView();
         if (view == null) return null;
         return entity.getBounds();
+    }
+
+    private boolean isMarkedForRemoval(GameEntity entity) {
+        synchronized (queueLock) {
+            return pendingRemovals.contains(entity);
+        }
     }
 
     /** Aplica colas pendientes en el FX thread si no estamos ya en él. */

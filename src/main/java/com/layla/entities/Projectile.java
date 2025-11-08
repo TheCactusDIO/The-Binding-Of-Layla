@@ -85,6 +85,7 @@ public final class Projectile implements GameEntity {
 
     public double getDamage() { return damage; }
     public boolean isFromEnemy() { return fromEnemy; }
+    public double getSpeed() { return speed; }
 
     private boolean isOutOfPaneBounds() {
         double x = view.getLayoutX();
