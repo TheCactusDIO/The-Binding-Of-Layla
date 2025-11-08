@@ -114,8 +114,9 @@ public final class Enemy implements GameEntity {
             return;
         }
 
-        if (other instanceof Player p) {
-            p.takeDamage(1.0); // (usa 0.5 para medio corazón si quieres)
+       if (other instanceof Player p) {
+            double dmg = com.layla.AppContext.balance().enemyContactDamage;
+            p.takeDamage(dmg);
             playSfx.accept("hurt");
         }
     }

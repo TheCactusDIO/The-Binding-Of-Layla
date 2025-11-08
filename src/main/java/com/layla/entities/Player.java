@@ -139,15 +139,15 @@ public final class Player implements GameEntity {
     public void onCollision(GameEntity other) {
         if (dead) return;
 
-        // Balas enemigas dañan al player (½ corazón = 1.0 HP por ejemplo)
+        // Enemy bullets damage the player using the projectile's damage
         if (other instanceof Projectile proj) {
             if (proj.isFromEnemy()) {
-                takeDamage(1.0);
+                takeDamage(proj.getDamage());   // ← use projectile damage, not 1.0
             }
             return;
         }
 
-        // Contacto con enemigos: ignorado aquí. Lo aplica Enemy->Player.
+        // Contact with enemies: keep as-is (tweak value if you want 0.5 HP per touch)
         if (other instanceof Enemy) {
             return;
         }

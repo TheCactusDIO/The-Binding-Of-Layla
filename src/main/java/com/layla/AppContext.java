@@ -17,44 +17,36 @@ public final class AppContext {
         public double startHp = 6.0;
         public double maxHp   = 6.0;
 
-        // Enemy defaults (movimiento / puntuación)
+        // Enemy defaults
         public double enemyBaseHp   = 6.0;
         public double enemySpeedAvg = 130.0;
         public double enemyScoreK   = 5.0;
 
-        // Enemy projectiles (¡nuevo!)
-        public double enemyFireRate       = 1.0;  // disparos/s por enemigo estándar
-        public double enemyProjSpeed      = 220.0;
-        public double enemyProjRange      = 1.2;  // segundos de vida
-        public double enemyProjDamage     = 1.0;
+        // Enemy projectile stats (configurables)
+        public double enemyProjSpeed  = 180.0; // px/s
+        public double enemyProjRange  = 2.2;   // segundos de vida
+        public double enemyProjDamage = 1.0;   // HP
+        public double enemyContactDamage = 1.0; // daño por contacto (en HP)
 
-        // Micro anti-tunneling proyectiles
+        // Micro anti-tunneling
         public double projectileMicroStepPx = 12.0;
         public int    projectileMaxSubSteps = 6;
 
-        // Colisiones lógicas (fáciles de cambiar)
-        public boolean playerShotsHitEnemies = false; // ← tu preferencia actual
-        public boolean playerShotsHitPlayer  = false; // nunca
-        public boolean enemyShotsHitPlayer   = true;  // sí
-
         public void resetDefaults() {
-            startHp = 6.0;
-            maxHp   = 6.0;
-            enemyBaseHp   = 6.0;
-            enemySpeedAvg = 130.0;
-            enemyScoreK   = 5.0;
+            this.startHp = 6.0;
+            this.maxHp   = 6.0;
 
-            enemyFireRate   = 1.0;
-            enemyProjSpeed  = 220.0;
-            enemyProjRange  = 1.2;
-            enemyProjDamage = 1.0;
+            this.enemyBaseHp   = 6.0;
+            this.enemySpeedAvg = 130.0;
+            this.enemyScoreK   = 5.0;
 
-            projectileMicroStepPx = 12.0;
-            projectileMaxSubSteps = 6;
+            this.enemyProjSpeed  = 180.0;
+            this.enemyProjRange  = 2.2;
+            this.enemyProjDamage = 1.0;
+            this.enemyContactDamage = 1.0;
 
-            playerShotsHitEnemies = false;
-            playerShotsHitPlayer  = false;
-            enemyShotsHitPlayer   = true;
+            this.projectileMicroStepPx = 12.0;
+            this.projectileMaxSubSteps = 6;
         }
     }
 }
