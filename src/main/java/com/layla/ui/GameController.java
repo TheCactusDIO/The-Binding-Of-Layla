@@ -70,6 +70,9 @@ public class GameController implements ViewLifecycle {
     private Player player;
     private boolean playerSpawnListenerAdded = false;
 
+    // --- Start gate (juego no arranca hasta que se abra) ---
+    private boolean startGateOpen = false;
+
     // ---------- Input / servicios ----------
     private InputService input;
     private final StatsService statsService = com.layla.AppContext.stats();
@@ -215,6 +218,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void startHudTimerIfNeeded() {
+        if (!startGateOpen) return;
         if (hudTimer != null) return;
         elapsedSeconds = 0;
         score = 500;
@@ -334,14 +338,7 @@ public class GameController implements ViewLifecycle {
 
             gameArea.requestFocus();
             scene.setOnMouseClicked(e -> gameArea.requestFocus());
-
-            maybeSpawnPlayer();
-            addTickerIfNeeded();
         });
-
-        // HUD
-        startHudTimerIfNeeded();
-        updateHudLabels();
     }
 
 
@@ -383,6 +380,8 @@ public class GameController implements ViewLifecycle {
             hud = null;
         }
 
+        startGateOpen = false;
+
         shootingService = null;
         stopHudTimer();
         settingsOpen = false;
@@ -392,12 +391,22 @@ public class GameController implements ViewLifecycle {
 
     // ==================== API PÚBLICA BÁSICA ====================
     public void signalGameStart() {
-        if (gameStarted) return;
+        if (startGateOpen) return; // ya arrancado
+        startGateOpen = true;
+
         gameStarted = true;
         elapsedSeconds = 0;
         score = 500;
-        updateHudLabels();
+
+        // Arranques que antes hacías en onEnter
         startHudTimerIfNeeded();
+        updateHudLabels();
+
+        maybeSpawnPlayer();         // ahora sí puede spawnear
+        addTickerIfNeeded();        // engancha ticker
+        trySpawnInitialEnemies();   // primer batch
+
+        startFloorMusicIfNeeded();  // música de piso
     }
 
     public void setHUD(int score, int floor, int health) {
@@ -432,6 +441,7 @@ public class GameController implements ViewLifecycle {
 
     // ==================== SPAWN PLAYER ====================
     private void maybeSpawnPlayer() {
+        if (!startGateOpen) return;
         if (player != null || input == null || gameLoop == null) return;
 
         double width = gameArea.getWidth();
@@ -474,7 +484,7 @@ public class GameController implements ViewLifecycle {
     // ==================== SHOOTING (solo flechas) ====================
     /** Ticker invisible: cooldown flechas, refresco HUD, watchdog de spawn y GameOver. */
     private void addTickerIfNeeded() {
-        if (tickerAdded || gameLoop == null) return;
+        if (!startGateOpen || tickerAdded || gameLoop == null) return;
 
         GameEntity ticker = new GameEntity() {
             private final Group view = new Group(); // invisible
@@ -658,6 +668,7 @@ public class GameController implements ViewLifecycle {
 
 
     private void trySpawnInitialEnemies() {
+        if (!startGateOpen) return;
         if (enemiesSpawned) return;
         if (player == null || gameArea == null) return;
         if (gameArea.getWidth() <= 0.0 || gameArea.getHeight() <= 0.0) return;
