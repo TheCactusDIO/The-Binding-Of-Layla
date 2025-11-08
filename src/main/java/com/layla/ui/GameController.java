@@ -8,7 +8,6 @@ import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
-import com.layla.entities.DummyEntity;
 import com.layla.entities.Enemy;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
@@ -69,7 +68,6 @@ public class GameController implements ViewLifecycle {
     // ---------- Game loop / entidades ----------
     private GameLoop gameLoop;
     private Player player;
-    private boolean demoEntitiesAdded = false;
     private boolean playerSpawnListenerAdded = false;
 
     // ---------- Input / servicios ----------
@@ -270,20 +268,16 @@ public class GameController implements ViewLifecycle {
             ft.play();
         }
 
-        // === AÑADE ESTO DESPUÉS DEL FADE-IN ===
+        // Aplica estilos HUD a la Scene
         Platform.runLater(() -> {
             var sc = gameArea.getScene();
             if (sc != null) {
-                // Elimina duplicados y aplica los estilos del HUD
                 sc.getStylesheets().remove(UIStyles.hud());
                 sc.getStylesheets().add(UIStyles.hud());
-
-                // (Opcional pero recomendado: mantener global y game)
                 if (!sc.getStylesheets().contains(UIStyles.global()))
                     sc.getStylesheets().add(UIStyles.global());
                 if (!sc.getStylesheets().contains(UIStyles.game()))
                     sc.getStylesheets().add(UIStyles.game());
-
                 System.out.println("[HUD] Scene styles applied: " + sc.getStylesheets());
             }
         });
@@ -348,30 +342,8 @@ public class GameController implements ViewLifecycle {
         // HUD
         startHudTimerIfNeeded();
         updateHudLabels();
-
-        // Dummies de demo (opcional)
-        if (!demoEntitiesAdded) {
-            if (gameArea.getWidth() > 0) {
-                var d1 = new DummyEntity(50, 80,  90, gameArea);
-                var d2 = new DummyEntity(200,120, 60, gameArea);
-                gameLoop.addEntity(d1);
-                gameLoop.addEntity(d2);
-                if (!gameLoop.isRunning()) gameLoop.start();
-                demoEntitiesAdded = true;
-            } else {
-                gameArea.widthProperty().addListener((obs, ow, nw) -> {
-                    if (!demoEntitiesAdded && nw.doubleValue() > 0) {
-                        var d1 = new DummyEntity(50, 80,  90, gameArea);
-                        var d2 = new DummyEntity(200,120, 60, gameArea);
-                        gameLoop.addEntity(d1);
-                        gameLoop.addEntity(d2);
-                        if (!gameLoop.isRunning()) gameLoop.start();
-                        demoEntitiesAdded = true;
-                    }
-                });
-            }
-        }
     }
+
 
     @Override
     public void onExit() {

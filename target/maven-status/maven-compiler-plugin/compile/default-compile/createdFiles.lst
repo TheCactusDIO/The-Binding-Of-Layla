@@ -29,7 +29,6 @@ com\layla\services\StatsService.class
 com\layla\core\AssetsManager.class
 com\layla\ui\ViewLifecycle.class
 com\layla\AppContext.class
-com\layla\entities\DummyEntity.class
 com\layla\ui\UIStyles.class
 com\layla\ui\PauseOverlayController.class
 com\layla\model\PlayerStats.class
