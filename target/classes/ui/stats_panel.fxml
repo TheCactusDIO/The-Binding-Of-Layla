@@ -55,22 +55,25 @@
                             <Label text="Enemy Avg Speed" GridPane.rowIndex="8" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
                             <TextField fx:id="enemySpeedField" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
 
-                            <Label text="Enemy Score K" GridPane.rowIndex="9" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyScoreKField" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Fire Rate (shots/s)" GridPane.rowIndex="9" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyFireRateField" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
 
                              <!-- Enemy contact -->
-                            <Label text="Enemy Contact Damage" GridPane.rowIndex="13" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyContactDmgField" GridPane.rowIndex="13" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Contact Damage" GridPane.rowIndex="10" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyContactDmgField" GridPane.rowIndex="10" GridPane.columnIndex="1"/>
 
                             <!-- Enemy projectiles -->
-                            <Label text="Enemy Projectile Speed" GridPane.rowIndex="10" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyProjSpeedField" GridPane.rowIndex="10" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Projectile Speed" GridPane.rowIndex="11" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyProjSpeedField" GridPane.rowIndex="11" GridPane.columnIndex="1"/>
 
-                            <Label text="Enemy Projectile Range (s)" GridPane.rowIndex="11" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyProjRangeField" GridPane.rowIndex="11" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Projectile Range (s)" GridPane.rowIndex="12" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyProjRangeField" GridPane.rowIndex="12" GridPane.columnIndex="1"/>
 
-                            <Label text="Enemy Projectile Damage" GridPane.rowIndex="12" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                            <TextField fx:id="enemyProjDamageField" GridPane.rowIndex="12" GridPane.columnIndex="1"/>
+                            <Label text="Enemy Projectile Damage" GridPane.rowIndex="13" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyProjDamageField" GridPane.rowIndex="13" GridPane.columnIndex="1"/>
+
+                            <Label text="Enemy Score K" GridPane.rowIndex="14" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                            <TextField fx:id="enemyScoreKField" GridPane.rowIndex="14" GridPane.columnIndex="1"/>
                         </children>
                     </GridPane>
 

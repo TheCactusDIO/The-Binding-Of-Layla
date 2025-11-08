@@ -21,8 +21,9 @@ public class StatsPanelController {
     @FXML private TextField enemyHpField, enemySpeedField, enemyScoreKField;
     @FXML private TextField enemyContactDmgField;
 
-    // Enemy projectile fields (NEW)
+    // Enemy projectile fields
     @FXML private TextField enemyProjSpeedField, enemyProjRangeField, enemyProjDamageField;
+    @FXML private TextField enemyFireRateField;
 
     @FXML private CheckBox persistCheck;
 
@@ -66,6 +67,7 @@ public class StatsPanelController {
         put(enemyProjSpeedField,  bal.enemyProjSpeed);
         put(enemyProjRangeField,  bal.enemyProjRange);
         put(enemyProjDamageField, bal.enemyProjDamage);
+        put(enemyFireRateField, bal.enemyFireRate);
 
         // Optionally override with user JSON if present
         loadUserJsonIfExists();
@@ -98,6 +100,7 @@ public class StatsPanelController {
         bal.enemyProjSpeed  = get(enemyProjSpeedField,  bal.enemyProjSpeed);
         bal.enemyProjRange  = get(enemyProjRangeField,  bal.enemyProjRange);
         bal.enemyProjDamage = get(enemyProjDamageField, bal.enemyProjDamage);
+        bal.enemyFireRate = get(enemyFireRateField, bal.enemyFireRate);
 
         if (persistCheck.isSelected()) saveUserJson();
 
@@ -153,7 +156,8 @@ public class StatsPanelController {
         liveNumber(enemySpeedField, v -> { var b = com.layla.AppContext.balance(); b.enemySpeedAvg = v; onStatsChanged.run(); });
         liveNumber(enemyScoreKField, v -> { var b = com.layla.AppContext.balance(); b.enemyScoreK   = v; onStatsChanged.run(); });
         liveNumber(enemyContactDmgField, v -> {var b = com.layla.AppContext.balance(); b.enemyContactDamage = v; onStatsChanged.run();});
-
+        selectAllOnFocus.accept(enemyFireRateField);
+        liveNumber(enemyFireRateField, v -> { var b = com.layla.AppContext.balance(); b.enemyFireRate = v; onStatsChanged.run(); });
 
         // Enemy projectiles (NEW)
         liveNumber(enemyProjSpeedField,  v -> { var b = com.layla.AppContext.balance(); b.enemyProjSpeed  = v; onStatsChanged.run(); });
@@ -205,6 +209,7 @@ public class StatsPanelController {
             if (m.containsKey("projSpeed"))  stats.setStat(StatType.PROJECTILE_SPEED, m.get("projSpeed"));
             if (m.containsKey("projRange"))  stats.setStat(StatType.PROJECTILE_RANGE, m.get("projRange"));
             if (m.containsKey("projDamage")) stats.setStat(StatType.PROJECTILE_DAMAGE,m.get("projDamage"));
+            if (m.containsKey("enemyFireRate")) bal.enemyFireRate = m.get("enemyFireRate");
 
             // Back-compat keys
             if (m.containsKey("fireCooldown")) {
@@ -255,6 +260,7 @@ public class StatsPanelController {
             m.put("enemyProjSpeed",  bal.enemyProjSpeed);
             m.put("enemyProjRange",  bal.enemyProjRange);
             m.put("enemyProjDamage", bal.enemyProjDamage);
+            m.put("enemyFireRate", bal.enemyFireRate);
 
             String json = Json.toJson(m);
             Files.writeString(p, json);

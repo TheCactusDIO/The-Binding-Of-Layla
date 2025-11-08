@@ -4,6 +4,9 @@ import javafx.scene.control.DialogPane;
 
 public final class UIStyles {
     private UIStyles() {}
+    public static String hud()   { return UIStyles.class.getResource("/ui/styles/hud.css").toExternalForm(); }
+    public static String game()  { return UIStyles.class.getResource("/ui/styles/game.css").toExternalForm(); }
+    public static String global(){ return UIStyles.class.getResource("/ui/styles/global.css").toExternalForm(); }
 
     // GPT — aplica nuestras hojas de estilo y clase base al DialogPane
     public static void applyDialogStyle(DialogPane dp) {

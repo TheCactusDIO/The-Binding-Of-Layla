@@ -164,10 +164,12 @@ public class GameController implements ViewLifecycle {
                 sp.setStatsService(com.layla.AppContext.stats());
                 sp.setOnClose(() -> OverlayRouter.closeOverlay(overlayLayer, statsNode[0]));
                 sp.setOnStatsChanged(() -> {
-                    // 1) Refresca el HUD inmediatamente
+                    // 1) Refresca HUD al instante
                     if (hud != null) hud.refresh();
-                    // 2) Aplica cambios de balance (HP máx/clamp) al jugador activo
+                    // 2) Aplica balance en caliente al jugador
                     applyBalanceToRuntimePlayer();
+                    // 3) Aplica balance en caliente a TODOS los enemigos activos
+                    applyBalanceToRuntimeEnemies();
                 });
                 sp.onShow();
             }
@@ -208,7 +210,10 @@ public class GameController implements ViewLifecycle {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
         if (floorLabel != null) floorLabel.setText("Floor: 1");
         if (timeLabel  != null) timeLabel.setText("Time: " + formatMMSS(elapsedSeconds));
-        if (healthLabel != null) healthLabel.setText("HP");
+        if (healthLabel != null) {
+            healthLabel.setVisible(false);
+            healthLabel.setManaged(false); // para que no reserve espacio en el HBox
+        }
     }
 
     private void startHudTimerIfNeeded() {
@@ -243,6 +248,14 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
+    /** Aplica el nuevo max HP global a TODOS los enemigos existentes ahora mismo. */
+    private void applyBalanceToRuntimeEnemies() {
+        var bal = com.layla.AppContext.balance();
+        for (Enemy e : enemies) {
+            e.setMaxHealth(bal.enemyBaseHp);
+        }
+    }
+
     // ==================== CICLO DE VIDA (router) ====================
     @Override
     public void onEnter() {
@@ -256,6 +269,24 @@ public class GameController implements ViewLifecycle {
             ft.setToValue(1.0);
             ft.play();
         }
+
+        // === AÑADE ESTO DESPUÉS DEL FADE-IN ===
+        Platform.runLater(() -> {
+            var sc = gameArea.getScene();
+            if (sc != null) {
+                // Elimina duplicados y aplica los estilos del HUD
+                sc.getStylesheets().remove(UIStyles.hud());
+                sc.getStylesheets().add(UIStyles.hud());
+
+                // (Opcional pero recomendado: mantener global y game)
+                if (!sc.getStylesheets().contains(UIStyles.global()))
+                    sc.getStylesheets().add(UIStyles.global());
+                if (!sc.getStylesheets().contains(UIStyles.game()))
+                    sc.getStylesheets().add(UIStyles.game());
+
+                System.out.println("[HUD] Scene styles applied: " + sc.getStylesheets());
+            }
+        });
 
         // ESC para pausa
         Platform.runLater(() -> {
@@ -592,29 +623,36 @@ public class GameController implements ViewLifecycle {
         if (width <= 0.0 || height <= 0.0) return;
 
         ThreadLocalRandom rng = ThreadLocalRandom.current();
-        var bal = com.layla.AppContext.balance();
 
         for (int i = 0; i < count; i++) {
-            // velocidad alrededor de la media (±15)
-            double speed = bal.enemySpeedAvg - 15.0 + rng.nextDouble(30.0);
+            // FACTOR de velocidad relativo a enemySpeedAvg (por ejemplo 0.85..1.15)
+            double speedFactor = 0.85 + rng.nextDouble(0.30);
+            double baseHp = com.layla.AppContext.balance().enemyBaseHp;
 
             Enemy enemy = new Enemy(
                 gameArea,
                 this::getPlayerCenter,
-                speed,
-                bal.enemyBaseHp,
-                e -> {
+                speedFactor,                 // factor multiplicado por enemySpeedAvg cada frame
+                baseHp,                      // HP inicial (y max) del enemigo
+                e -> {                       // onRemove (NO capturamos la variable local 'enemy')
                     gameLoop.removeEntity(e);
-                    enemies.remove(e);
-                    // bonus configurable
-                    int bonus = (int) Math.round(Math.pow(bal.enemyBaseHp, 0.2) * bal.enemyScoreK);
-                    score = Math.max(0, score + bonus);
-                    updateHudLabels();
+                    if (e instanceof Enemy en) {
+                        enemies.remove(en);
+                        double hpMax = en.getMaxHealth();
+                        int bonus = (int) Math.round(
+                            Math.pow(hpMax, 0.2) * com.layla.AppContext.balance().enemyScoreK
+                        );
+                        score = Math.max(0, score + bonus);
+                        updateHudLabels();
+                    } else {
+                        enemies.removeIf(x -> x == e);
+                    }
                 },
-                ge -> gameLoop.addEntity(ge),
-                k -> sound.play(k)
+                ge -> gameLoop.addEntity(ge), // onSpawn (proyectiles enemigos)
+                k -> sound.play(k)            // sfx
             );
 
+            // ... el resto del posicionamiento igual
             double enemyWidth = enemy.getWidth();
             double enemyHeight = enemy.getHeight();
             double maxX = Math.max(0.0, width - enemyWidth);
@@ -645,6 +683,7 @@ public class GameController implements ViewLifecycle {
             gameLoop.addEntity(enemy);
         }
     }
+
 
     private void trySpawnInitialEnemies() {
         if (enemiesSpawned) return;

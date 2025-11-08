@@ -27,6 +27,8 @@ public final class AppContext {
         public double enemyProjRange  = 2.2;   // segundos de vida
         public double enemyProjDamage = 1.0;   // HP
         public double enemyContactDamage = 1.0; // daño por contacto (en HP)
+        public double enemyFireRate = 0.8;      // disparos/seg del enemigo (global)
+        public double enemyFireJitter = 0.35;   // +-25% de variación aleatoria en el intervalo
 
         // Micro anti-tunneling
         public double projectileMicroStepPx = 12.0;
@@ -44,6 +46,9 @@ public final class AppContext {
             this.enemyProjRange  = 2.2;
             this.enemyProjDamage = 1.0;
             this.enemyContactDamage = 1.0;
+
+            this.enemyFireRate    = 0.8;
+            this.enemyFireJitter  = 0.35;
 
             this.projectileMicroStepPx = 12.0;
             this.projectileMaxSubSteps = 6;
