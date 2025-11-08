@@ -2,11 +2,11 @@ package com.layla.services;
 
 import static java.lang.Math.hypot;
 import static java.lang.Math.max;
-
 import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.layla.AppContext;
+import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.entities.Projectile;
 import com.layla.model.StatType;
@@ -14,14 +14,15 @@ import com.layla.model.StatType;
 import javafx.scene.layout.Pane;
 
 /**
- * Gestiona disparos básicos leyendo siempre las estadísticas centralizadas.
+ * Gestiona disparos del jugador leyendo las estadísticas centralizadas.
+ * Añade "owner" para ignorar autocolisión inicial con el jugador.
  */
 public final class ShootingService {
 
-    private final StatsService statsService; // <- asignado en ctor
+    private final StatsService statsService; // asignado en ctor
     private double timer = 0.0;
 
-    // Última dirección válida de movimiento (por defecto, arriba)
+    // Última dirección válida (por defecto, arriba)
     private double aimX = 0.0;
     private double aimY = -1.0;
 
@@ -60,10 +61,14 @@ public final class ShootingService {
      * Intenta disparar si el cooldown ha terminado.
      * @return true si se crea un proyectil.
      */
-    public boolean tryShoot(Pane gameArea, GameLoop loop, double originX, double originY,
+    public boolean tryShoot(Pane gameArea,
+                            GameLoop loop,
+                            double originX, double originY,
+                            GameEntity owner,
                             Consumer<Projectile> onSpawn) {
         Objects.requireNonNull(gameArea, "gameArea");
         Objects.requireNonNull(loop, "loop");
+        Objects.requireNonNull(owner, "owner");
 
         double fireRate = statsService.getStat(StatType.FIRE_RATE);
         double fireCooldown = fireRate > 0.0 ? (1.0 / fireRate) : Double.POSITIVE_INFINITY;
@@ -78,8 +83,17 @@ public final class ShootingService {
         if (alen < 1e-6) { ax = 0.0; ay = -1.0; }
         else { ax /= alen; ay /= alen; }
 
-        // Crea el proyectil (ajusta el último parámetro según tu Projectile)
-        Projectile p = new Projectile(ax, ay, projectileSpeed, lifetime, damage, gameArea, loop::removeEntity);
+        // Jugador dispara → fromEnemy = false y owner = player
+        Projectile p = new Projectile(
+            ax, ay,
+            projectileSpeed,
+            lifetime,
+            damage,
+            /*fromEnemy*/ false,
+            gameArea,
+            loop::removeEntity,
+            owner
+        );
         p.getView().setLayoutX(originX - 4.0);
         p.getView().setLayoutY(originY - 4.0);
 

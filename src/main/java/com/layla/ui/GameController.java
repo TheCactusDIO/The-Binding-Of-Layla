@@ -499,7 +499,13 @@ public class GameController implements ViewLifecycle {
                         double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
                         double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
 
-                        shootingService.tryShoot(gameArea, gameLoop, px, py, (Projectile p) -> sound.play("shot"));
+                        shootingService.tryShoot(
+                            gameArea,
+                            gameLoop,
+                            px, py,
+                            player,                     // ← owner
+                            (Projectile p) -> sound.play("shot")
+                        );
                     }
                 }
 
@@ -545,7 +551,13 @@ public class GameController implements ViewLifecycle {
         double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
         double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
 
-        shootingService.tryShoot(gameArea, gameLoop, px, py, (Projectile p) -> sound.play("shot"));
+        shootingService.tryShoot(
+            gameArea,
+            gameLoop,
+            px, py,
+            player,                     // ← owner
+            (Projectile p) -> sound.play("shot")
+        );
     }
 
     // ==================== ENEMIGOS ====================

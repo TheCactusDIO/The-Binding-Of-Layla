@@ -13,9 +13,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 /**
- * Enemigo básico: persigue al jugador y dispara ocasionalmente en 4 direcciones.
- * - Solo recibe daño de balas del jugador (Projectile.isFromEnemy() == false).
- * - Contacto con el Player: 0.5 de daño al jugador.
+ * Enemigo básico: persigue al jugador y dispara ocasionalmente hacia él.
+ * - Solo recibe daño de balas del jugador (Projectile.isFromEnemy()==false).
+ * - Contacto con Player: daño al jugador (aplica i-frames en Player).
  */
 public final class Enemy implements GameEntity {
 
@@ -28,22 +28,20 @@ public final class Enemy implements GameEntity {
     private final Supplier<double[]> playerCenterSupplier;
     private final double speed;
     private final Consumer<GameEntity> onRemove;
+    private final Consumer<GameEntity> onSpawn; // para añadir el proyectil al loop
 
     private double health;
     private boolean dead;
 
-    // --- disparo enemigo ---
-    private final java.util.function.Consumer<com.layla.core.GameEntity> onSpawn;
+    // Disparo enemigo
     private double shootTimer = 0.0;
-    private final double shootIntervalMin = 1.5; // s
-    private final double shootIntervalMax = 3.5; // s
-    private final double shootBias = 0.15; // leve sesgo a la componente dominante
-    private final Pane pane; // para spawnear proyectiles
+    private final double shootIntervalMin = 1.5;
+    private final double shootIntervalMax = 3.5;
 
-    // --- sfx ---
-    private final java.util.function.Consumer<String> playSfx;
+    // sfx
+    private final Consumer<String> playSfx;
 
-    // --- hp base ---
+    // hp base
     private final double maxHealth;
 
     public Enemy(Pane boundsPane,
@@ -51,11 +49,10 @@ public final class Enemy implements GameEntity {
                  double speed,
                  double health,
                  Consumer<GameEntity> onRemove,
-                 java.util.function.Consumer<GameEntity> onSpawn,
-                 java.util.function.Consumer<String> playSfx) {
+                 Consumer<GameEntity> onSpawn,
+                 Consumer<String> playSfx) {
 
         this.boundsPane = Objects.requireNonNull(boundsPane, "boundsPane");
-        this.pane = boundsPane;
         this.playerCenterSupplier = Objects.requireNonNull(playerCenterSupplier, "playerCenterSupplier");
         this.speed = speed;
         this.health = health;
@@ -66,7 +63,6 @@ public final class Enemy implements GameEntity {
 
         view.setStroke(Color.BLACK);
         view.setManaged(false);
-
         resetShootTimer();
     }
 
@@ -83,26 +79,21 @@ public final class Enemy implements GameEntity {
         double dirX = playerCenter[0] - enemyCenterX;
         double dirY = playerCenter[1] - enemyCenterY;
         double len = Math.hypot(dirX, dirY);
-        if (len < EPSILON) return;
+        if (len > EPSILON) {
+            dirX /= len;
+            dirY /= len;
 
-        dirX /= len;
-        dirY /= len;
+            double nextX = clamp(view.getLayoutX() + dirX * speed * dt, 0.0, Math.max(0.0, boundsPane.getWidth()  - WIDTH));
+            double nextY = clamp(view.getLayoutY() + dirY * speed * dt, 0.0, Math.max(0.0, boundsPane.getHeight() - HEIGHT));
 
-        double nextX = view.getLayoutX() + dirX * speed * dt;
-        double nextY = view.getLayoutY() + dirY * speed * dt;
+            view.setLayoutX(nextX);
+            view.setLayoutY(nextY);
+        }
 
-        double maxX = Math.max(0.0, boundsPane.getWidth() - WIDTH);
-        double maxY = Math.max(0.0, boundsPane.getHeight() - HEIGHT);
-        nextX = clamp(nextX, 0.0, maxX);
-        nextY = clamp(nextY, 0.0, maxY);
-
-        view.setLayoutX(nextX);
-        view.setLayoutY(nextY);
-
-        // Disparo ocasional hacia el jugador (4 direcciones con leve sesgo)
+        // disparo
         shootTimer -= dt;
         if (shootTimer <= 0.0) {
-            tryShootAtPlayer();
+            shootAtPlayer();
             resetShootTimer();
         }
     }
@@ -114,7 +105,7 @@ public final class Enemy implements GameEntity {
     public void onCollision(GameEntity other) {
         if (dead) return;
 
-        // Impacto de proyectil: solo daño si la bala NO es enemiga (i.e., del jugador)
+        // Solo daño si la bala no es enemiga (viene del jugador)
         if (other instanceof Projectile projectile) {
             if (!projectile.isFromEnemy()) {
                 takeDamage(projectile.getDamage());
@@ -123,54 +114,45 @@ public final class Enemy implements GameEntity {
             return;
         }
 
-       // Contacto con el jugador: aplica daño aquí (solo desde Enemy -> Player)
         if (other instanceof Player p) {
-            p.takeDamage(1.0);      // ajusta a 0.5 si quieres medio corazón = 0.5 HP
-            playSfx.accept("hurt"); // opcional: sonido de daño al player
+            p.takeDamage(1.0); // (usa 0.5 para medio corazón si quieres)
+            playSfx.accept("hurt");
         }
     }
 
-    private void tryShootAtPlayer() {
-        double[] playerCenter = playerCenterSupplier.get();
-        if (playerCenter == null || playerCenter.length < 2) return;
+    private void shootAtPlayer() {
+        var bal = com.layla.AppContext.balance();
 
-        // vector al jugador
-        double cx = view.getLayoutX() + WIDTH * 0.5;
-        double cy = view.getLayoutY() + HEIGHT * 0.5;
-        double dx = playerCenter[0] - cx;
-        double dy = playerCenter[1] - cy;
+        double ox = view.getLayoutX() + WIDTH  * 0.5;
+        double oy = view.getLayoutY() + HEIGHT * 0.5;
+
+        double[] pc = playerCenterSupplier.get();
+        if (pc == null || pc.length < 2) return;
+
+        double dx = pc[0] - ox;
+        double dy = pc[1] - oy;
         double len = Math.hypot(dx, dy);
-        if (len < EPSILON) return;
-        double ndx = dx / len, ndy = dy / len;
+        if (len < 1e-6) { dx = 0; dy = 1; len = 1; }
+        dx /= len; dy /= len;
 
-        // dirección cardinal primaria (H/V) con leve sesgo
-        double scoreH = Math.abs(dx) + shootBias * Math.abs(ndx);
-        double scoreV = Math.abs(dy) + shootBias * Math.abs(ndy);
-        double sx = 0.0, sy = 0.0;
-        if (scoreH >= scoreV) sx = (dx >= 0 ? 1.0 : -1.0);
-        else                   sy = (dy >= 0 ? 1.0 : -1.0);
+        // Crea proyectil enemigo con owner=this y fromEnemy=true
+        Projectile p = new Projectile(
+                dx, dy,
+                bal.enemyProjSpeed,
+                bal.enemyProjRange,
+                bal.enemyProjDamage,
+                true,
+                boundsPane,
+                onRemove,
+                this
+        );
+        p.getView().setLayoutX(ox - 4.0);
+        p.getView().setLayoutY(oy - 4.0);
 
-        // parámetros del proyectil enemigo
-        double projSpeed = 100.0;
-        double projRange = 1.2;
-        double projDamage = 1.0;
-
-        // origen: centro del enemigo
-        double spawnX = cx;
-        double spawnY = cy;
-
-        // Crea el proyectil y publícalo (fromEnemy = true)
-        Projectile bullet = new Projectile(sx, sy, projSpeed, projRange, projDamage, pane, g -> {}, true);
-        bullet.getView().setLayoutX(spawnX);
-        bullet.getView().setLayoutY(spawnY);
-        onSpawn.accept(bullet);
+        onSpawn.accept(p); // GameLoop.addEntity
     }
 
-    public void setPosition(double x, double y) {
-        view.setLayoutX(x);
-        view.setLayoutY(y);
-    }
-
+    public void setPosition(double x, double y) { view.setLayoutX(x); view.setLayoutY(y); }
     public double getWidth() { return WIDTH; }
     public double getHeight() { return HEIGHT; }
     public double getHealth() { return health; }
@@ -187,10 +169,10 @@ public final class Enemy implements GameEntity {
         }
     }
 
-    private static double clamp(double value, double min, double max) {
-        if (value < min) return min;
-        if (value > max) return max;
-        return value;
+    private static double clamp(double v, double min, double max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
     }
 
     private void resetShootTimer() {
