@@ -17,6 +17,7 @@ import com.layla.services.StatsService;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
+import com.layla.ui.FloatingTextEntity;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -649,6 +650,11 @@ public class GameController implements ViewLifecycle {
                         );
                         score = Math.max(0, score + bonus);
                         updateHudLabels();
+
+                        double cx = en.getView().getLayoutX() + en.getWidth() * 0.5;
+                        double cy = en.getView().getLayoutY() + en.getHeight() * 0.5;
+                        var ft = new FloatingTextEntity("+" + bonus, cx, cy, x -> gameLoop.removeEntity(x));
+                        gameLoop.addEntity(ft);
                     } else {
                         enemies.removeIf(x -> x == e);
                     }

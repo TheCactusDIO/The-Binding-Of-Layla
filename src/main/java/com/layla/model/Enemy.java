@@ -10,11 +10,17 @@ import com.layla.core.GameEntity;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
 
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.PauseTransition;
+import javafx.animation.ScaleTransition;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
 
 public final class Enemy implements GameEntity {
 
@@ -34,6 +40,7 @@ public final class Enemy implements GameEntity {
     private double maxHealth;
     private double timeSinceShot = 0.0;
     private boolean dead = false;
+    private PauseTransition hitFlashTimer;
 
     public Enemy(EnemyType type,
                  Pane boundsPane,
@@ -263,12 +270,16 @@ public final class Enemy implements GameEntity {
     public void applyDamage(double dmg) {
         if (dead || dmg <= 0.0) return;
         setHealth(hp - dmg);
+        if (!dead) {
+            flashHit();
+        }
     }
 
     private void die() {
         if (dead) return;
         dead = true;
         hp = 0.0;
+        spawnDeathFx();
         onRemove.accept(this);
     }
 
@@ -284,5 +295,58 @@ public final class Enemy implements GameEntity {
         if (v < min) return min;
         if (v > max) return max;
         return v;
+    }
+
+    private void flashHit() {
+        if (hitFlashTimer == null) {
+            hitFlashTimer = new PauseTransition(Duration.millis(120));
+            hitFlashTimer.setOnFinished(e -> {
+                view.setStroke(Color.BLACK);
+                try {
+                    applyTypeStyle();
+                } catch (Throwable ignored) {
+                    if (view.getFill() instanceof Color c) {
+                        view.setFill(Color.DARKRED);
+                    }
+                }
+            });
+        } else {
+            hitFlashTimer.stop();
+        }
+
+        view.setStroke(Color.WHITE);
+        if (view.getFill() instanceof Color c) {
+            view.setFill(c.brighter());
+        }
+        hitFlashTimer.playFromStart();
+    }
+
+    private void spawnDeathFx() {
+        Circle fx = new Circle(6, Color.ORANGERED);
+        fx.setManaged(false);
+        fx.setLayoutX(getCenterX());
+        fx.setLayoutY(getCenterY());
+
+        GameEntity fxEntity = new GameEntity() {
+            @Override public void update(double dt) {}
+            @Override public Node getView() { return fx; }
+            @Override public void onCollision(GameEntity other) {}
+        };
+
+        onSpawn.accept(fxEntity);
+
+        FadeTransition fade = new FadeTransition(Duration.millis(250), fx);
+        fade.setFromValue(1.0);
+        fade.setToValue(0.0);
+
+        ScaleTransition scale = new ScaleTransition(Duration.millis(250), fx);
+        scale.setFromX(1.0);
+        scale.setFromY(1.0);
+        scale.setToX(1.8);
+        scale.setToY(1.8);
+
+        ParallelTransition pt = new ParallelTransition(fx, fade, scale);
+        pt.setOnFinished(e -> onRemove.accept(fxEntity));
+        pt.play();
     }
 }

@@ -26,6 +26,7 @@ com\layla\ui\SettingsController.class
 com\layla\App.class
 com\layla\ui\MainMenuController.class
 com\layla\core\InputService.class
+com\layla\ui\FloatingTextEntity.class
 com\layla\ui\IntroVideoController.class
 com\layla\AppContext$GameBalance$BalanceDTO.class
 com\layla\AppContext$1.class
@@ -42,4 +43,5 @@ com\layla\ui\LoadingController.class
 com\layla\core\GameEntity.class
 com\layla\entities\Projectile.class
 com\layla\model\StatModifier.class
+com\layla\model\Enemy$2.class
 com\layla\ui\HudView.class
