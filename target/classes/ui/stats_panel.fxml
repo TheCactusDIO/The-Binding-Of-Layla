@@ -77,6 +77,54 @@
                         </children>
                     </GridPane>
 
+                    <Separator/>
+
+                    <VBox spacing="10">
+                        <children>
+                            <Label text="Perfiles de enemigos" style="-fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold;"/>
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <children>
+                                    <Label text="Tipo" style="-fx-text-fill: white;"/>
+                                    <ComboBox fx:id="enemyTypeCombo" prefWidth="180"/>
+                                    <CheckBox fx:id="stationaryCheck" text="Estacionario" style="-fx-text-fill: white;"/>
+                                    <Region HBox.hgrow="ALWAYS"/>
+                                    <Button fx:id="saveBtn" text="Guardar perfiles" styleClass="menu-button"/>
+                                </children>
+                            </HBox>
+                            <GridPane hgap="10" vgap="8">
+                                <columnConstraints>
+                                    <ColumnConstraints percentWidth="40"/>
+                                    <ColumnConstraints percentWidth="60"/>
+                                </columnConstraints>
+                                <children>
+                                    <Label text="Base HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                                    <Label text="Velocidad (px/s)" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileSpeedField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                                    <Label text="Daño contacto" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileContactField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                                    <Label text="Cadencia (disparos/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileFireField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                                    <Label text="Jitter (%)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileJitterField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                                    <Label text="Velocidad proyectil" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileProjSpeedField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                                    <Label text="Alcance proyectil (px)" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileProjRangeField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+                                    <Label text="Daño proyectil" GridPane.rowIndex="7" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                    <TextField fx:id="profileProjDmgField" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+                                </children>
+                            </GridPane>
+                        </children>
+                    </VBox>
+
 
                     <CheckBox fx:id="persistCheck"
                               text="Persistir en JSON (usuario)"

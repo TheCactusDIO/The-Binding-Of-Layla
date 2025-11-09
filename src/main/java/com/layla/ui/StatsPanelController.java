@@ -2,14 +2,24 @@ package com.layla.ui;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.DoubleSupplier;
 
+import com.layla.model.EnemyProfile;
+import com.layla.model.EnemyType;
 import com.layla.model.StatType;
 import com.layla.services.StatsService;
 
+import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextField;
 
 public class StatsPanelController {
@@ -26,11 +36,23 @@ public class StatsPanelController {
     @FXML private TextField enemyFireRateField;
 
     @FXML private CheckBox persistCheck;
+    @FXML private ComboBox<EnemyType> enemyTypeCombo;
+    @FXML private TextField profileHpField, profileSpeedField, profileContactField, profileFireField, profileJitterField,
+                            profileProjSpeedField, profileProjRangeField, profileProjDmgField;
+    @FXML private CheckBox stationaryCheck;
+    @FXML private Button saveBtn;
 
     private Runnable onClose = () -> {};
     /** Called whenever stats/balance change so caller (HUD/game) can refresh immediately. */
     private Runnable onStatsChanged = () -> {};
     private StatsService stats = com.layla.AppContext.stats();
+    private final Map<TextField, ChangeListener<String>> profileBindings = new HashMap<>();
+    private ChangeListener<Boolean> stationaryBinding;
+    private final Path enemyBalancePath = Path.of(
+            System.getProperty("user.home"),
+            ".layla",
+            "enemy_balance.json"
+    );
 
     public void setOnClose(Runnable r)          { this.onClose = (r != null) ? r : () -> {}; }
     public void setOnStatsChanged(Runnable r)   { this.onStatsChanged = (r != null) ? r : () -> {}; }
@@ -40,6 +62,27 @@ public class StatsPanelController {
     private void initialize() {
         // Live bindings so valid numbers apply immediately while typing.
         installLiveBindings();
+        setupEnemyProfilesPanel();
+    }
+
+    private void setupEnemyProfilesPanel() {
+        if (enemyTypeCombo == null) return;
+        enemyTypeCombo.getItems().setAll(EnemyType.values());
+        enemyTypeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldT, newT) -> {
+            if (newT != null) {
+                bindProfile(com.layla.AppContext.balance().profile(newT));
+            }
+        });
+        if (!enemyTypeCombo.getItems().isEmpty()) {
+            enemyTypeCombo.getSelectionModel().select(EnemyType.SHOOTER);
+            refreshSelectedProfile();
+        }
+
+        if (saveBtn != null) {
+            saveBtn.setOnAction(e -> saveProfilesAsync());
+        }
+
+        loadProfilesAsync();
     }
 
     /** Preload UI from global balance/stats. */
@@ -71,6 +114,63 @@ public class StatsPanelController {
 
         // Optionally override with user JSON if present
         loadUserJsonIfExists();
+        refreshSelectedProfile();
+    }
+
+    private void bindProfile(EnemyProfile profile) {
+        if (profile == null) return;
+        bindNumberField(profileHpField,        () -> profile.baseHp,     v -> profile.baseHp = v);
+        bindNumberField(profileSpeedField,     () -> profile.speed,      v -> profile.speed = v);
+        bindNumberField(profileContactField,   () -> profile.contactDmg, v -> profile.contactDmg = v);
+        bindNumberField(profileFireField,      () -> profile.fireRate,   v -> profile.fireRate = v);
+        bindNumberField(profileJitterField,    () -> profile.jitter,     v -> profile.jitter = v);
+        bindNumberField(profileProjSpeedField, () -> profile.projSpeed,  v -> profile.projSpeed = v);
+        bindNumberField(profileProjRangeField, () -> profile.projRange,  v -> profile.projRange = v);
+        bindNumberField(profileProjDmgField,   () -> profile.projDamage, v -> profile.projDamage = v);
+        bindStationary(profile);
+    }
+
+    private void bindNumberField(TextField tf, DoubleSupplier getter, DoubleConsumer setter) {
+        if (tf == null || getter == null || setter == null) return;
+        ChangeListener<String> prev = profileBindings.remove(tf);
+        if (prev != null) tf.textProperty().removeListener(prev);
+        tf.setText(Double.toString(getter.getAsDouble()));
+        ChangeListener<String> listener = (obs, oldV, newV) -> {
+            Double val = tryParse(newV);
+            if (val != null) {
+                setter.accept(val);
+            }
+        };
+        tf.textProperty().addListener(listener);
+        profileBindings.put(tf, listener);
+    }
+
+    private void bindStationary(EnemyProfile profile) {
+        if (stationaryCheck == null) return;
+        if (stationaryBinding != null) {
+            stationaryCheck.selectedProperty().removeListener(stationaryBinding);
+        }
+        stationaryCheck.setSelected(profile.stationary);
+        stationaryBinding = (obs, oldV, newV) -> profile.stationary = Boolean.TRUE.equals(newV);
+        stationaryCheck.selectedProperty().addListener(stationaryBinding);
+    }
+
+    private void refreshSelectedProfile() {
+        if (enemyTypeCombo == null) return;
+        EnemyType selected = enemyTypeCombo.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            bindProfile(com.layla.AppContext.balance().profile(selected));
+        }
+    }
+
+    private void loadProfilesAsync() {
+        CompletableFuture
+            .runAsync(() -> com.layla.AppContext.balance().loadFromJson(enemyBalancePath))
+            .thenRun(() -> Platform.runLater(this::refreshSelectedProfile));
+    }
+
+    private void saveProfilesAsync() {
+        CompletableFuture.runAsync(() -> com.layla.AppContext.balance().saveToJson(enemyBalancePath));
     }
 
     // --------- Actions ---------
@@ -136,8 +236,10 @@ public class StatsPanelController {
         for (TextField tf : new TextField[] {
                 startHpField, maxHpField,
                 moveSpeedField, fireRateField, projSpeedField, projRangeField, projDamageField,
-                enemyHpField, enemySpeedField, enemyScoreKField,
-                enemyProjSpeedField, enemyProjRangeField, enemyProjDamageField
+                enemyHpField, enemySpeedField, enemyScoreKField, enemyContactDmgField,
+                enemyProjSpeedField, enemyProjRangeField, enemyProjDamageField,
+                profileHpField, profileSpeedField, profileContactField, profileFireField,
+                profileJitterField, profileProjSpeedField, profileProjRangeField, profileProjDmgField
         }) {
             if (tf != null) selectAllOnFocus.accept(tf);
         }

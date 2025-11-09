@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.layla.core.GameEntity;
+import com.layla.model.Enemy;
 
 import javafx.geometry.Bounds;
 import javafx.scene.Node;

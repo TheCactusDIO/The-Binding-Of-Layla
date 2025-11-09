@@ -6,6 +6,7 @@ import java.util.function.Supplier;
 
 import com.layla.core.GameEntity;
 import com.layla.core.InputService;
+import com.layla.model.Enemy;
 import com.layla.model.StatType;
 import com.layla.services.StatsService;
 

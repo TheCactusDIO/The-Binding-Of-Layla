@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.layla.model.Enemy;
+import com.layla.model.EnemyType;
+
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.layout.Pane;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,11 +25,13 @@ class EnemyDamageTest {
         Pane pane = createPane(400, 400);
         AtomicBoolean removed = new AtomicBoolean(false);
 
+        var profile = com.layla.AppContext.balance().profile(EnemyType.SHOOTER);
+        profile.baseHp = 6.0;
+
         Enemy enemy = new Enemy(
+                EnemyType.SHOOTER,
                 pane,
                 () -> new double[] {200.0, 200.0},
-                120.0,
-                6.0,
                 e -> removed.set(true),
                 g -> {},
                 s -> {}

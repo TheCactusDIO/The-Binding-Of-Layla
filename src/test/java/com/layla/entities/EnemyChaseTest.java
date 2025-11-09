@@ -2,6 +2,9 @@ package com.layla.entities;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.layla.model.Enemy;
+import com.layla.model.EnemyType;
+
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.layout.Pane;
 import javafx.scene.shape.Rectangle;
@@ -21,10 +24,9 @@ class EnemyChaseTest {
     void enemyMovesTowardsPlayerCenter() {
         Pane pane = createPane(800, 600);
         Enemy enemy = new Enemy(
+                EnemyType.SHOOTER,
                 pane,
                 () -> new double[] {400.0, 300.0},
-                120.0,
-                6.0,
                 e -> {},
                 g -> {},
                 s -> {}

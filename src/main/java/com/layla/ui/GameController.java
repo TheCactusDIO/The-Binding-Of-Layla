@@ -2,18 +2,21 @@ package com.layla.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
-import com.layla.entities.Enemy;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
 import com.layla.services.ShootingService;
 import com.layla.services.SoundService;
 import com.layla.services.StatsService;
+import com.layla.model.Enemy;
+import com.layla.model.EnemyProfile;
+import com.layla.model.EnemyType;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -88,6 +91,7 @@ public class GameController implements ViewLifecycle {
     // Enemigos
     private final List<Enemy> enemies = new ArrayList<>();
     private boolean enemiesSpawned = false;
+    private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
 
     // HUD lateral (estadísticas)
     private HudView hud;
@@ -250,11 +254,14 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
-    /** Aplica el nuevo max HP global a TODOS los enemigos existentes ahora mismo. */
+    /** Aplica el nuevo perfil al vuelo a TODOS los enemigos existentes. */
     private void applyBalanceToRuntimeEnemies() {
         var bal = com.layla.AppContext.balance();
         for (Enemy e : enemies) {
-            e.setMaxHealth(bal.enemyBaseHp);
+            EnemyProfile profile = bal.profile(e.getType());
+            if (profile != null) {
+                e.setMaxHealth(profile.baseHp);
+            }
         }
     }
 
@@ -598,24 +605,40 @@ public class GameController implements ViewLifecycle {
         return Math.hypot(dx, dy) > 50.0;
     }
 
+    private EnemyType pickTypeByWeight() {
+        Map<EnemyType, Integer> weights = com.layla.AppContext.balance().spawnWeights();
+        if (weights.isEmpty()) return EnemyType.SHOOTER;
+        int total = 0;
+        for (Integer w : weights.values()) {
+            if (w != null && w > 0) total += w;
+        }
+        if (total <= 0) return EnemyType.SHOOTER;
+        int roll = enemyRng.nextInt(total);
+        int acc = 0;
+        for (var entry : weights.entrySet()) {
+            int weight = Math.max(0, entry.getValue());
+            if (weight == 0) continue;
+            acc += weight;
+            if (roll < acc) {
+                return entry.getKey();
+            }
+        }
+        return EnemyType.SHOOTER;
+    }
+
     private void spawnEnemies(int count) {
         if (gameLoop == null || gameArea == null) return;
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
         if (width <= 0.0 || height <= 0.0) return;
 
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
-
         for (int i = 0; i < count; i++) {
-            // FACTOR de velocidad relativo a enemySpeedAvg (por ejemplo 0.85..1.15)
-            double speedFactor = 0.85 + rng.nextDouble(0.30);
-            double baseHp = com.layla.AppContext.balance().enemyBaseHp;
+            EnemyType type = pickTypeByWeight();
 
             Enemy enemy = new Enemy(
+                type,
                 gameArea,
                 this::getPlayerCenter,
-                speedFactor,                 // factor multiplicado por enemySpeedAvg cada frame
-                baseHp,                      // HP inicial (y max) del enemigo
                 e -> {                       // onRemove (NO capturamos la variable local 'enemy')
                     gameLoop.removeEntity(e);
                     if (e instanceof Enemy en) {
@@ -645,8 +668,8 @@ public class GameController implements ViewLifecycle {
             boolean placed = false;
 
             for (int attempt = 0; attempt < 20; attempt++) {
-                double candidateX = maxX <= 0.0 ? 0.0 : rng.nextDouble(0.0, maxX);
-                double candidateY = maxY <= 0.0 ? 0.0 : rng.nextDouble(0.0, maxY);
+                double candidateX = maxX <= 0.0 ? 0.0 : enemyRng.nextDouble(0.0, maxX);
+                double candidateY = maxY <= 0.0 ? 0.0 : enemyRng.nextDouble(0.0, maxY);
                 if (isValidSpawn(candidateX, candidateY, enemyWidth, enemyHeight)) {
                     posX = candidateX;
                     posY = candidateY;
