@@ -51,6 +51,8 @@ public final class Enemy implements GameEntity {
         view.setManaged(false);
         view.setStroke(Color.BLACK);
 
+        applyTypeStyle(); // Color por enemigo
+
         EnemyProfile profile = AppContext.balance().profile(type);
         this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp) : 0.0;
         this.hp = this.maxHealth;
@@ -173,6 +175,29 @@ public final class Enemy implements GameEntity {
         projectile.getView().setLayoutX(getCenterX() - 4.0);
         projectile.getView().setLayoutY(getCenterY() - 4.0);
         onSpawn.accept(projectile);
+    }
+
+    private void applyTypeStyle() {
+        // Color principal por tipo
+        switch (type) {
+            case SHOOTER  -> view.setFill(Color.ORANGE);
+            case MELEE    -> view.setFill(Color.CRIMSON);
+            case TURRET   -> view.setFill(Color.DODGERBLUE);
+            case TANK     -> view.setFill(Color.DARKOLIVEGREEN);
+            case KAMIKAZE -> view.setFill(Color.MAGENTA);
+        }
+
+        // Opcional: darle un look más “pill” suave
+        view.setArcWidth(6);
+        view.setArcHeight(6);
+
+        // Opcional: si el perfil es estacionario, marca con trazo discontinuo
+        EnemyProfile p = AppContext.balance().profile(type);
+        view.setStrokeWidth(1.5);
+        view.getStrokeDashArray().clear();
+        if (p != null && p.stationary) {
+            view.getStrokeDashArray().setAll(6.0, 4.0);
+        }
     }
 
     @Override
