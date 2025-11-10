@@ -3,7 +3,12 @@
     "assets/images/hearts.png"
   ],
   "sounds": [
-    "assets/sounds/game_start.wav"
+    "assets/sounds/game_start.wav",
+    "assets/sounds/hit.mp3",
+    "assets/sounds/hurt.mp3",
+    "assets/sounds/shot.mp3",
+    "assets/sounds/enemy_death.mp3",
+    "assets/sounds/player_death.mp3"
   ],
   "music": [
     "assets/music/menu.mp3",
