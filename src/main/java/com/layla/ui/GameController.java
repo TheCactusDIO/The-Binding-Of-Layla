@@ -11,13 +11,12 @@ import com.layla.core.GameLoop;
 import com.layla.core.InputService;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
-import com.layla.services.ShootingService;
-import com.layla.services.SoundService;
-import com.layla.services.StatsService;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
-import com.layla.ui.FloatingTextEntity;
+import com.layla.services.ShootingService;
+import com.layla.services.SoundService;
+import com.layla.services.StatsService;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -709,6 +708,7 @@ public class GameController implements ViewLifecycle {
     private void showGameOverOverlay() {
         if (gameOverShown) return;
         gameOverShown = true;
+        sound.play("player_death");
 
         if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
         pauseHudTimer();

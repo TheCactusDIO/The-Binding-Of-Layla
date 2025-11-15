@@ -39,8 +39,17 @@ public final class Enemy implements GameEntity {
     private double hp;
     private double maxHealth;
     private double timeSinceShot = 0.0;
+    private double aiTime = 0.0;
     private boolean dead = false;
     private PauseTransition hitFlashTimer;
+
+    // Burst shooting (torretas)
+    private int burstShotsRemaining = 0;
+    private double burstShotTimer = 0.0;
+    private double burstCooldownTimer = 0.0;
+
+    // Buffer reutilizable para direcciones (evitar new double[] cada frame)
+    private final double[] tmpDir = new double[2];
 
     public Enemy(EnemyType type,
                  Pane boundsPane,
@@ -79,27 +88,14 @@ public final class Enemy implements GameEntity {
         syncHealthWithProfile(profile);
 
         double[] playerCenter = playerCenterSupplier.get();
-        if (!profile.stationary && playerCenter != null && playerCenter.length >= 2) {
-            double[] dir = directionTo(playerCenter);
-            if (dir != null) {
-                applyJitter(dir, profile.jitter);
-                move(dir, profile.speed * dt);
-            }
-        }
+        aiTime += dt;
 
-        if (profile.fireRate > 0.0 && profile.projSpeed > 0.0 && profile.projRange > 0.0) {
-            timeSinceShot += dt;
-            double interval = (profile.fireRate > 0.0) ? (1.0 / profile.fireRate) : Double.POSITIVE_INFINITY;
-            if (timeSinceShot >= interval) {
-                if (playerCenter != null && playerCenter.length >= 2) {
-                    timeSinceShot = 0.0;
-                    shootTowards(playerCenter, profile);
-                } else {
-                    timeSinceShot = interval; // wait for a valid target
-                }
-            }
+        handleMovement(profile, playerCenter, dt);
+
+        if (type == EnemyType.TURRET) {
+            handleTurretShooting(profile, playerCenter, dt);
         } else {
-            timeSinceShot = 0.0;
+            handleDefaultShooting(profile, playerCenter, dt);
         }
     }
 
@@ -117,6 +113,9 @@ public final class Enemy implements GameEntity {
         }
     }
 
+    /**
+     * Devuelve un vector dirección normalizado (target - enemy) en tmpDir o null si muy cerca.
+     */
     private double[] directionTo(double[] target) {
         double cx = getCenterX();
         double cy = getCenterY();
@@ -124,7 +123,9 @@ public final class Enemy implements GameEntity {
         double dy = target[1] - cy;
         double len = Math.hypot(dx, dy);
         if (len < EPSILON) return null;
-        return new double[] { dx / len, dy / len };
+        tmpDir[0] = dx / len;
+        tmpDir[1] = dy / len;
+        return tmpDir;
     }
 
     private void applyJitter(double[] dir, double jitterPercent) {
@@ -194,11 +195,11 @@ public final class Enemy implements GameEntity {
             case KAMIKAZE -> view.setFill(Color.MAGENTA);
         }
 
-        // Opcional: darle un look más “pill” suave
+        // Look más “pill” suave
         view.setArcWidth(6);
         view.setArcHeight(6);
 
-        // Opcional: si el perfil es estacionario, marca con trazo discontinuo
+        // Si es estacionario, trazo discontinuo
         EnemyProfile p = AppContext.balance().profile(type);
         view.setStrokeWidth(1.5);
         view.getStrokeDashArray().clear();
@@ -296,6 +297,190 @@ public final class Enemy implements GameEntity {
         if (v > max) return max;
         return v;
     }
+
+    // ===================== AI HELPERS =====================
+
+    private boolean hasValidTarget(double[] playerCenter) {
+        return playerCenter != null && playerCenter.length >= 2;
+    }
+
+    private void handleMovement(EnemyProfile profile, double[] playerCenter, double dt) {
+        if (type == EnemyType.TURRET || profile.stationary || !hasValidTarget(playerCenter)) {
+            return;
+        }
+
+        switch (type) {
+            case MELEE    -> moveMeleeZigZag(profile, playerCenter, dt);
+            case SHOOTER  -> moveShooterKiting(profile, playerCenter, dt);
+            case TANK     -> moveTank(profile, playerCenter, dt);
+            case KAMIKAZE -> moveKamikaze(profile, playerCenter, dt);
+            default       -> moveChasingPlayer(profile, playerCenter, dt);
+        }
+    }
+
+    private void moveChasingPlayer(EnemyProfile profile, double[] playerCenter, double dt) {
+        double[] dir = directionTo(playerCenter);
+        if (dir == null) return;
+        applyJitter(dir, profile.jitter);
+        move(dir, profile.speed * dt);
+    }
+
+    private void moveMeleeZigZag(EnemyProfile profile, double[] playerCenter, double dt) {
+        double[] dir = directionTo(playerCenter);
+        if (dir == null) return;
+        double px = -dir[1];
+        double py = dir[0];
+        double wave = Math.sin(aiTime * 6.0);
+        double sideFactor = 0.45;
+        double dx = dir[0] + px * wave * sideFactor;
+        double dy = dir[1] + py * wave * sideFactor;
+        double len = Math.hypot(dx, dy);
+        if (len < EPSILON) return;
+        dir[0] = dx / len;
+        dir[1] = dy / len;
+        applyJitter(dir, profile.jitter * 0.5);
+        move(dir, profile.speed * dt);
+    }
+
+    private void moveShooterKiting(EnemyProfile profile, double[] playerCenter, double dt) {
+        double dx = playerCenter[0] - getCenterX();
+        double dy = playerCenter[1] - getCenterY();
+        double dist = Math.hypot(dx, dy);
+        if (dist < EPSILON) return;
+
+        double dirX = dx / dist;
+        double dirY = dy / dist;
+
+        double minRange = 140.0;
+        double maxRange = 220.0;
+        double speed = profile.speed;
+
+        double moveX, moveY;
+
+        if (dist < minRange) {
+            // Huir del jugador
+            moveX = -dirX;
+            moveY = -dirY;
+        } else if (dist > maxRange) {
+            // Acercarse
+            moveX = dirX;
+            moveY = dirY;
+        } else {
+            // Zona óptima: se mueve poco, con jitter suave
+            tmpDir[0] = dirX;
+            tmpDir[1] = dirY;
+            applyJitter(tmpDir, profile.jitter * 0.25);
+            move(tmpDir, speed * dt * 0.2);
+            return;
+        }
+
+        tmpDir[0] = moveX;
+        tmpDir[1] = moveY;
+        applyJitter(tmpDir, profile.jitter);
+        move(tmpDir, speed * dt);
+    }
+
+    private void moveTank(EnemyProfile profile, double[] playerCenter, double dt) {
+        double[] dir = directionTo(playerCenter);
+        if (dir == null) return;
+        double hpRatio = maxHealth > 0.0 ? hp / maxHealth : 1.0;
+        double speed = profile.speed;
+        if (hpRatio <= 0.5) {
+            speed *= 1.4;
+        }
+        applyJitter(dir, profile.jitter);
+        move(dir, speed * dt);
+    }
+
+    private void moveKamikaze(EnemyProfile profile, double[] playerCenter, double dt) {
+        double dx = playerCenter[0] - getCenterX();
+        double dy = playerCenter[1] - getCenterY();
+        double dist = Math.hypot(dx, dy);
+        if (dist < EPSILON) return;
+
+        double dirX = dx / dist;
+        double dirY = dy / dist;
+
+        double nearDist = 120.0;
+        double farDist = 260.0;
+        double factor;
+        if (dist <= nearDist) {
+            factor = 1.6;
+        } else if (dist >= farDist) {
+            factor = 0.8;
+        } else {
+            double t = (dist - nearDist) / (farDist - nearDist);
+            factor = 1.6 + (0.8 - 1.6) * t;
+        }
+
+        double speed = profile.speed * factor;
+        tmpDir[0] = dirX;
+        tmpDir[1] = dirY;
+        applyJitter(tmpDir, profile.jitter);
+        move(tmpDir, speed * dt);
+    }
+
+    private void handleDefaultShooting(EnemyProfile profile, double[] playerCenter, double dt) {
+        if (profile.fireRate > 0.0 && profile.projSpeed > 0.0 && profile.projRange > 0.0) {
+            timeSinceShot += dt;
+            double interval = (profile.fireRate > 0.0) ? (1.0 / profile.fireRate) : Double.POSITIVE_INFINITY;
+            if (timeSinceShot >= interval) {
+                if (hasValidTarget(playerCenter)) {
+                    timeSinceShot = 0.0;
+                    shootTowards(playerCenter, profile);
+                } else {
+                    timeSinceShot = interval;
+                }
+            }
+        } else {
+            timeSinceShot = 0.0;
+        }
+    }
+
+    private void handleTurretShooting(EnemyProfile profile, double[] playerCenter, double dt) {
+        double projSpeed = Math.max(0.0, profile.projSpeed);
+        double projRange = Math.max(0.0, profile.projRange);
+        double projDamage = Math.max(0.0, profile.projDamage);
+        if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) {
+            burstShotsRemaining = 0;
+            burstShotTimer = 0.0;
+            burstCooldownTimer = 0.0;
+            return;
+        }
+
+        double burstInterval = (profile.fireRate > 0.0) ? (1.0 / profile.fireRate) : Double.POSITIVE_INFINITY;
+        final double perShotDelay = 0.1;
+        final int burstSize = 3;
+
+        if (burstShotsRemaining > 0) {
+            burstShotTimer += dt;
+            if (burstShotTimer >= perShotDelay) {
+                burstShotTimer = 0.0;
+                fireBurstShot(playerCenter, profile);
+            }
+        } else if (Double.isFinite(burstInterval)) {
+            burstCooldownTimer += dt;
+            if (burstCooldownTimer >= burstInterval && hasValidTarget(playerCenter)) {
+                burstCooldownTimer = 0.0;
+                burstShotsRemaining = burstSize;
+                burstShotTimer = 0.0;
+                fireBurstShot(playerCenter, profile);
+            }
+        }
+    }
+
+    private void fireBurstShot(double[] playerCenter, EnemyProfile profile) {
+        if (burstShotsRemaining <= 0) return;
+        burstShotsRemaining--;
+        if (hasValidTarget(playerCenter)) {
+            shootTowards(playerCenter, profile);
+        }
+        if (burstShotsRemaining <= 0) {
+            burstShotTimer = 0.0;
+        }
+    }
+
+    // ===================== FX / HIT =====================
 
     private void flashHit() {
         if (hitFlashTimer == null) {
