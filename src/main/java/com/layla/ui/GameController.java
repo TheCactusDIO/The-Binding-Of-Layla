@@ -25,6 +25,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Scene;
@@ -496,11 +497,11 @@ public class GameController implements ViewLifecycle {
         }
 
         itemHud = new ItemHudView(statsService);
+        itemHud.refresh();
         if (overlayLayer != null) {
             overlayLayer.getChildren().add(itemHud);
-            // derecha tipo Isaac (puedes cambiar a LEFT si prefieres)
-            StackPane.setAlignment(itemHud, Pos.CENTER_RIGHT);
-            StackPane.setMargin(itemHud, new javafx.geometry.Insets(0, 8, 0, 0));
+            StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
+            StackPane.setMargin(itemHud, new Insets(12, 8, 12, 8));
         } else {
             gameArea.getChildren().add(itemHud);
         }
