@@ -9,7 +9,7 @@ import com.layla.AppContext;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.entities.Projectile;
-import com.layla.model.StatType;
+import com.layla.model.PlayerStatId;
 
 import javafx.scene.layout.Pane;
 
@@ -70,13 +70,13 @@ public final class ShootingService {
         Objects.requireNonNull(loop, "loop");
         Objects.requireNonNull(owner, "owner");
 
-        double fireRate = statsService.getStat(StatType.FIRE_RATE);
+        double fireRate = statsService.getStat(PlayerStatId.FIRE_RATE);
         double fireCooldown = fireRate > 0.0 ? (1.0 / fireRate) : Double.POSITIVE_INFINITY;
         if (timer > 0.0 || !Double.isFinite(fireCooldown) || fireCooldown <= 0.0) return false;
 
-        double projectileSpeed = statsService.getStat(StatType.PROJECTILE_SPEED);
-        double lifetime        = statsService.getStat(StatType.PROJECTILE_RANGE);
-        double damage          = statsService.getStat(StatType.PROJECTILE_DAMAGE);
+        double projectileSpeed = statsService.getStat(PlayerStatId.PROJECTILE_SPEED);
+        double lifetime        = statsService.getStat(PlayerStatId.PROJECTILE_RANGE);
+        double damage          = statsService.getStat(PlayerStatId.PROJECTILE_DAMAGE);
 
         double ax = aimX, ay = aimY;
         double alen = hypot(ax, ay);

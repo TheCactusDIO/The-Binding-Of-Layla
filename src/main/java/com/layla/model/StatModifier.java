@@ -1,64 +1,47 @@
 package com.layla.model;
 
 import java.util.Objects;
-import java.util.UUID;
 
 /**
- * Represents a modifier applied on top of a base statistic.
- * Supports additive and multiplicative adjustments.
- * Each modifier affects a single StatType and can be toggled on/off.
+ * Immutable value that represents a modification to a single player stat.
+ * The final stat is computed as (base + additiveSum) * productOfMultipliers.
  */
 public final class StatModifier {
 
-    private final String id;          // Unique identifier
-    private final StatType type;      // Stat affected
-    private final double additive;    // +X
-    private final double multiplier;  // ×factor (1.10 = +10%)
-    private boolean enabled = true;   // can be temporarily disabled
+    private final PlayerStatId statId;
+    private final double additive;
+    private final double multiplicative;
 
-    public StatModifier(String id, StatType type, double additive, double multiplier) {
-        this.id = Objects.requireNonNull(id, "id");
-        this.type = Objects.requireNonNull(type, "type");
+    private StatModifier(PlayerStatId statId, double additive, double multiplicative) {
+        this.statId = Objects.requireNonNull(statId, "statId");
         this.additive = additive;
-        this.multiplier = multiplier;
+        this.multiplicative = multiplicative;
     }
 
-    /** Generates an ID automatically. */
-    public StatModifier(StatType type, double additive, double multiplier) {
-        this(UUID.randomUUID().toString(), type, additive, multiplier);
+    /** Creates a modifier that adds to the base value. */
+    public static StatModifier additive(PlayerStatId statId, double amount) {
+        return new StatModifier(statId, amount, 1.0);
     }
 
-    /** Create a purely additive modifier (+X). */
-    public static StatModifier additive(StatType type, double amount) {
-        return new StatModifier(type, amount, 1.0);
+    /** Creates a modifier that multiplies the (base + additive) result. */
+    public static StatModifier multiplicative(PlayerStatId statId, double factor) {
+        return new StatModifier(statId, 0.0, factor);
     }
 
-    /** Create a purely multiplicative modifier (×factor, e.g. 1.15 = +15%). */
-    public static StatModifier multiplier(StatType type, double multiplier) {
-        return new StatModifier(type, 0.0, multiplier);
+    /** Factory for combined additive/multiplicative modifiers. */
+    public static StatModifier of(PlayerStatId statId, double additive, double multiplicative) {
+        return new StatModifier(statId, additive, multiplicative);
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public StatType getType() {
-        return type;
+    public PlayerStatId getStatId() {
+        return statId;
     }
 
     public double getAdditive() {
         return additive;
     }
 
-    public double getMultiplier() {
-        return multiplier;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
+    public double getMultiplicative() {
+        return multiplicative;
     }
 }

@@ -1,23 +1,28 @@
 package com.layla.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.Test;
 
+import com.layla.items.ItemId;
+import com.layla.model.PlayerStatId;
 import com.layla.model.StatModifier;
-import com.layla.model.StatType;
 
 public class StatsServiceTest {
 
-  @Test
-  void additiveAndMultiplicativeStacking() {
-    StatsService stats = new StatsService();
-    // base moveSpeed = 300
-    stats.getBaseStats().setBase(StatType.MOVE_SPEED, 300.0);
-    // +50 y ×1.10 ×1.20  => (300+50)*1.32 = 462.0
-    StatModifier add = StatModifier.additive(StatType.MOVE_SPEED, 50.0);
-    StatModifier m1  = StatModifier.multiplier(StatType.MOVE_SPEED, 1.10);
-    StatModifier m2  = StatModifier.multiplier(StatType.MOVE_SPEED, 1.20);
-    stats.addModifier(add); stats.addModifier(m1); stats.addModifier(m2);
-    assertEquals(462.0, stats.getMoveSpeed(), 1e-6);
-  }
+    @Test
+    void runtimeModifiersAndItemsStack() {
+        StatsService stats = new StatsService();
+        stats.setBaseStat(PlayerStatId.MOVE_SPEED, 300.0);
+
+        stats.addModifier(StatModifier.additive(PlayerStatId.MOVE_SPEED, 50.0));
+        stats.addModifier(StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 1.10));
+
+        assertTrue(stats.grantItem(ItemId.SWIFT_BOOTS));
+
+        double value = stats.getMoveSpeed();
+        double expected = (300.0 + 50.0 + 40.0) * 1.10 * 1.15;
+        assertEquals(expected, value, 1e-6);
+    }
 }

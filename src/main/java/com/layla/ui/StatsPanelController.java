@@ -11,7 +11,7 @@ import java.util.function.DoubleSupplier;
 
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
-import com.layla.model.StatType;
+import com.layla.model.PlayerStatId;
 import com.layla.services.StatsService;
 
 import javafx.application.Platform;
@@ -27,18 +27,10 @@ public class StatsPanelController {
     @FXML private TextField startHpField, maxHpField, moveSpeedField;
     @FXML private TextField fireRateField, projSpeedField, projRangeField, projDamageField;
 
-    // Enemy balance fields
-    @FXML private TextField enemyHpField, enemySpeedField, enemyScoreKField;
-    @FXML private TextField enemyContactDmgField;
-
-    // Enemy projectile fields
-    @FXML private TextField enemyProjSpeedField, enemyProjRangeField, enemyProjDamageField;
-    @FXML private TextField enemyFireRateField;
-
     @FXML private CheckBox persistCheck;
     @FXML private ComboBox<EnemyType> enemyTypeCombo;
     @FXML private TextField profileHpField, profileSpeedField, profileContactField, profileFireField, profileJitterField,
-                            profileProjSpeedField, profileProjRangeField, profileProjDmgField;
+                            profileProjSpeedField, profileProjRangeField, profileProjDmgField, profileScoreField;
     @FXML private CheckBox stationaryCheck;
     @FXML private Button saveBtn;
 
@@ -94,23 +86,12 @@ public class StatsPanelController {
         put(maxHpField,   bal.maxHp);
 
         // Player stats (StatsService)
-        put(moveSpeedField, stats.getStat(StatType.MOVE_SPEED));
-        put(fireRateField,  stats.getStat(StatType.FIRE_RATE));
-        put(projSpeedField, stats.getStat(StatType.PROJECTILE_SPEED));
-        put(projRangeField, stats.getStat(StatType.PROJECTILE_RANGE));
-        put(projDamageField,stats.getStat(StatType.PROJECTILE_DAMAGE));
-
-        // Enemy base
-        put(enemyHpField,     bal.enemyBaseHp);
-        put(enemySpeedField,  bal.enemySpeedAvg);
-        put(enemyScoreKField, bal.enemyScoreK);
-        put(enemyContactDmgField, bal.enemyContactDamage);
-
-        // Enemy projectiles
-        put(enemyProjSpeedField,  bal.enemyProjSpeed);
-        put(enemyProjRangeField,  bal.enemyProjRange);
-        put(enemyProjDamageField, bal.enemyProjDamage);
-        put(enemyFireRateField, bal.enemyFireRate);
+        var baseStats = stats.getBaseStats();
+        put(moveSpeedField, baseStats.getBase(PlayerStatId.MOVE_SPEED));
+        put(fireRateField,  baseStats.getBase(PlayerStatId.FIRE_RATE));
+        put(projSpeedField, baseStats.getBase(PlayerStatId.PROJECTILE_SPEED));
+        put(projRangeField, baseStats.getBase(PlayerStatId.PROJECTILE_RANGE));
+        put(projDamageField,baseStats.getBase(PlayerStatId.PROJECTILE_DAMAGE));
 
         // Optionally override with user JSON if present
         loadUserJsonIfExists();
@@ -127,6 +108,14 @@ public class StatsPanelController {
         bindNumberField(profileProjSpeedField, () -> profile.projSpeed,  v -> profile.projSpeed = v);
         bindNumberField(profileProjRangeField, () -> profile.projRange,  v -> profile.projRange = v);
         bindNumberField(profileProjDmgField,   () -> profile.projDamage, v -> profile.projDamage = v);
+
+        // Score por enemigo (int internamente, editable como número)
+        bindNumberField(
+            profileScoreField,
+            () -> (double) profile.score,
+            v  -> profile.score = (int) Math.round(v)
+        );
+
         bindStationary(profile);
     }
 
@@ -182,25 +171,14 @@ public class StatsPanelController {
         // Player HP (balance)
         bal.startHp = get(startHpField, bal.startHp);
         bal.maxHp   = get(maxHpField,   bal.maxHp);
+        stats.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
 
         // Player/shooting stats (StatsService)
-        stats.setStat(StatType.MOVE_SPEED,        get(moveSpeedField, stats.getStat(StatType.MOVE_SPEED)));
-        stats.setStat(StatType.FIRE_RATE,         get(fireRateField,  stats.getStat(StatType.FIRE_RATE)));
-        stats.setStat(StatType.PROJECTILE_SPEED,  get(projSpeedField, stats.getStat(StatType.PROJECTILE_SPEED)));
-        stats.setStat(StatType.PROJECTILE_RANGE,  get(projRangeField, stats.getStat(StatType.PROJECTILE_RANGE)));
-        stats.setStat(StatType.PROJECTILE_DAMAGE, get(projDamageField,stats.getStat(StatType.PROJECTILE_DAMAGE)));
-
-        // Enemy base (balance)
-        bal.enemyBaseHp   = get(enemyHpField,    bal.enemyBaseHp);
-        bal.enemySpeedAvg = get(enemySpeedField, bal.enemySpeedAvg);
-        bal.enemyScoreK   = get(enemyScoreKField,bal.enemyScoreK);
-        bal.enemyContactDamage = get(enemyContactDmgField, bal.enemyContactDamage);
-
-        // Enemy projectiles (balance) (NEW)
-        bal.enemyProjSpeed  = get(enemyProjSpeedField,  bal.enemyProjSpeed);
-        bal.enemyProjRange  = get(enemyProjRangeField,  bal.enemyProjRange);
-        bal.enemyProjDamage = get(enemyProjDamageField, bal.enemyProjDamage);
-        bal.enemyFireRate = get(enemyFireRateField, bal.enemyFireRate);
+        stats.setBaseStat(PlayerStatId.MOVE_SPEED,        get(moveSpeedField, stats.getBaseStat(PlayerStatId.MOVE_SPEED)));
+        stats.setBaseStat(PlayerStatId.FIRE_RATE,         get(fireRateField,  stats.getBaseStat(PlayerStatId.FIRE_RATE)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  get(projSpeedField, stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  get(projRangeField, stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, get(projDamageField,stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE)));
 
         if (persistCheck.isSelected()) saveUserJson();
 
@@ -236,35 +214,28 @@ public class StatsPanelController {
         for (TextField tf : new TextField[] {
                 startHpField, maxHpField,
                 moveSpeedField, fireRateField, projSpeedField, projRangeField, projDamageField,
-                enemyHpField, enemySpeedField, enemyScoreKField, enemyContactDmgField,
-                enemyProjSpeedField, enemyProjRangeField, enemyProjDamageField,
                 profileHpField, profileSpeedField, profileContactField, profileFireField,
-                profileJitterField, profileProjSpeedField, profileProjRangeField, profileProjDmgField
+                profileJitterField, profileProjSpeedField, profileProjRangeField, profileProjDmgField,
+                profileScoreField
         }) {
             if (tf != null) selectAllOnFocus.accept(tf);
         }
 
         // Player stats (StatsService)
-        liveNumber(moveSpeedField, v -> { stats.setStat(StatType.MOVE_SPEED, v); onStatsChanged.run(); });
-        liveNumber(fireRateField,  v -> { stats.setStat(StatType.FIRE_RATE, v); onStatsChanged.run(); });
-        liveNumber(projSpeedField, v -> { stats.setStat(StatType.PROJECTILE_SPEED, v); onStatsChanged.run(); });
-        liveNumber(projRangeField, v -> { stats.setStat(StatType.PROJECTILE_RANGE, v); onStatsChanged.run(); });
-        liveNumber(projDamageField,v -> { stats.setStat(StatType.PROJECTILE_DAMAGE, v); onStatsChanged.run(); });
+        liveNumber(moveSpeedField, v -> { stats.setBaseStat(PlayerStatId.MOVE_SPEED, v); onStatsChanged.run(); });
+        liveNumber(fireRateField,  v -> { stats.setBaseStat(PlayerStatId.FIRE_RATE, v); onStatsChanged.run(); });
+        liveNumber(projSpeedField, v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, v); onStatsChanged.run(); });
+        liveNumber(projRangeField, v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, v); onStatsChanged.run(); });
+        liveNumber(projDamageField,v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, v); onStatsChanged.run(); });
 
-        // Balance (player HP + enemy base)
+        // Balance (player HP)
         liveNumber(startHpField, v -> { var b = com.layla.AppContext.balance(); b.startHp = v; onStatsChanged.run(); });
-        liveNumber(maxHpField,   v -> { var b = com.layla.AppContext.balance(); b.maxHp   = v; onStatsChanged.run(); });
-        liveNumber(enemyHpField, v -> { var b = com.layla.AppContext.balance(); b.enemyBaseHp   = v; onStatsChanged.run(); });
-        liveNumber(enemySpeedField, v -> { var b = com.layla.AppContext.balance(); b.enemySpeedAvg = v; onStatsChanged.run(); });
-        liveNumber(enemyScoreKField, v -> { var b = com.layla.AppContext.balance(); b.enemyScoreK   = v; onStatsChanged.run(); });
-        liveNumber(enemyContactDmgField, v -> {var b = com.layla.AppContext.balance(); b.enemyContactDamage = v; onStatsChanged.run();});
-        selectAllOnFocus.accept(enemyFireRateField);
-        liveNumber(enemyFireRateField, v -> { var b = com.layla.AppContext.balance(); b.enemyFireRate = v; onStatsChanged.run(); });
-
-        // Enemy projectiles (NEW)
-        liveNumber(enemyProjSpeedField,  v -> { var b = com.layla.AppContext.balance(); b.enemyProjSpeed  = v; onStatsChanged.run(); });
-        liveNumber(enemyProjRangeField,  v -> { var b = com.layla.AppContext.balance(); b.enemyProjRange  = v; onStatsChanged.run(); });
-        liveNumber(enemyProjDamageField, v -> { var b = com.layla.AppContext.balance(); b.enemyProjDamage = v; onStatsChanged.run(); });
+        liveNumber(maxHpField,   v -> {
+            var b = com.layla.AppContext.balance();
+            b.maxHp = v;
+            stats.setBaseStat(PlayerStatId.MAX_HEALTH, v);
+            onStatsChanged.run();
+        });
     }
 
     private void liveNumber(TextField tf, Consumer<Double> onValidNumber) {
@@ -290,7 +261,7 @@ public class StatsPanelController {
 
     private Path cfgPath() {
         String home = System.getProperty("user.home");
-        return Path.of(home, ".layla", "stats.json");
+        return Path.of(System.getProperty("user.home"), ".layla", "stats.json");
     }
 
     private void loadUserJsonIfExists() {
@@ -304,38 +275,33 @@ public class StatsPanelController {
             var bal = com.layla.AppContext.balance();
 
             if (m.containsKey("startHp")) bal.startHp = m.get("startHp");
-            if (m.containsKey("maxHp"))   bal.maxHp   = m.get("maxHp");
+            if (m.containsKey("maxHp")) {
+                bal.maxHp = m.get("maxHp");
+                stats.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
+            }
 
-            if (m.containsKey("moveSpeed"))  stats.setStat(StatType.MOVE_SPEED,       m.get("moveSpeed"));
-            if (m.containsKey("fireRate"))   stats.setStat(StatType.FIRE_RATE,        m.get("fireRate"));
-            if (m.containsKey("projSpeed"))  stats.setStat(StatType.PROJECTILE_SPEED, m.get("projSpeed"));
-            if (m.containsKey("projRange"))  stats.setStat(StatType.PROJECTILE_RANGE, m.get("projRange"));
-            if (m.containsKey("projDamage")) stats.setStat(StatType.PROJECTILE_DAMAGE,m.get("projDamage"));
-            if (m.containsKey("enemyFireRate")) bal.enemyFireRate = m.get("enemyFireRate");
+            if (m.containsKey("moveSpeed"))  stats.setBaseStat(PlayerStatId.MOVE_SPEED,       m.get("moveSpeed"));
+            if (m.containsKey("fireRate"))   stats.setBaseStat(PlayerStatId.FIRE_RATE,        m.get("fireRate"));
+            if (m.containsKey("projSpeed"))  stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, m.get("projSpeed"));
+            if (m.containsKey("projRange"))  stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, m.get("projRange"));
+            if (m.containsKey("projDamage")) stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE,m.get("projDamage"));
 
             // Back-compat keys
             if (m.containsKey("fireCooldown")) {
                 double cooldown = m.get("fireCooldown");
                 double rate = cooldown > 0.0 ? 1.0 / cooldown : 0.0;
-                stats.setStat(StatType.FIRE_RATE, rate);
+                stats.setBaseStat(PlayerStatId.FIRE_RATE, rate);
             }
             if (m.containsKey("rangePixels")) {
                 double pixels = m.get("rangePixels");
-                double speed = stats.getStat(StatType.PROJECTILE_SPEED);
-                if (speed > 0.0) stats.setStat(StatType.PROJECTILE_RANGE, pixels / speed);
+                double speed = stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED);
+                if (speed > 0.0) stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, pixels / speed);
             }
             if (m.containsKey("damage")) {
-                stats.setStat(StatType.PROJECTILE_DAMAGE, m.get("damage"));
+                stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, m.get("damage"));
             }
 
-            if (m.containsKey("enemyBaseHp"))  bal.enemyBaseHp   = m.get("enemyBaseHp");
-            if (m.containsKey("enemySpeed"))   bal.enemySpeedAvg = m.get("enemySpeed");
-            if (m.containsKey("enemyScoreK"))  bal.enemyScoreK   = m.get("enemyScoreK");
-
-            // Enemy projectile keys (NEW)
-            if (m.containsKey("enemyProjSpeed"))  bal.enemyProjSpeed  = m.get("enemyProjSpeed");
-            if (m.containsKey("enemyProjRange"))  bal.enemyProjRange  = m.get("enemyProjRange");
-            if (m.containsKey("enemyProjDamage")) bal.enemyProjDamage = m.get("enemyProjDamage");
+            // Las claves enemy* se ignoran ahora (los enemigos se configuran por perfil)
         } catch (Exception ignored) {}
     }
 
@@ -349,20 +315,12 @@ public class StatsPanelController {
             java.util.LinkedHashMap<String, Double> m = new java.util.LinkedHashMap<>();
             m.put("startHp",       bal.startHp);
             m.put("maxHp",         bal.maxHp);
-            m.put("moveSpeed",     stats.getStat(StatType.MOVE_SPEED));
-            m.put("fireRate",      stats.getStat(StatType.FIRE_RATE));
-            m.put("projSpeed",     stats.getStat(StatType.PROJECTILE_SPEED));
-            m.put("projRange",     stats.getStat(StatType.PROJECTILE_RANGE));
-            m.put("projDamage",    stats.getStat(StatType.PROJECTILE_DAMAGE));
-            m.put("enemyBaseHp",   bal.enemyBaseHp);
-            m.put("enemySpeed",    bal.enemySpeedAvg);
-            m.put("enemyScoreK",   bal.enemyScoreK);
-            m.put("enemyContactDamage", bal.enemyContactDamage);
-            // NEW enemy projectile fields
-            m.put("enemyProjSpeed",  bal.enemyProjSpeed);
-            m.put("enemyProjRange",  bal.enemyProjRange);
-            m.put("enemyProjDamage", bal.enemyProjDamage);
-            m.put("enemyFireRate", bal.enemyFireRate);
+            m.put("moveSpeed",     stats.getBaseStat(PlayerStatId.MOVE_SPEED));
+            m.put("fireRate",      stats.getBaseStat(PlayerStatId.FIRE_RATE));
+            m.put("projSpeed",     stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED));
+            m.put("projRange",     stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE));
+            m.put("projDamage",    stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE));
+            // No guardamos enemy* aquí; los enemigos van en enemy_balance.json
 
             String json = Json.toJson(m);
             Files.writeString(p, json);

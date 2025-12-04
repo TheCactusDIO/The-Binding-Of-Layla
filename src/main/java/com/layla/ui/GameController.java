@@ -11,9 +11,11 @@ import com.layla.core.GameLoop;
 import com.layla.core.InputService;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
+import com.layla.items.ItemId;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
+import com.layla.model.PlayerStatId;
 import com.layla.services.ShootingService;
 import com.layla.services.SoundService;
 import com.layla.services.StatsService;
@@ -87,6 +89,7 @@ public class GameController implements ViewLifecycle {
 
     // Ticker auxiliar
     private boolean tickerAdded = false;
+    private GameEntity ticker; // Ticker invisible que vive en el GameLoop (cooldowns, HUD, game over, etc.)
 
     // Enemigos
     private final List<Enemy> enemies = new ArrayList<>();
@@ -95,6 +98,7 @@ public class GameController implements ViewLifecycle {
 
     // HUD lateral (estadísticas)
     private HudView hud;
+    private ItemHudView itemHud;
     private double hudRefreshTimer = 0.0;
 
     // Anti-spam de disparo tras spawn del player
@@ -187,8 +191,8 @@ public class GameController implements ViewLifecycle {
         var bal = com.layla.AppContext.balance();
 
         // Ajusta la vida máxima al vuelo y clampa la actual si es necesario.
-        double prevMax = player.getMaxHealth();
-        player.setMaxHealth(bal.maxHp);
+        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
+        player.setMaxHealth(statsService.getMaxHealth());
 
         // Si el maxHp baja por debajo de la salud actual, setMaxHealth ya la clampa.
         // Si quieres que al subir maxHp NO cambie la actual, no hagas nada más.
@@ -337,6 +341,10 @@ public class GameController implements ViewLifecycle {
 
             // Disparo inmediato con flechas
             scene.addEventHandler(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+                if (handleDebugItemHotkeys(e.getCode())) {
+                    e.consume();
+                    return;
+                }
                 KeyCode c = e.getCode();
                 if (c == KeyCode.UP || c == KeyCode.DOWN || c == KeyCode.LEFT || c == KeyCode.RIGHT) {
                     tryShootNow();
@@ -358,11 +366,16 @@ public class GameController implements ViewLifecycle {
             OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
             gameOverOverlay = null;
         }
+        if (ticker != null && gameLoop != null) {
+            gameLoop.removeEntity(ticker);
+            ticker = null;
+        }
         if (pauseOverlay != null) {
             OverlayRouter.closeOverlay(overlayLayer, pauseOverlay);
             pauseOverlay = null;
         }
         gameOverShown = false;
+        tickerAdded = false;
         paused = false;
 
         // Quitar player
@@ -385,6 +398,11 @@ public class GameController implements ViewLifecycle {
             if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
             else if (gameArea != null) gameArea.getChildren().remove(hud);
             hud = null;
+        }
+        if (itemHud != null) {
+            if (overlayLayer != null) overlayLayer.getChildren().remove(itemHud);
+            else if (gameArea != null) gameArea.getChildren().remove(itemHud);
+            itemHud = null;
         }
 
         startGateOpen = false;
@@ -459,6 +477,7 @@ public class GameController implements ViewLifecycle {
 
         // Aplica balance global de vida
         var bal = com.layla.AppContext.balance();
+        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
         player.setMaxHealth(bal.maxHp);
         player.setHealth(bal.startHp);
 
@@ -477,6 +496,17 @@ public class GameController implements ViewLifecycle {
             gameArea.getChildren().add(hud);
         }
 
+        itemHud = new ItemHudView(statsService);
+        itemHud.setTranslateX(-12);
+        itemHud.setTranslateY(12);
+        itemHud.refresh();
+        if (overlayLayer != null) {
+            overlayLayer.getChildren().add(itemHud);
+            StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
+        } else {
+            gameArea.getChildren().add(itemHud);
+        }
+
         double startX = Math.max(0.0, (width - player.getWidth()) / 2.0);
         double startY = Math.max(0.0, (height - player.getHeight()) / 2.0);
         player.setPosition(startX, startY);
@@ -490,10 +520,12 @@ public class GameController implements ViewLifecycle {
 
     // ==================== SHOOTING (solo flechas) ====================
     /** Ticker invisible: cooldown flechas, refresco HUD, watchdog de spawn y GameOver. */
+        /** Ticker invisible: cooldown flechas, refresco HUD, watchdog de spawn y GameOver. */
     private void addTickerIfNeeded() {
-        if (!startGateOpen || tickerAdded || gameLoop == null) return;
+        if (!startGateOpen || gameLoop == null) return;
+        if (ticker != null) return; // ya existe un ticker registrado
 
-        GameEntity ticker = new GameEntity() {
+        ticker = new GameEntity() {
             private final Group view = new Group(); // invisible
             private double spawnRetryTimer = 0.75;
             private boolean spawnRetried = false;
@@ -548,13 +580,15 @@ public class GameController implements ViewLifecycle {
                     }
                 }
             }
+
             @Override public javafx.scene.Node getView() { return view; }
             @Override public void onCollision(GameEntity other) { /* no-op */ }
         };
 
         gameLoop.addEntity(ticker);
-        tickerAdded = true;
+        tickerAdded = true; // puedes mantenerlo si quieres para debugging
     }
+
 
     private void tryShootNow() {
         if (!shootingArmed || paused) return;
@@ -579,6 +613,44 @@ public class GameController implements ViewLifecycle {
             (Projectile p) -> sound.play("shot")
         );
     }
+
+    /** Debug hotkeys so we can spawn passive items quickly. */
+    private boolean handleDebugItemHotkeys(KeyCode code) {
+        if (code == null) return false;
+        ItemId itemId = switch (code) {
+            case DIGIT1 -> ItemId.SWIFT_BOOTS;
+            case DIGIT2 -> ItemId.GLASS_CANNON;
+            case DIGIT3 -> ItemId.TEARS_UP;
+            case DIGIT4 -> ItemId.RANGE_UP;
+            case DIGIT5 -> ItemId.SHOT_SPEED_UP;
+            default -> null;
+        };
+        if (itemId == null) return false;
+
+        boolean granted = statsService.grantItem(itemId);
+        if (granted) {
+            System.out.println("[DEBUG] Passive item granted: " + itemId);
+
+            // 🔍 LOG DE STATS EFECTIVAS TRAS APLICAR EL ITEM
+            System.out.printf(
+                "[DEBUG] Stats now -> moveSpeed=%.2f, fireRate=%.2f, projSpeed=%.2f, projRange=%.2f, projDamage=%.2f, maxHp=%.2f%n",
+                statsService.getMoveSpeed(),
+                statsService.getFireRate(),
+                statsService.getProjectileSpeed(),
+                statsService.getProjectileRange(),
+                statsService.getProjectileDamage(),
+                statsService.getMaxHealth()
+            );
+
+            applyBalanceToRuntimePlayer();
+            if (hud != null) hud.refresh();
+            if (itemHud != null) itemHud.refresh();
+        } else {
+            System.out.println("[DEBUG] Item already owned (unique): " + itemId);
+        }
+        return granted;
+    }
+
 
     // ==================== ENEMIGOS ====================
     private double[] getPlayerCenter() {
@@ -626,7 +698,7 @@ public class GameController implements ViewLifecycle {
         return EnemyType.SHOOTER;
     }
 
-    private void spawnEnemies(int count) {
+   private void spawnEnemies(int count) {
         if (gameLoop == null || gameArea == null) return;
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
@@ -639,21 +711,29 @@ public class GameController implements ViewLifecycle {
                 type,
                 gameArea,
                 this::getPlayerCenter,
-                e -> {                       // onRemove (NO capturamos la variable local 'enemy')
+                e -> { // onRemove
                     gameLoop.removeEntity(e);
                     if (e instanceof Enemy en) {
                         enemies.remove(en);
-                        double hpMax = en.getMaxHealth();
-                        int bonus = (int) Math.round(
-                            Math.pow(hpMax, 0.2) * com.layla.AppContext.balance().enemyScoreK
-                        );
+
+                        // ✅ NUEVO: score por perfil de enemigo
+                        var bal = com.layla.AppContext.balance();
+                        EnemyProfile profile = bal.profile(en.getType());
+
+                        int bonus = 0;
+                        if (profile != null) {
+                            bonus = profile.score;
+                        }
+
                         score = Math.max(0, score + bonus);
                         updateHudLabels();
 
-                        double cx = en.getView().getLayoutX() + en.getWidth() * 0.5;
-                        double cy = en.getView().getLayoutY() + en.getHeight() * 0.5;
-                        var ft = new FloatingTextEntity("+" + bonus, cx, cy, x -> gameLoop.removeEntity(x));
-                        gameLoop.addEntity(ft);
+                        if (bonus != 0) {
+                            double cx = en.getView().getLayoutX() + en.getWidth() * 0.5;
+                            double cy = en.getView().getLayoutY() + en.getHeight() * 0.5;
+                            var ft = new FloatingTextEntity("+" + bonus, cx, cy, x -> gameLoop.removeEntity(x));
+                            gameLoop.addEntity(ft);
+                        }
                     } else {
                         enemies.removeIf(x -> x == e);
                     }
@@ -662,7 +742,7 @@ public class GameController implements ViewLifecycle {
                 k -> sound.play(k)            // sfx
             );
 
-            // ... el resto del posicionamiento igual
+            // ... resto igual
             double enemyWidth = enemy.getWidth();
             double enemyHeight = enemy.getHeight();
             double maxX = Math.max(0.0, width - enemyWidth);
@@ -693,7 +773,6 @@ public class GameController implements ViewLifecycle {
             gameLoop.addEntity(enemy);
         }
     }
-
 
     private void trySpawnInitialEnemies() {
         if (!startGateOpen) return;
@@ -740,6 +819,11 @@ public class GameController implements ViewLifecycle {
             if (player != null) gameLoop.removeEntity(player);
             for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
         }
+        if (ticker != null) {
+                gameLoop.removeEntity(ticker);
+                ticker = null;
+        }
+
         enemies.clear();
         enemiesSpawned = false;
 
@@ -758,6 +842,14 @@ public class GameController implements ViewLifecycle {
             else if (gameArea != null) gameArea.getChildren().remove(hud);
             hud = null;
         }
+        if (itemHud != null) {
+            if (overlayLayer != null) overlayLayer.getChildren().remove(itemHud);
+            else if (gameArea != null) gameArea.getChildren().remove(itemHud);
+            itemHud = null;
+        }
+
+        statsService.clearItems();
+        if (itemHud != null) itemHud.refresh();
 
         player = null;
         maybeSpawnPlayer();

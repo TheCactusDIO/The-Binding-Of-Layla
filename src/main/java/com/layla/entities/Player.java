@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 import com.layla.core.GameEntity;
 import com.layla.core.InputService;
 import com.layla.model.Enemy;
-import com.layla.model.StatType;
+import com.layla.model.PlayerStatId;
 import com.layla.services.StatsService;
 
 import javafx.geometry.Bounds;
@@ -76,9 +76,11 @@ public final class Player implements GameEntity {
         // Tictac i-frames
         if (invulnTimer > 0.0) invulnTimer = Math.max(0.0, invulnTimer - dt);
 
+        syncMaxHealthFromStats();
+
         // 1) Input (-1..1) -> velocidad objetivo
         double[] mv = moveSupplier.get();
-        double maxSpeed = statsService.getStat(StatType.MOVE_SPEED);
+        double maxSpeed = statsService.getStat(PlayerStatId.MOVE_SPEED);
         double targetVx = mv[0] * maxSpeed;
         double targetVy = mv[1] * maxSpeed;
 
@@ -208,5 +210,13 @@ public final class Player implements GameEntity {
         health = 0.0;
         playSfx.accept("dead");
         // Notificación de Game Over se gestiona en GameController (detecta player.isDead()).
+    }
+
+    /** Syncs MAX_HEALTH stat so passive items take effect instantly. */
+    private void syncMaxHealthFromStats() {
+        double desiredMax = statsService.getStat(PlayerStatId.MAX_HEALTH);
+        if (Math.abs(desiredMax - maxHealth) > 1e-6) {
+            setMaxHealth(desiredMax);
+        }
     }
 }

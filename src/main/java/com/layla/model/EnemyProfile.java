@@ -11,6 +11,9 @@ public final class EnemyProfile {
     public double projDamage;
     public boolean stationary; // turret-like behavior when true
 
+    // NUEVO: puntuación que da este enemigo al morir
+    public int score = 10;     // valor por defecto
+
     public static EnemyProfile of(double hp, double spd, double contact,
                                   double fire, double jit,
                                   double pSpd, double pRange, double pDmg,
@@ -25,6 +28,10 @@ public final class EnemyProfile {
         p.projRange = pRange;
         p.projDamage = pDmg;
         p.stationary = stat;
+
+        // Valor por defecto para score cuando se crean perfiles desde código
+        p.score = 10;
+
         return p;
     }
 }
