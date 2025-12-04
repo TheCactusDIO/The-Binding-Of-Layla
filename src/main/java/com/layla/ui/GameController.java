@@ -393,7 +393,6 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         enemiesSpawned = false;
 
-        // Quitar HUD lateral
         if (hud != null) {
             if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
             else if (gameArea != null) gameArea.getChildren().remove(hud);
@@ -497,12 +496,11 @@ public class GameController implements ViewLifecycle {
         }
 
         itemHud = new ItemHudView(statsService);
-        itemHud.setTranslateX(-12);
-        itemHud.setTranslateY(12);
-        itemHud.refresh();
         if (overlayLayer != null) {
             overlayLayer.getChildren().add(itemHud);
-            StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
+            // derecha tipo Isaac (puedes cambiar a LEFT si prefieres)
+            StackPane.setAlignment(itemHud, Pos.CENTER_RIGHT);
+            StackPane.setMargin(itemHud, new javafx.geometry.Insets(0, 8, 0, 0));
         } else {
             gameArea.getChildren().add(itemHud);
         }
@@ -630,27 +628,22 @@ public class GameController implements ViewLifecycle {
         boolean granted = statsService.grantItem(itemId);
         if (granted) {
             System.out.println("[DEBUG] Passive item granted: " + itemId);
-
-            // 🔍 LOG DE STATS EFECTIVAS TRAS APLICAR EL ITEM
-            System.out.printf(
-                "[DEBUG] Stats now -> moveSpeed=%.2f, fireRate=%.2f, projSpeed=%.2f, projRange=%.2f, projDamage=%.2f, maxHp=%.2f%n",
-                statsService.getMoveSpeed(),
-                statsService.getFireRate(),
-                statsService.getProjectileSpeed(),
-                statsService.getProjectileRange(),
-                statsService.getProjectileDamage(),
-                statsService.getMaxHealth()
-            );
-
             applyBalanceToRuntimePlayer();
             if (hud != null) hud.refresh();
             if (itemHud != null) itemHud.refresh();
-        } else {
-            System.out.println("[DEBUG] Item already owned (unique): " + itemId);
+
+            // 🔹 Mensaje flotante al coger ítem
+            var def = com.layla.items.ItemRegistry.getDefinition(itemId);
+            if (player != null && gameLoop != null && def != null) {
+                double cx = player.getView().getLayoutX() + player.getWidth() * 0.5;
+                double cy = player.getView().getLayoutY() - 10.0;
+                String text = def.getName();
+                var ft = new FloatingTextEntity(text, cx, cy, e -> gameLoop.removeEntity(e));
+                gameLoop.addEntity(ft);
+            }
         }
         return granted;
     }
-
 
     // ==================== ENEMIGOS ====================
     private double[] getPlayerCenter() {

@@ -3,7 +3,7 @@ package com.layla.services;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,8 +22,15 @@ import com.layla.model.StatModifier;
 public final class StatsService {
 
     private final PlayerStats baseStats = new PlayerStats();
-    private final Map<PlayerStatId, List<StatModifier>> runtimeModifiers = new EnumMap<>(PlayerStatId.class);
-    private final Set<ItemId> ownedItems = EnumSet.noneOf(ItemId.class);
+    private final Map<PlayerStatId, List<StatModifier>> runtimeModifiers =
+            new EnumMap<>(PlayerStatId.class);
+
+    // LISTA con duplicados → permite STACKS reales
+    private final List<ItemId> ownedItems = new ArrayList<>();
+
+    // -----------------------------
+    // BASE STATS
+    // -----------------------------
 
     public PlayerStats getBaseStats() {
         return baseStats;
@@ -34,57 +41,70 @@ public final class StatsService {
         return baseStats.getBase(statId);
     }
 
-    /** Updates the base value for a stat (before modifiers and items). */
     public void setBaseStat(PlayerStatId statId, double value) {
         Objects.requireNonNull(statId, "statId");
-        baseStats.setBase(statId, clampStat(statId, value));
+        baseStats.setBase(statId, clamp(statId, value));
     }
 
-    /** Adds a temporary/runtime modifier (e.g. buffs, debuffs). */
+    // -----------------------------
+    // RUNTIME MODIFIERS (BUFFS)
+    // -----------------------------
+
     public void addModifier(StatModifier modifier) {
         Objects.requireNonNull(modifier, "modifier");
         runtimeModifiers
-            .computeIfAbsent(modifier.getStatId(), k -> new ArrayList<>())
-            .add(modifier);
+                .computeIfAbsent(modifier.getStatId(), k -> new ArrayList<>())
+                .add(modifier);
     }
 
-    /** Removes a previously registered modifier by reference. */
     public void removeModifier(StatModifier modifier) {
         if (modifier == null) return;
+
         List<StatModifier> list = runtimeModifiers.get(modifier.getStatId());
         if (list == null) return;
+
         list.remove(modifier);
         if (list.isEmpty()) {
             runtimeModifiers.remove(modifier.getStatId());
         }
     }
 
-    /** Clears all state and owned items, going back to defaults. */
+    // -----------------------------
+    // RESET
+    // -----------------------------
+
     public void resetDefaults() {
         baseStats.resetDefaults();
         runtimeModifiers.clear();
         ownedItems.clear();
     }
 
-    /** Returns the final value of a stat after applying modifiers and passive items. */
+    // -----------------------------
+    // FINAL STAT CALCULATION
+    // -----------------------------
+
     public double getStat(PlayerStatId statId) {
         Objects.requireNonNull(statId, "statId");
+
         double base = baseStats.getBase(statId);
         double additive = 0.0;
         double multiplicative = 1.0;
 
-        List<StatModifier> list = runtimeModifiers.get(statId);
-        if (list != null) {
-            for (StatModifier mod : list) {
+        // 1) Runtime modifiers (buffs/debuffs)
+        List<StatModifier> mods = runtimeModifiers.get(statId);
+        if (mods != null) {
+            for (StatModifier mod : mods) {
                 additive += mod.getAdditive();
                 multiplicative *= mod.getMultiplicative();
             }
         }
 
-        for (ItemId itemId : ownedItems) {
-            ItemDefinition definition = ItemRegistry.getDefinition(itemId);
-            if (definition == null) continue;
-            for (StatModifier mod : definition.getModifiers()) {
+        // 2) Passive items — STACKS: cada copia cuenta
+        for (ItemId item : ownedItems) {
+            ItemDefinition def = ItemRegistry.getDefinition(item);
+            if (def == null) continue;
+
+            for (StatModifier mod : def.getModifiers()) {
                 if (mod.getStatId() == statId) {
                     additive += mod.getAdditive();
                     multiplicative *= mod.getMultiplicative();
@@ -92,21 +112,17 @@ public final class StatsService {
             }
         }
 
-        return clampStat(statId, (base + additive) * multiplicative);
+        return clamp(statId, (base + additive) * multiplicative);
     }
 
-    /**
-     * Grants a passive item to the player.
-     * @return true if the item was added to the inventory.
-     */
+    // -----------------------------
+    // PASSIVE ITEMS (STACKING)
+    // -----------------------------
+
+    /** Adds one copy of the item. Always allows stacking. */
     public boolean grantItem(ItemId itemId) {
         if (itemId == null) return false;
-        ItemDefinition definition = ItemRegistry.getDefinition(itemId);
-        if (definition == null) return false;
-
-        // if (definition.isUnique() && ownedItems.contains(itemId)) {
-        //     return false;
-        // }
+        if (ItemRegistry.getDefinition(itemId) == null) return false;
 
         ownedItems.add(itemId);
         return true;
@@ -121,19 +137,28 @@ public final class StatsService {
         ownedItems.clear();
     }
 
+    /** Unique set — used only when needed (not for HUD). */
     public Set<ItemId> getOwnedItems() {
-        return Collections.unmodifiableSet(ownedItems);
+        return Collections.unmodifiableSet(new LinkedHashSet<>(ownedItems));
     }
 
-    private double clampStat(PlayerStatId statId, double value) {
+    /** FULL list including duplicates — used by ItemHudView. */
+    public List<ItemId> getOwnedItemsStacked() {
+        return Collections.unmodifiableList(ownedItems);
+    }
+
+    // -----------------------------
+    // CLAMP & TYPED GETTERS
+    // -----------------------------
+
+    private double clamp(PlayerStatId statId, double value) {
         return switch (statId) {
-            case MOVE_SPEED, FIRE_RATE, PROJECTILE_SPEED, PROJECTILE_RANGE,
-                 PROJECTILE_DAMAGE -> Math.max(0.0, value);
-            case MAX_HEALTH -> Math.max(0.0, value);
+            case MOVE_SPEED, FIRE_RATE, PROJECTILE_SPEED,
+                 PROJECTILE_RANGE, PROJECTILE_DAMAGE, MAX_HEALTH
+                 -> Math.max(0.0, value);
         };
     }
 
-    // Typed getters for convenience
     public double getMoveSpeed()        { return getStat(PlayerStatId.MOVE_SPEED); }
     public double getMaxHealth()        { return getStat(PlayerStatId.MAX_HEALTH); }
     public double getFireRate()         { return getStat(PlayerStatId.FIRE_RATE); }

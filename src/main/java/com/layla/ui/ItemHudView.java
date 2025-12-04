@@ -1,6 +1,7 @@
 package com.layla.ui;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -13,7 +14,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 
-/** Simple HUD column that shows owned item icons. */
+/** Simple HUD column that shows owned item icons (stackable). */
 public final class ItemHudView extends VBox {
 
     private final StatsService statsService;
@@ -28,15 +29,26 @@ public final class ItemHudView extends VBox {
         getStyleClass().add("item-hud");
     }
 
-    /** Rebuilds the icon list based on current owned items. */
+    /** Rebuilds the icon list based on current owned items (with stacks). */
     public void refresh() {
         getChildren().clear();
-        for (ItemId itemId : statsService.getOwnedItems()) {
+
+        List<ItemId> items = statsService.getOwnedItemsStacked();
+        System.out.println("[ItemHudView] refresh, items=" + items);
+
+        for (ItemId itemId : items) {
             ImageView iv = iconCache.computeIfAbsent(itemId, this::createIconView);
             if (iv != null) {
-                getChildren().add(iv);
+                // IMPORTANT: for stacks we need a *new* node each time
+                ImageView copy = new ImageView(iv.getImage());
+                copy.setFitWidth(iv.getFitWidth());
+                copy.setFitHeight(iv.getFitHeight());
+                copy.setPreserveRatio(true);
+                getChildren().add(copy);
             }
         }
+
+        System.out.println("[ItemHudView] children after refresh=" + getChildren().size());
     }
 
     private ImageView createIconView(ItemId itemId) {
