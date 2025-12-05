@@ -108,6 +108,7 @@ public class GameController implements ViewLifecycle {
     private boolean rewardSpawnedThisRoom = false;
     private int roomsCleared = 0;
     private int rewardItemCursor = 0;
+    private int currentWave = 1;
 
     // HUD lateral (estadísticas)
     private HudView hud;
@@ -277,7 +278,7 @@ public class GameController implements ViewLifecycle {
         for (Enemy e : enemies) {
             EnemyProfile profile = bal.profile(e.getType());
             if (profile != null) {
-                e.setMaxHealth(profile.baseHp);
+                e.setMaxHealth(profile.baseHp * e.getHpMultiplier());
             }
         }
     }
@@ -434,11 +435,13 @@ public class GameController implements ViewLifecycle {
         gameStarted = true;
         elapsedSeconds = 0;
         score = 500;
+        currentWave = 1;
 
         // Reset de sala/recompensas al empezar un run
         rewardSpawnedThisRoom = false;
         roomsCleared = 0;
         rewardItemCursor = 0;
+        enemiesSpawned = false;
 
         // Arranques que antes hacías en onEnter
         startHudTimerIfNeeded();
@@ -711,16 +714,27 @@ public class GameController implements ViewLifecycle {
         return EnemyType.SHOOTER;
     }
 
-   private void spawnEnemies(int count) {
+    private int getEnemyCountForWave(int wave) {
+        int base = 4;
+        int count = base + wave;
+        return Math.max(1, Math.min(count, 20));
+    }
+
+    private void spawnEnemies(int count) {
         if (gameLoop == null || gameArea == null) return;
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
         if (width <= 0.0 || height <= 0.0) return;
 
+        double waveIndex = Math.max(1.0, currentWave);
+        double hpMul = 1.0 + 0.15 * (waveIndex - 1.0);
+        double speedMul = 1.0 + 0.05 * (waveIndex - 1.0);
+        double dmgMul = 1.0 + 0.10 * (waveIndex - 1.0);
+
         for (int i = 0; i < count; i++) {
             EnemyType type = pickTypeByWeight();
 
-                        Enemy enemy = new Enemy(
+            Enemy enemy = new Enemy(
                 type,
                 gameArea,
                 this::getPlayerCenter,
@@ -729,7 +743,6 @@ public class GameController implements ViewLifecycle {
                     if (e instanceof Enemy en) {
                         enemies.remove(en);
 
-                        // ✅ Score por perfil de enemigo
                         var bal = com.layla.AppContext.balance();
                         EnemyProfile profile = bal.profile(en.getType());
 
@@ -748,7 +761,6 @@ public class GameController implements ViewLifecycle {
                             gameLoop.addEntity(ft);
                         }
 
-                        // ✅ NUEVO: sala limpia → pedestal de recompensa
                         if (enemies.isEmpty() && !rewardSpawnedThisRoom) {
                             spawnRoomRewardPedestal();
                             rewardSpawnedThisRoom = true;
@@ -759,11 +771,12 @@ public class GameController implements ViewLifecycle {
                     }
                 },
                 ge -> gameLoop.addEntity(ge), // onSpawn (proyectiles enemigos)
-                k -> sound.play(k)            // sfx
+                k -> sound.play(k),           // sfx
+                hpMul,
+                speedMul,
+                dmgMul
             );
 
-
-            // ... resto igual
             double enemyWidth = enemy.getWidth();
             double enemyHeight = enemy.getHeight();
             double maxX = Math.max(0.0, width - enemyWidth);
@@ -795,7 +808,7 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-            private void spawnRoomRewardPedestal() {
+    private void spawnRoomRewardPedestal() {
         if (gameLoop == null || gameArea == null) return;
 
         double width = gameArea.getWidth();
@@ -837,8 +850,17 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(pedestal);
     }
 
+    private void startNextWave() {
+        if (gameOverShown || !startGateOpen) return;
+        if (gameArea == null || gameArea.getWidth() <= 0.0 || gameArea.getHeight() <= 0.0) return;
+        currentWave++;
+        rewardSpawnedThisRoom = false;
+        enemiesSpawned = false;
+        spawnEnemies(getEnemyCountForWave(currentWave));
+        enemiesSpawned = true;
+    }
 
-        /** Muestra un overlay estilo Isaac al recoger un ítem de pedestal. */
+    /** Muestra un overlay estilo Isaac al recoger un ¡tem de pedestal. */
     private void showItemPickupOverlay(ItemId itemId) {
         // Pausar partida mientras se muestra el overlay
         paused = true;
@@ -873,6 +895,7 @@ public class GameController implements ViewLifecycle {
                         }
                         resumeHudTimer();
                         paused = false;
+                        startNextWave();
                     });
                 });
             }
@@ -884,7 +907,7 @@ public class GameController implements ViewLifecycle {
         if (enemiesSpawned) return;
         if (player == null || gameArea == null) return;
         if (gameArea.getWidth() <= 0.0 || gameArea.getHeight() <= 0.0) return;
-        spawnEnemies(5);
+        spawnEnemies(getEnemyCountForWave(currentWave));
         enemiesSpawned = true;
     }
 
@@ -1052,6 +1075,7 @@ public class GameController implements ViewLifecycle {
         rewardSpawnedThisRoom = false;
         roomsCleared = 0;
         rewardItemCursor = 0;
+        currentWave = 1;
 
         tickerAdded = false;
         shootingArmed = false;
@@ -1121,3 +1145,9 @@ public class GameController implements ViewLifecycle {
         return v;
     }
 }
+
+
+
+
+
+

@@ -34,7 +34,10 @@ class EnemyDamageTest {
                 () -> new double[] {200.0, 200.0},
                 e -> removed.set(true),
                 g -> {},
-                s -> {}
+                s -> {},
+                1.0,
+                1.0,
+                1.0
         );
         enemy.setPosition(150.0, 150.0);
 

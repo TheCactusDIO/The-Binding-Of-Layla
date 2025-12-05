@@ -35,6 +35,9 @@ public final class Enemy implements GameEntity {
     private final Consumer<GameEntity> onRemove;
     private final Consumer<GameEntity> onSpawn;
     private final Consumer<String> playSfx;
+    private final double hpMultiplier;
+    private final double speedMultiplier;
+    private final double damageMultiplier;
 
     private double hp;
     private double maxHealth;
@@ -56,13 +59,19 @@ public final class Enemy implements GameEntity {
                  Supplier<double[]> playerCenterSupplier,
                  Consumer<GameEntity> onRemove,
                  Consumer<GameEntity> onSpawn,
-                 Consumer<String> playSfx) {
+                 Consumer<String> playSfx,
+                 double hpMultiplier,
+                 double speedMultiplier,
+                 double damageMultiplier) {
         this.type = Objects.requireNonNull(type, "type");
         this.boundsPane = Objects.requireNonNull(boundsPane, "boundsPane");
         this.playerCenterSupplier = Objects.requireNonNull(playerCenterSupplier, "playerCenterSupplier");
         this.onRemove = Objects.requireNonNull(onRemove, "onRemove");
         this.onSpawn = Objects.requireNonNull(onSpawn, "onSpawn");
         this.playSfx = (playSfx != null ? playSfx : k -> {});
+        this.hpMultiplier = Math.max(0.0, hpMultiplier);
+        this.speedMultiplier = Math.max(0.0, speedMultiplier);
+        this.damageMultiplier = Math.max(0.0, damageMultiplier);
 
         view.setManaged(false);
         view.setStroke(Color.BLACK);
@@ -70,7 +79,7 @@ public final class Enemy implements GameEntity {
         applyTypeStyle(); // Color por enemigo
 
         EnemyProfile profile = AppContext.balance().profile(type);
-        this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp) : 0.0;
+        this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp * hpMultiplier) : 0.0;
         this.hp = this.maxHealth;
     }
 
@@ -100,7 +109,7 @@ public final class Enemy implements GameEntity {
     }
 
     private void syncHealthWithProfile(EnemyProfile profile) {
-        double desiredMax = Math.max(0.0, profile.baseHp);
+        double desiredMax = Math.max(0.0, profile.baseHp * hpMultiplier);
         if (Math.abs(desiredMax - maxHealth) > 1e-6) {
             double ratio = maxHealth > 0.0 ? hp / maxHealth : 1.0;
             maxHealth = desiredMax;
@@ -164,7 +173,7 @@ public final class Enemy implements GameEntity {
 
         double projSpeed = Math.max(0.0, profile.projSpeed);
         double projRange = Math.max(0.0, profile.projRange);
-        double projDamage = Math.max(0.0, profile.projDamage);
+        double projDamage = Math.max(0.0, profile.projDamage * damageMultiplier);
         if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) return;
 
         double lifetime = projRange / projSpeed;
@@ -231,6 +240,7 @@ public final class Enemy implements GameEntity {
         if (other instanceof Player player) {
             EnemyProfile profile = AppContext.balance().profile(type);
             double dmg = (profile != null ? profile.contactDmg : AppContext.balance().enemyContactDamage);
+            dmg *= damageMultiplier;
             if (dmg > 0.0) {
                 player.takeDamage(dmg);
                 playSfx.accept("hurt");
@@ -246,6 +256,9 @@ public final class Enemy implements GameEntity {
     public double getCollisionRadius() { return collisionRadius; }
     public double getCenterX() { return view.getLayoutX() + getWidth() * 0.5; }
     public double getCenterY() { return view.getLayoutY() + getHeight() * 0.5; }
+    public double getHpMultiplier() { return hpMultiplier; }
+    public double getSpeedMultiplier() { return speedMultiplier; }
+    public double getDamageMultiplier() { return damageMultiplier; }
 
     public void setPosition(double x, double y) {
         view.setLayoutX(x);
@@ -317,7 +330,7 @@ public final class Enemy implements GameEntity {
         double[] dir = directionTo(playerCenter);
         if (dir == null) return;
         applyJitter(dir, profile.jitter);
-        move(dir, profile.speed * dt);
+        move(dir, profile.speed * speedMultiplier * dt);
     }
 
     private void moveMeleeZigZag(EnemyProfile profile, double[] playerCenter, double dt) {
@@ -334,7 +347,7 @@ public final class Enemy implements GameEntity {
         dir[0] = dx / len;
         dir[1] = dy / len;
         applyJitter(dir, profile.jitter * 0.5);
-        move(dir, profile.speed * dt);
+        move(dir, profile.speed * speedMultiplier * dt);
     }
 
     private void moveShooterKiting(EnemyProfile profile, double[] playerCenter, double dt) {
@@ -348,7 +361,7 @@ public final class Enemy implements GameEntity {
 
         double minRange = 140.0;
         double maxRange = 220.0;
-        double speed = profile.speed;
+        double speed = profile.speed * speedMultiplier;
 
         double moveX, moveY;
 
@@ -379,7 +392,7 @@ public final class Enemy implements GameEntity {
         double[] dir = directionTo(playerCenter);
         if (dir == null) return;
         double hpRatio = maxHealth > 0.0 ? hp / maxHealth : 1.0;
-        double speed = profile.speed;
+        double speed = profile.speed * speedMultiplier;
         if (hpRatio <= 0.5) {
             speed *= 1.4;
         }
@@ -408,7 +421,7 @@ public final class Enemy implements GameEntity {
             factor = 1.6 + (0.8 - 1.6) * t;
         }
 
-        double speed = profile.speed * factor;
+        double speed = profile.speed * speedMultiplier * factor;
         tmpDir[0] = dirX;
         tmpDir[1] = dirY;
         applyJitter(tmpDir, profile.jitter);
@@ -435,7 +448,7 @@ public final class Enemy implements GameEntity {
     private void handleTurretShooting(EnemyProfile profile, double[] playerCenter, double dt) {
         double projSpeed = Math.max(0.0, profile.projSpeed);
         double projRange = Math.max(0.0, profile.projRange);
-        double projDamage = Math.max(0.0, profile.projDamage);
+        double projDamage = Math.max(0.0, profile.projDamage * damageMultiplier);
         if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) {
             burstShotsRemaining = 0;
             burstShotTimer = 0.0;

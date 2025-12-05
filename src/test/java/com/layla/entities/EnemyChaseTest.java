@@ -29,7 +29,10 @@ class EnemyChaseTest {
                 () -> new double[] {400.0, 300.0},
                 e -> {},
                 g -> {},
-                s -> {}
+                s -> {},
+                1.0,
+                1.0,
+                1.0
         );
         enemy.setPosition(100.0, 100.0);
         Rectangle view = (Rectangle) enemy.getView();
