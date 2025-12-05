@@ -1,6 +1,7 @@
 package com.layla.ui;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -22,6 +23,8 @@ import com.layla.model.PlayerStatId;
 import com.layla.services.ShootingService;
 import com.layla.services.SoundService;
 import com.layla.services.StatsService;
+import com.layla.ui.ShopOverlayController;
+import com.layla.ui.ShopOverlayController.ShopOffer;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -60,6 +63,7 @@ public class GameController implements ViewLifecycle {
     @FXML private StackPane overlayLayer;
     private javafx.scene.Node pauseOverlay;
     private javafx.scene.Node gameOverOverlay;
+    private javafx.scene.Node shopOverlay;
 
     // ---------- MÚSICA ----------
     private String currentTrack = null;
@@ -383,6 +387,10 @@ public class GameController implements ViewLifecycle {
         if (gameOverOverlay != null) {
             OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
             gameOverOverlay = null;
+        }
+        if (shopOverlay != null) {
+            OverlayRouter.closeOverlay(overlayLayer, shopOverlay);
+            shopOverlay = null;
         }
         if (ticker != null && gameLoop != null) {
             gameLoop.removeEntity(ticker);
@@ -907,6 +915,52 @@ public class GameController implements ViewLifecycle {
                 ipc.setItem(name, desc, iconImage);
                 ipc.setOnClose(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
+                    javafx.application.Platform.runLater(this::showShopOverlay);
+                });
+            }
+        });
+    }
+
+    private List<ShopOffer> generateShopOffers() {
+        List<ShopOffer> offers = new ArrayList<>();
+        List<ItemId> pool = new ArrayList<>();
+        Collections.addAll(pool, ItemId.values());
+        Collections.shuffle(pool);
+        int offerCount = Math.min(3, pool.size());
+        for (int i = 0; i < offerCount; i++) {
+            ItemId itemId = pool.get(i);
+            int price = 10 + i * 5;
+            offers.add(new ShopOffer(itemId, price));
+        }
+        return offers;
+    }
+
+    private void showShopOverlay() {
+        if (overlayLayer == null) {
+            paused = false;
+            if (gameLoop != null && !gameLoop.isRunning() && !gameOverShown) gameLoop.start();
+            resumeHudTimer();
+            startNextWave();
+            return;
+        }
+
+        paused = true;
+        if (gameLoop != null && gameLoop.isRunning()) {
+            gameLoop.stop();
+        }
+        pauseHudTimer();
+
+        final javafx.scene.Node[] overlayRef = new javafx.scene.Node[1];
+        overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/shop_overlay.fxml", 0.90, controller -> {
+            if (controller instanceof ShopOverlayController soc) {
+                soc.setStatsService(statsService);
+                soc.setCoins(coins);
+                soc.setOffers(generateShopOffers());
+                soc.setOnClose(() -> {
+                    coins = soc.getCoins();
+                    updateHudLabels();
+                    OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
+                    shopOverlay = null;
                     javafx.application.Platform.runLater(() -> {
                         if (gameLoop != null && !gameLoop.isRunning() && !gameOverShown) {
                             gameLoop.start();
@@ -916,8 +970,30 @@ public class GameController implements ViewLifecycle {
                         startNextWave();
                     });
                 });
+                soc.onShow();
+            } else {
+                OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
+                overlayRef[0] = null;
+                shopOverlay = null;
+                javafx.application.Platform.runLater(() -> {
+                    if (gameLoop != null && !gameLoop.isRunning() && !gameOverShown) {
+                        gameLoop.start();
+                    }
+                    resumeHudTimer();
+                    paused = false;
+                    startNextWave();
+                });
             }
         });
+
+        shopOverlay = overlayRef[0];
+
+        if (shopOverlay == null) {
+            paused = false;
+            if (gameLoop != null && !gameLoop.isRunning() && !gameOverShown) gameLoop.start();
+            resumeHudTimer();
+            startNextWave();
+        }
     }
 
     private void trySpawnInitialEnemies() {
@@ -1074,6 +1150,10 @@ public class GameController implements ViewLifecycle {
         if (pauseOverlay != null) {
             OverlayRouter.closeOverlay(overlayLayer, pauseOverlay);
             pauseOverlay = null;
+        }
+        if (shopOverlay != null) {
+            OverlayRouter.closeOverlay(overlayLayer, shopOverlay);
+            shopOverlay = null;
         }
         paused = false;
 

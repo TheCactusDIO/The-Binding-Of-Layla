@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.layla.ui.ShopOverlayController">
+    <children>
+        <AnchorPane style="-fx-background-color: rgba(0,0,0,0.55);">
+            <children>
+                <VBox alignment="CENTER"
+                      spacing="14.0"
+                      maxWidth="520.0"
+                      prefWidth="480.0"
+                      style="-fx-background-color: #1f1f1f; -fx-background-radius: 12; -fx-padding: 20;"
+                      AnchorPane.topAnchor="80.0"
+                      AnchorPane.bottomAnchor="80.0"
+                      AnchorPane.leftAnchor="160.0"
+                      AnchorPane.rightAnchor="160.0">
+                    <children>
+                        <Label text="Shop" styleClass="overlay-title"/>
+                        <Label fx:id="coinsLabel" text="Coins: 0" styleClass="hud-label"/>
+                        <VBox fx:id="offersContainer"
+                              spacing="10.0"
+                              fillWidth="true"
+                              style="-fx-padding: 8 6 8 6;"/>
+                        <Button fx:id="continueButton"
+                                text="Start next wave"
+                                maxWidth="240.0"/>
+                    </children>
+                </VBox>
+            </children>
+        </AnchorPane>
+    </children>
+</StackPane>
