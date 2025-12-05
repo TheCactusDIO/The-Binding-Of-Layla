@@ -28,10 +28,11 @@
                       maxHeight="96.0"
                       AnchorPane.topAnchor="0.0"
                       AnchorPane.leftAnchor="0.0"
-                      AnchorPane.rightAnchor="0.0"
+                    AnchorPane.rightAnchor="0.0"
                       styleClass="hud-bar">
                     <children>
                         <Label fx:id="scoreLabel"  text="Score: 0"  styleClass="hud-label"/>
+                        <Label fx:id="coinLabel"   text="Coins: 0"  styleClass="hud-label"/>
                         <Label fx:id="floorLabel"  text="Oleada: 1"  styleClass="hud-label"/>
                         <Label fx:id="healthLabel" text="HP: 100"   styleClass="hud-label"/>
                     </children>

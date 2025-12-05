@@ -51,6 +51,7 @@ public class GameController implements ViewLifecycle {
     // ---------- HUD (barra superior) ----------
     @FXML private HBox hudBar;
     @FXML private Label scoreLabel;
+    @FXML private Label coinLabel;
     @FXML private Label floorLabel;
     @FXML private Label healthLabel;
 
@@ -68,6 +69,7 @@ public class GameController implements ViewLifecycle {
     private Timeline hudTimer;        // Reloj MM:SS
     private long elapsedSeconds = 0;
     private int score = 500;
+    private int coins = 0;
     private Label timeLabel;
 
     // ---------- Estado ----------
@@ -231,6 +233,7 @@ public class GameController implements ViewLifecycle {
 
     private void updateHudLabels() {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
+        if (coinLabel  != null) coinLabel.setText("Coins: " + coins);
         if (floorLabel != null) floorLabel.setText("Oleada: " + currentWave);
         if (timeLabel  != null) timeLabel.setText("Time: " + formatMMSS(elapsedSeconds));
         if (healthLabel != null) {
@@ -436,6 +439,7 @@ public class GameController implements ViewLifecycle {
         gameStarted = true;
         elapsedSeconds = 0;
         score = 500;
+        coins = 0;
         currentWave = 1;
 
         // Reset de sala/recompensas al empezar un run
@@ -457,13 +461,14 @@ public class GameController implements ViewLifecycle {
 
     public void setHUD(int score, int floor, int health) {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
-        if (floorLabel != null) floorLabel.setText("Floor: " + floor);
+        if (floorLabel != null) floorLabel.setText("Oleada: " + floor);
         if (healthLabel != null) healthLabel.setText("HP: " + health);
     }
 
     private void resetHUD() {
         elapsedSeconds = 0;
         score = 500;
+        coins = 0;
         updateHudLabels();
     }
 
@@ -748,11 +753,22 @@ public class GameController implements ViewLifecycle {
                         EnemyProfile profile = bal.profile(en.getType());
 
                         int bonus = 0;
+                        int coinGain = 0;
                         if (profile != null) {
                             bonus = profile.score;
+                            if (profile.score > 0) {
+                                coinGain = Math.max(1, profile.score / 10);
+                            }
                         }
 
                         score = Math.max(0, score + bonus);
+                        if (coinGain > 0) {
+                            coins = Math.max(0, coins + coinGain);
+                            double cx = en.getView().getLayoutX() + en.getWidth() * 0.5;
+                            double cy = en.getView().getLayoutY() + en.getHeight() * 0.5;
+                            var ftCoins = new FloatingTextEntity("+" + coinGain + "¢", cx, cy - 12.0, x -> gameLoop.removeEntity(x));
+                            gameLoop.addEntity(ftCoins);
+                        }
                         updateHudLabels();
 
                         if (bonus != 0) {
@@ -1085,6 +1101,7 @@ public class GameController implements ViewLifecycle {
 
         elapsedSeconds = 0;
         score = 500;
+        coins = 0;
         updateHudLabels();
         stopHudTimer();
         startHudTimerIfNeeded();
