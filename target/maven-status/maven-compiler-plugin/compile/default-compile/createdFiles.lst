@@ -47,6 +47,7 @@ com\layla\ui\GameOverController.class
 com\layla\core\AssetsManager.class
 com\layla\ui\ViewLifecycle.class
 com\layla\entities\ItemPedestal.class
+com\layla\ui\ItemPickupOverlayController.class
 com\layla\ui\LoadingController.class
 com\layla\core\GameEntity.class
 com\layla\entities\Projectile.class

@@ -31,8 +31,10 @@ import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -789,7 +791,7 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-        private void spawnRoomRewardPedestal() {
+            private void spawnRoomRewardPedestal() {
         if (gameLoop == null || gameArea == null) return;
 
         double width = gameArea.getWidth();
@@ -810,33 +812,16 @@ public class GameController implements ViewLifecycle {
             gameArea,
             statsService,
             e -> {
-                // Se llama solo cuando el player lo recoge
+                // Al recoger el ítem y eliminar el pedestal
                 gameLoop.removeEntity(e);
                 if (itemHud != null) {
                     itemHud.refresh();
                 }
 
-                // Mensajito estilo Isaac: nombre + descripción
-                ItemDefinition def = ItemRegistry.getDefinition(itemId);
-                String text;
-                if (def != null) {
-                    text = def.getName() + "\n" + def.getDescription();
-                } else {
-                    text = itemId.name();
-                }
-
-                double cx = gameArea.getWidth() * 0.5;
-                double cy = gameArea.getHeight() * 0.5 - 30.0;
-
-                FloatingTextEntity ft = new FloatingTextEntity(
-                    text,
-                    cx,
-                    cy,
-                    ge2 -> gameLoop.removeEntity(ge2)
-                );
-                gameLoop.addEntity(ft);
+                // Mostrar overlay estilo Isaac con nombre + descripción
+                showItemPickupOverlay(itemId);
             },
-            k -> sound.play(k) // aquí ahora pasará "item"
+            k -> sound.play(k) // aquí se usará "item"
         );
 
         double pedWidth = pedestal.getWidth();
@@ -846,6 +831,48 @@ public class GameController implements ViewLifecycle {
 
         pedestal.setPosition(x, y);
         gameLoop.addEntity(pedestal);
+    }
+
+
+        /** Muestra un overlay estilo Isaac al recoger un ítem de pedestal. */
+    private void showItemPickupOverlay(ItemId itemId) {
+        // Pausar partida mientras se muestra el overlay
+        paused = true;
+        if (gameLoop != null && gameLoop.isRunning()) {
+            gameLoop.stop();
+        }
+        pauseHudTimer();
+
+        final Node[] overlayRef = new Node[1];
+        overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/item_pickup_overlay.fxml", 0.90, controller -> {
+            if (controller instanceof ItemPickupOverlayController ipc) {
+
+                ItemDefinition def = ItemRegistry.getDefinition(itemId);
+                String name = (def != null ? def.getName() : itemId.name());
+                String desc = (def != null ? def.getDescription() : "");
+
+                // Cargar icono desde ItemRegistry
+                Image iconImage = null;
+                String iconPath = ItemRegistry.getIconPath(itemId);
+                if (iconPath != null) {
+                    // En ItemRegistry los paths suelen empezar por "/assets/..."
+                    String rel = iconPath.startsWith("/") ? iconPath.substring(1) : iconPath;
+                    iconImage = AssetsManager.loadImage(rel);
+                }
+
+                ipc.setItem(name, desc, iconImage);
+                ipc.setOnClose(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
+                    javafx.application.Platform.runLater(() -> {
+                        if (gameLoop != null && !gameLoop.isRunning() && !gameOverShown) {
+                            gameLoop.start();
+                        }
+                        resumeHudTimer();
+                        paused = false;
+                    });
+                });
+            }
+        });
     }
 
     private void trySpawnInitialEnemies() {
