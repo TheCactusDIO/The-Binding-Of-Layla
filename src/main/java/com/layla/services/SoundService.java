@@ -46,6 +46,7 @@ public final class SoundService {
             case "enemy_death"  -> 120_000_000L; // 120 ms entre muertes de enemigos
             case "player_death" -> 500_000_000L; // 500 ms, da igual que se intente varias veces
             case "shot"         -> 40_000_000L;  // 40 ms entre disparos → 25/seg máx
+            case "item"         -> 200_000_000L; // 200 ms entre pickups de ítem
             default             -> 0L;           // sin límite especial
         };
     }
@@ -59,7 +60,8 @@ public final class SoundService {
             case "shot"          -> "assets/sounds/shot.mp3";
             case "enemy_death"   -> "assets/sounds/enemy_death.mp3";
             case "player_death"  -> "assets/sounds/player_death.mp3";
-            case "dead"          -> "assets/sounds/enemy_death.mp3"; // alias temporal
+            case "dead"          -> "assets/sounds/enemy_death.mp3";
+            case "item"          -> "assets/sounds/item.mp3";
             default -> null;
         };
         if (file == null) return null;

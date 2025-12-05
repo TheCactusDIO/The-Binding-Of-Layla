@@ -8,6 +8,7 @@
     "assets/sounds/hurt.mp3",
     "assets/sounds/shot.mp3",
     "assets/sounds/enemy_death.mp3",
+    "assets/sounds/item.mp3",
     "assets/sounds/player_death.mp3"
   ],
   "music": [

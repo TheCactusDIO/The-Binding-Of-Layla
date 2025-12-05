@@ -9,9 +9,12 @@ import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
+import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
+import com.layla.items.ItemDefinition;
 import com.layla.items.ItemId;
+import com.layla.items.ItemRegistry;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
@@ -96,6 +99,11 @@ public class GameController implements ViewLifecycle {
     private final List<Enemy> enemies = new ArrayList<>();
     private boolean enemiesSpawned = false;
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
+
+    // Recompensas por sala
+    private boolean rewardSpawnedThisRoom = false;
+    private int roomsCleared = 0;
+    private int rewardItemCursor = 0;
 
     // HUD lateral (estadísticas)
     private HudView hud;
@@ -423,6 +431,11 @@ public class GameController implements ViewLifecycle {
         elapsedSeconds = 0;
         score = 500;
 
+        // Reset de sala/recompensas al empezar un run
+        rewardSpawnedThisRoom = false;
+        roomsCleared = 0;
+        rewardItemCursor = 0;
+
         // Arranques que antes hacías en onEnter
         startHudTimerIfNeeded();
         updateHudLabels();
@@ -701,7 +714,7 @@ public class GameController implements ViewLifecycle {
         for (int i = 0; i < count; i++) {
             EnemyType type = pickTypeByWeight();
 
-            Enemy enemy = new Enemy(
+                        Enemy enemy = new Enemy(
                 type,
                 gameArea,
                 this::getPlayerCenter,
@@ -710,7 +723,7 @@ public class GameController implements ViewLifecycle {
                     if (e instanceof Enemy en) {
                         enemies.remove(en);
 
-                        // ✅ NUEVO: score por perfil de enemigo
+                        // ✅ Score por perfil de enemigo
                         var bal = com.layla.AppContext.balance();
                         EnemyProfile profile = bal.profile(en.getType());
 
@@ -728,6 +741,13 @@ public class GameController implements ViewLifecycle {
                             var ft = new FloatingTextEntity("+" + bonus, cx, cy, x -> gameLoop.removeEntity(x));
                             gameLoop.addEntity(ft);
                         }
+
+                        // ✅ NUEVO: sala limpia → pedestal de recompensa
+                        if (enemies.isEmpty() && !rewardSpawnedThisRoom) {
+                            spawnRoomRewardPedestal();
+                            rewardSpawnedThisRoom = true;
+                            roomsCleared++;
+                        }
                     } else {
                         enemies.removeIf(x -> x == e);
                     }
@@ -735,6 +755,7 @@ public class GameController implements ViewLifecycle {
                 ge -> gameLoop.addEntity(ge), // onSpawn (proyectiles enemigos)
                 k -> sound.play(k)            // sfx
             );
+
 
             // ... resto igual
             double enemyWidth = enemy.getWidth();
@@ -766,6 +787,65 @@ public class GameController implements ViewLifecycle {
             enemies.add(enemy);
             gameLoop.addEntity(enemy);
         }
+    }
+
+        private void spawnRoomRewardPedestal() {
+        if (gameLoop == null || gameArea == null) return;
+
+        double width = gameArea.getWidth();
+        double height = gameArea.getHeight();
+        if (width <= 0.0 || height <= 0.0) return;
+
+        ItemId[] allItems = ItemId.values();
+        if (allItems.length == 0) {
+            System.err.println("[GameController] No items available for room reward.");
+            return;
+        }
+
+        final ItemId itemId = allItems[rewardItemCursor % allItems.length];
+        rewardItemCursor++;
+
+        ItemPedestal pedestal = new ItemPedestal(
+            itemId,
+            gameArea,
+            statsService,
+            e -> {
+                // Se llama solo cuando el player lo recoge
+                gameLoop.removeEntity(e);
+                if (itemHud != null) {
+                    itemHud.refresh();
+                }
+
+                // Mensajito estilo Isaac: nombre + descripción
+                ItemDefinition def = ItemRegistry.getDefinition(itemId);
+                String text;
+                if (def != null) {
+                    text = def.getName() + "\n" + def.getDescription();
+                } else {
+                    text = itemId.name();
+                }
+
+                double cx = gameArea.getWidth() * 0.5;
+                double cy = gameArea.getHeight() * 0.5 - 30.0;
+
+                FloatingTextEntity ft = new FloatingTextEntity(
+                    text,
+                    cx,
+                    cy,
+                    ge2 -> gameLoop.removeEntity(ge2)
+                );
+                gameLoop.addEntity(ft);
+            },
+            k -> sound.play(k) // aquí ahora pasará "item"
+        );
+
+        double pedWidth = pedestal.getWidth();
+        double pedHeight = pedestal.getHeight();
+        double x = (width - pedWidth) * 0.5;
+        double y = (height - pedHeight) * 0.5;
+
+        pedestal.setPosition(x, y);
+        gameLoop.addEntity(pedestal);
     }
 
     private void trySpawnInitialEnemies() {
@@ -820,6 +900,11 @@ public class GameController implements ViewLifecycle {
 
         enemies.clear();
         enemiesSpawned = false;
+
+        // Reset de recompensas de sala
+        rewardSpawnedThisRoom = false;
+        roomsCleared = 0;
+        rewardItemCursor = 0;
 
         tickerAdded = false;
         shootingArmed = false;
