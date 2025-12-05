@@ -231,13 +231,14 @@ public class GameController implements ViewLifecycle {
 
     private void updateHudLabels() {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
-        if (floorLabel != null) floorLabel.setText("Floor: 1");
+        if (floorLabel != null) floorLabel.setText("Oleada: " + currentWave);
         if (timeLabel  != null) timeLabel.setText("Time: " + formatMMSS(elapsedSeconds));
         if (healthLabel != null) {
             healthLabel.setVisible(false);
             healthLabel.setManaged(false); // para que no reserve espacio en el HBox
         }
     }
+
 
     private void startHudTimerIfNeeded() {
         if (!startGateOpen) return;
@@ -858,6 +859,7 @@ public class GameController implements ViewLifecycle {
         enemiesSpawned = false;
         spawnEnemies(getEnemyCountForWave(currentWave));
         enemiesSpawned = true;
+        updateHudLabels();
     }
 
     /** Muestra un overlay estilo Isaac al recoger un ¡tem de pedestal. */
@@ -1145,9 +1147,3 @@ public class GameController implements ViewLifecycle {
         return v;
     }
 }
-
-
-
-
-
-
