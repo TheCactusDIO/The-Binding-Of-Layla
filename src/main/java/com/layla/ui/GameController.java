@@ -101,6 +101,8 @@ public class GameController implements ViewLifecycle {
     private final List<Enemy> enemies = new ArrayList<>();
     private boolean enemiesSpawned = false;
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
+    private static final double SEPARATION_EPS = 1e-5;
+    private static final double MAX_SEPARATION_STEP = 6.0;
 
     // Recompensas por sala
     private boolean rewardSpawnedThisRoom = false;
@@ -581,6 +583,8 @@ public class GameController implements ViewLifecycle {
                     hudRefreshTimer = 0.1;
                 }
 
+                applyEnemySeparation(dt); // Suaviza solapamientos entre enemigos y con el jugador
+
                 if (!gameOverShown && player != null && player.isDead()) {
                     showGameOverOverlay();
                     return;
@@ -884,6 +888,122 @@ public class GameController implements ViewLifecycle {
         enemiesSpawned = true;
     }
 
+    /** Empuja suavemente a los enemigos entre si y lejos del centro del jugador para evitar solapes visibles. */
+    private void applyEnemySeparation(double dt) {
+        if (gameArea == null) return;
+        final int count = enemies.size();
+        if (count <= 0) return;
+
+        final double areaW = gameArea.getWidth();
+        final double areaH = gameArea.getHeight();
+        if (areaW <= 0.0 || areaH <= 0.0) return;
+
+        final double dtScale = dt > 0.0 ? Math.max(0.75, Math.min(1.25, dt * 60.0)) : 1.0;
+        final double maxStep = MAX_SEPARATION_STEP * dtScale;
+
+        // --- Enemy vs enemy ---
+        for (int i = 0; i < count - 1; i++) {
+            Enemy a = enemies.get(i);
+            if (a == null || a.isDead()) continue;
+
+            double axPos = a.getView().getLayoutX();
+            double ayPos = a.getView().getLayoutY();
+            double ax = a.getCenterX();
+            double ay = a.getCenterY();
+            double ar = a.getCollisionRadius();
+            double maxAx = Math.max(0.0, areaW - a.getWidth());
+            double maxAy = Math.max(0.0, areaH - a.getHeight());
+
+            for (int j = i + 1; j < count; j++) {
+                Enemy b = enemies.get(j);
+                if (b == null || b.isDead()) continue;
+
+                double bx = b.getCenterX();
+                double by = b.getCenterY();
+                double br = b.getCollisionRadius();
+                double dx = bx - ax;
+                double dy = by - ay;
+                double distSq = dx * dx + dy * dy;
+                double radiusSum = ar + br;
+                double targetSq = radiusSum * radiusSum;
+                if (distSq >= targetSq) continue;
+
+                double dist, nx, ny;
+                if (distSq > SEPARATION_EPS) {
+                    dist = Math.sqrt(distSq);
+                    nx = dx / dist;
+                    ny = dy / dist;
+                } else {
+                    double angle = enemyRng.nextDouble(Math.PI * 2.0);
+                    nx = Math.cos(angle);
+                    ny = Math.sin(angle);
+                    dist = Math.sqrt(SEPARATION_EPS);
+                }
+
+                double overlap = radiusSum - dist;
+                if (overlap <= 0.0) continue;
+
+                double push = Math.min(overlap * 0.5, maxStep);
+                double offset = push * 0.5;
+                double offX = nx * offset;
+                double offY = ny * offset;
+
+                axPos = clamp(axPos - offX, 0.0, maxAx);
+                ayPos = clamp(ayPos - offY, 0.0, maxAy);
+                double bxPos = clamp(b.getView().getLayoutX() + offX, 0.0, Math.max(0.0, areaW - b.getWidth()));
+                double byPos = clamp(b.getView().getLayoutY() + offY, 0.0, Math.max(0.0, areaH - b.getHeight()));
+
+                a.setPosition(axPos, ayPos);
+                b.setPosition(bxPos, byPos);
+
+                // Actualiza el centro de A para las siguientes comparaciones del bucle interno
+                ax = axPos + a.getWidth() * 0.5;
+                ay = ayPos + a.getHeight() * 0.5;
+            }
+        }
+
+        // --- Enemy vs player (solo mueve al enemigo) ---
+        if (player == null) return;
+
+        double px = player.getView().getLayoutX() + player.getWidth() * 0.5;
+        double py = player.getView().getLayoutY() + player.getHeight() * 0.5;
+        double playerRadius = Math.min(player.getWidth(), player.getHeight()) * 0.5;
+
+        for (int i = 0; i < count; i++) {
+            Enemy enemy = enemies.get(i);
+            if (enemy == null || enemy.isDead()) continue;
+
+            double ex = enemy.getCenterX();
+            double ey = enemy.getCenterY();
+            double dx = ex - px;
+            double dy = ey - py;
+            double minDist = playerRadius + enemy.getCollisionRadius() * 0.8;
+            double minDistSq = minDist * minDist;
+            double distSq = dx * dx + dy * dy;
+            if (distSq >= minDistSq) continue;
+
+            double dist, nx, ny;
+            if (distSq > SEPARATION_EPS) {
+                dist = Math.sqrt(distSq);
+                nx = dx / dist;
+                ny = dy / dist;
+            } else {
+                double angle = enemyRng.nextDouble(Math.PI * 2.0);
+                nx = Math.cos(angle);
+                ny = Math.sin(angle);
+                dist = Math.sqrt(SEPARATION_EPS);
+            }
+
+            double overlap = minDist - dist;
+            if (overlap <= 0.0) continue;
+
+            double push = Math.min(overlap * 0.8, maxStep);
+            double newX = clamp(enemy.getView().getLayoutX() + nx * push, 0.0, Math.max(0.0, areaW - enemy.getWidth()));
+            double newY = clamp(enemy.getView().getLayoutY() + ny * push, 0.0, Math.max(0.0, areaH - enemy.getHeight()));
+            enemy.setPosition(newX, newY);
+        }
+    }
+
     // ==================== GAME OVER ====================
     private void showGameOverOverlay() {
         if (gameOverShown) return;
@@ -993,5 +1113,11 @@ public class GameController implements ViewLifecycle {
         gameArea.setMaxSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
 
         gameArea.setStyle("-fx-background-color: #111111;");
+    }
+
+    private static double clamp(double v, double min, double max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
     }
 }

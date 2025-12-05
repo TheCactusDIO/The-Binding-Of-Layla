@@ -50,7 +50,7 @@ public final class Enemy implements GameEntity {
 
     // Buffer reutilizable para direcciones (evitar new double[] cada frame)
     private final double[] tmpDir = new double[2];
-
+    private final double collisionRadius = Math.min(getWidth(), getHeight()) * 0.5;
     public Enemy(EnemyType type,
                  Pane boundsPane,
                  Supplier<double[]> playerCenterSupplier,
@@ -243,6 +243,9 @@ public final class Enemy implements GameEntity {
     public double getHealth() { return hp; }
     public double getMaxHealth() { return maxHealth; }
     public boolean isDead() { return dead; }
+    public double getCollisionRadius() { return collisionRadius; }
+    public double getCenterX() { return view.getLayoutX() + getWidth() * 0.5; }
+    public double getCenterY() { return view.getLayoutY() + getHeight() * 0.5; }
 
     public void setPosition(double x, double y) {
         view.setLayoutX(x);
@@ -282,14 +285,6 @@ public final class Enemy implements GameEntity {
         hp = 0.0;
         spawnDeathFx();
         onRemove.accept(this);
-    }
-
-    private double getCenterX() {
-        return view.getLayoutX() + WIDTH * 0.5;
-    }
-
-    private double getCenterY() {
-        return view.getLayoutY() + HEIGHT * 0.5;
     }
 
     private static double clamp(double v, double min, double max) {
