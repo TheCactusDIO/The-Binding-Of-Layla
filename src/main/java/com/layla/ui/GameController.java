@@ -2,22 +2,21 @@ package com.layla.ui;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
+import com.layla.entities.Boss;
 import com.layla.entities.Coin;
 import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
-import com.layla.entities.Projectile;
+import com.layla.entities.SpawnIndicator;
 import com.layla.items.ItemDefinition;
 import com.layla.items.ItemId;
 import com.layla.items.ItemRegistry;
 import com.layla.model.Enemy;
-import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.model.PlayerStatId;
 import com.layla.services.ShootingService;
@@ -32,78 +31,77 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 public class GameController implements ViewLifecycle {
 
-    // ---------- ÁREA PRINCIPAL ----------
     @FXML private Pane gameArea;
-
-    // ---------- HUD (barra superior) ----------
     @FXML private HBox hudBar;
     @FXML private Label scoreLabel;
     @FXML private Label coinLabel;
     @FXML private Label floorLabel;
     @FXML private Label healthLabel;
-
-    // ---------- ROOTS / OVERLAYS ----------
     @FXML private StackPane root;
     @FXML private StackPane overlayLayer;
+
     private javafx.scene.Node pauseOverlay;
     private javafx.scene.Node gameOverOverlay;
     private javafx.scene.Node shopOverlay;
 
-    // ---------- MÚSICA ----------
-    private String currentTrack = null;
-    private boolean musicStarted = false;
+    // UI del Boss
+    private VBox bossHealthBox;
+    private ProgressBar bossHealthBar;
+    private Label bossNameLabel;
 
-    // ---------- HUD: timer y score ----------
+    private boolean musicStarted = false;
     private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
-    // ---------- Lógica de Oleadas (Survival) ----------
-    private double waveTimer = 0.0;        // Tiempo restante de la oleada
-    private double spawnTimer = 0.0;       // Tiempo para el próximo grupo de enemigos
-    private boolean waveActive = false;    // Si la oleada está en curso
+    // Lógica de Oleadas
+    private static final int WAVES_PER_FLOOR = 5;
+    private int currentFloor = 1;
     private int currentWave = 1;
 
-    // ---------- Estado ----------
+    private double waveTimer = 0.0;
+    private boolean waveActive = false;
+
+    private double constantSpawnInterval;
+    private double hordeInterval;
+    private int hordeSize;
+    private double timeUntilNextSpawn = 0.0;
+    private double timeUntilNextHorde = 0.0;
+
+    // Estado
     private boolean gameStarted = false;
     private boolean paused = false;
-    private boolean settingsOpen = false;
     private boolean gameOverShown = false;
 
-    // ---------- Game loop / entidades ----------
     private GameLoop gameLoop;
     private Player player;
     private boolean playerSpawnListenerAdded = false;
-
-    // --- Start gate (juego no arranca hasta que se abra) ---
     private boolean startGateOpen = false;
 
-    // ---------- Input / servicios ----------
+    private Boss activeBoss = null;
+
     private InputService input;
     private final StatsService statsService = com.layla.AppContext.stats();
     private ShootingService shootingService;
     private final SoundService sound = new SoundService();
 
-    // Disparo (bias WASD sobre flechas)
     private double bias = 0.2;
-
-    // Ticker auxiliar
     private boolean tickerAdded = false;
-    private GameEntity ticker; // Ticker invisible que vive en el GameLoop
+    private GameEntity ticker;
 
-    // Enemigos
     private final List<Enemy> enemies = new ArrayList<>();
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
     private static final double SEPARATION_EPS = 1e-5;
@@ -111,28 +109,19 @@ public class GameController implements ViewLifecycle {
     private static final int SHOP_OFFER_COUNT = 3;
     private static final int SHOP_REROLL_BASE_PRICE = 1;
 
-    // Recompensas por sala
     private int rewardItemCursor = 0;
-
-    // HUD lateral (estadísticas)
     private HudView hud;
     private ItemHudView itemHud;
     private double hudRefreshTimer = 0.0;
-
-    // Anti-spam de disparo tras spawn del player
     private boolean shootingArmed = false;
-    private double shootingArmTimer = 0.6; // s
+    private double shootingArmTimer = 0.6;
 
     // ===================== PAUSA =====================
     @FXML
     private void onPausePressed() {
-        if (gameOverShown) return; // No permitir pausa en Game Over
-        if (pauseOverlay != null || paused) return;
+        if (gameOverShown || pauseOverlay != null || paused) return;
         paused = true;
-
-        Platform.runLater(() -> {
-            if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
-        });
+        Platform.runLater(() -> { if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop(); });
 
         pauseOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/pause_overlay.fxml", 0.50, controller -> {
             if (controller instanceof PauseOverlayController poc) {
@@ -143,33 +132,24 @@ public class GameController implements ViewLifecycle {
                     Platform.runLater(() -> {
                         if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
                         paused = false;
-                        settingsOpen = false;
                         backToMenu();
                     });
                 });
+
                 poc.setOnSettings(() -> {
                     final javafx.scene.Node[] settingsNode = new javafx.scene.Node[1];
-                    settingsOpen = true;
-                    java.util.function.Consumer<Object> settingsConsumer = c -> {
+                    settingsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/settings.fxml", 0.90, c -> {
                         if (c instanceof SettingsController sc) {
                             sc.setStatsService(statsService);
                             sc.setOverlayHost(overlayLayer);
                             sc.setInitialCoins(coins);
-
                             sc.setOnCoinsChanged(newCoins -> {
                                 coins = Math.max(0, newCoins);
                                 updateHudLabels();
                             });
-
-                            sc.setOnClose(() -> {
-                                OverlayRouter.closeOverlay(overlayLayer, settingsNode[0]);
-                                settingsOpen = false;
-                            });
+                            sc.setOnClose(() -> OverlayRouter.closeOverlay(overlayLayer, settingsNode[0]));
                         }
-                    };
-                    settingsNode[0] = OverlayRouter.showOverlay(
-                        overlayLayer, "ui/settings.fxml", 0.90, settingsConsumer
-                    );
+                    });
                 });
             }
         });
@@ -184,18 +164,9 @@ public class GameController implements ViewLifecycle {
             if (gameLoop != null && !gameLoop.isRunning()) gameLoop.start();
             paused = false;
         });
-        settingsOpen = false;
     }
 
-    /** Aplica en runtime el balance de vida al player actual (modelo de 1 sola vida). */
-    private void applyBalanceToRuntimePlayer() {
-        if (player == null) return;
-        var bal = com.layla.AppContext.balance();
-        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
-        player.setMaxHealth(statsService.getMaxHealth());
-    }
-
-    // ===================== HUD & HELPERS =====================
+    // ===================== HUD =====================
     private static String formatTime(double seconds) {
         int s = (int) Math.ceil(seconds);
         return String.format("%02d", s);
@@ -204,22 +175,30 @@ public class GameController implements ViewLifecycle {
     private void updateHudLabels() {
         if (scoreLabel != null) scoreLabel.setText("Score: " + score);
         if (coinLabel  != null) coinLabel.setText("Coins: " + coins);
-        if (floorLabel != null) floorLabel.setText("Oleada: " + currentWave);
-        if (timeLabel  != null) {
-            if (waveActive) {
+
+        String floorName = switch(currentFloor) {
+            case 1 -> "Basement";
+            case 2 -> "Caves";
+            case 3 -> "Depths";
+            default -> "Hell " + (currentFloor-3);
+        };
+        if (floorLabel != null) floorLabel.setText(floorName + " - " + currentWave + "/" + WAVES_PER_FLOOR);
+
+        if (timeLabel != null) {
+            if (activeBoss != null) {
+                timeLabel.setText("BOSS");
+                timeLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-weight: bold;");
+            } else if (waveActive) {
                 timeLabel.setText("Time: " + formatTime(waveTimer));
                 timeLabel.setStyle("-fx-text-fill: white;");
-                if (waveTimer <= 5.0) {
-                    timeLabel.setStyle("-fx-text-fill: #ff5555; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
-                }
             } else {
-                timeLabel.setText(gameOverShown ? "DEAD" : "CLEAR");
+                timeLabel.setText("CLEAR");
                 timeLabel.setStyle("-fx-text-fill: #55ff55;");
             }
         }
-        if (healthLabel != null) {
-            healthLabel.setVisible(false);
-            healthLabel.setManaged(false);
+
+        if (activeBoss != null && bossHealthBar != null) {
+            bossHealthBar.setProgress(activeBoss.getHp() / activeBoss.getMaxHp());
         }
     }
 
@@ -229,180 +208,98 @@ public class GameController implements ViewLifecycle {
             if (timeLabel == null) {
                 timeLabel = new Label();
                 timeLabel.getStyleClass().add("hud-timer");
-                timeLabel.setStyle("-fx-font-size: 24px;"); // Más grande para el survival
+                timeLabel.setStyle("-fx-font-size: 24px;");
             }
             if (!hudBar.getChildren().contains(timeLabel)) {
-                int insertAt = hudBar.getChildren().indexOf(floorLabel);
-                if (insertAt < 0) insertAt = hudBar.getChildren().size();
-                hudBar.getChildren().add(insertAt + 1, timeLabel);
+                hudBar.getChildren().add(hudBar.getChildren().size(), timeLabel);
             }
         }
+
+        // UI del Boss
+        bossHealthBar = new ProgressBar(1.0);
+        bossHealthBar.setPrefWidth(600); // Más ancha
+        bossHealthBar.setStyle("-fx-accent: #cc0000; -fx-control-inner-background: #333333; -fx-text-box-border: transparent;");
+        bossNameLabel = new Label("BOSS");
+        bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px; -fx-effect: dropshadow(gaussian, black, 2, 1, 0, 0);");
+
+        bossHealthBox = new VBox(4, bossNameLabel, bossHealthBar);
+        bossHealthBox.setAlignment(Pos.CENTER);
+        bossHealthBox.setManaged(false);
+        bossHealthBox.setVisible(false);
+
+        // CORRECCIÓN: Posición BOTTOM_CENTER para no tapar la acción
+        if (overlayLayer != null) {
+            overlayLayer.getChildren().add(bossHealthBox);
+            StackPane.setAlignment(bossHealthBox, Pos.BOTTOM_CENTER);
+            StackPane.setMargin(bossHealthBox, new Insets(0, 0, 40, 0));
+        }
+
         updateHudLabels();
     }
 
-    /** Aplica el nuevo perfil al vuelo a TODOS los enemigos existentes. */
-    private void applyBalanceToRuntimeEnemies() {
+    private void applyBalanceToRuntimePlayer() {
+        if (player == null) return;
         var bal = com.layla.AppContext.balance();
-        for (Enemy e : enemies) {
-            EnemyProfile profile = bal.profile(e.getType());
-            if (profile != null) {
-                e.setMaxHealth(profile.baseHp * e.getHpMultiplier());
-            }
-        }
+        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
+        player.setMaxHealth(statsService.getMaxHealth());
+        player.setHealth(Math.min(player.getHealth(), player.getMaxHealth()));
     }
 
-    // ==================== CICLO DE VIDA (router) ====================
     @Override
     public void onEnter() {
         resetPlainGameArea();
 
-        // Fade-in HUD
         if (hudBar != null) {
-            hudBar.setOpacity(0.0);
-            var ft = new FadeTransition(Duration.millis(400), hudBar);
-            ft.setFromValue(0.0);
-            ft.setToValue(1.0);
-            ft.play();
+            hudBar.setOpacity(1.0);
+            new FadeTransition(Duration.millis(400), hudBar).play();
         }
 
-        // Aplica estilos HUD a la Scene
         Platform.runLater(() -> {
             var sc = gameArea.getScene();
-            if (sc != null) {
-                sc.getStylesheets().remove(UIStyles.hud());
-                sc.getStylesheets().add(UIStyles.hud());
-                if (!sc.getStylesheets().contains(UIStyles.global()))
-                    sc.getStylesheets().add(UIStyles.global());
-                if (!sc.getStylesheets().contains(UIStyles.game()))
-                    sc.getStylesheets().add(UIStyles.game());
-            }
-        });
-
-        // ESC para pausa
-        Platform.runLater(() -> {
-            var scene = gameArea.getScene();
-            if (scene == null) return;
-            scene.setOnKeyPressed(e -> {
+            if (input == null) input = new InputService();
+            input.attach(sc);
+            sc.setOnKeyPressed(e -> {
                 if (e.getCode() == KeyCode.ESCAPE) {
-                    if (gameOverShown) return;
-                    if (settingsOpen) return;
-                    if (pauseOverlay != null || paused) resumeFromPause(); else onPausePressed();
+                    if (!gameOverShown && !paused) onPausePressed();
+                    else if (paused) resumeFromPause();
+                } else {
+                    handleDebugItemHotkeys(e.getCode());
                 }
             });
-            gameArea.setFocusTraversable(true);
             gameArea.requestFocus();
         });
 
-        // GameLoop
         if (gameLoop == null) gameLoop = new GameLoop(gameArea);
-
-        // Listeners de tamaño
         if (!playerSpawnListenerAdded) {
             playerSpawnListenerAdded = true;
-            gameArea.widthProperty().addListener((obs, ow, nw) -> {
-                maybeSpawnPlayer();
-            });
-            gameArea.heightProperty().addListener((obs, oh, nh) -> {
-                maybeSpawnPlayer();
-            });
+            gameArea.widthProperty().addListener((obs, ow, nw) -> maybeSpawnPlayer());
+            gameArea.heightProperty().addListener((obs, oh, nh) -> maybeSpawnPlayer());
         }
-
         maybeSpawnPlayer();
-
-        // Input
-        Platform.runLater(() -> {
-            Scene scene = gameArea.getScene();
-            if (scene == null) return;
-            if (input == null) input = new InputService();
-            input.attach(scene);
-
-            scene.addEventHandler(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
-                if (handleDebugItemHotkeys(e.getCode())) {
-                    e.consume();
-                    return;
-                }
-                KeyCode c = e.getCode();
-                if (c == KeyCode.UP || c == KeyCode.DOWN || c == KeyCode.LEFT || c == KeyCode.RIGHT) {
-                    tryShootNow();
-                }
-            });
-
-            gameArea.requestFocus();
-            scene.setOnMouseClicked(e -> gameArea.requestFocus());
-        });
     }
 
     @Override
     public void onExit() {
-        if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
-
-        // Cerrar overlays
-        if (gameOverOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay); gameOverOverlay = null; }
-        if (shopOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, shopOverlay); shopOverlay = null; }
-        if (pauseOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, pauseOverlay); pauseOverlay = null; }
-
-        if (ticker != null && gameLoop != null) { gameLoop.removeEntity(ticker); ticker = null; }
-
-        gameOverShown = false;
-        tickerAdded = false;
-        paused = false;
-        waveActive = false;
-
-        // Limpiar entidades
-        if (player != null && gameLoop != null) { gameLoop.removeEntity(player); player = null; }
-        if (!enemies.isEmpty() && gameLoop != null) {
-            for (Enemy enemy : new ArrayList<>(enemies)) gameLoop.removeEntity(enemy);
-        }
-        enemies.clear();
-
-        if (hud != null) {
-            if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
-            else if (gameArea != null) gameArea.getChildren().remove(hud);
-            hud = null;
-        }
-        if (itemHud != null) {
-            if (overlayLayer != null) overlayLayer.getChildren().remove(itemHud);
-            else if (gameArea != null) gameArea.getChildren().remove(itemHud);
-            itemHud = null;
-        }
-
-        startGateOpen = false;
-        shootingService = null;
-        settingsOpen = false;
+        if (gameLoop != null) gameLoop.stop();
         if (input != null) input.detach();
+        startGateOpen = false;
+        gameOverShown = false;
+        paused = false;
+        activeBoss = null;
     }
 
-    // ==================== API PÚBLICA BÁSICA ====================
     public void signalGameStart() {
         if (startGateOpen) return;
         startGateOpen = true;
-
         gameStarted = true;
-        score = 500;
-        coins = Math.max(0, com.layla.AppContext.balance().startCoins);
+        currentFloor = 1;
         currentWave = 1;
 
-        rewardItemCursor = 0;
-        waveActive = false;
-
-        prepareWave(currentWave);
-
+        prepareWave();
         updateHudLabels();
         maybeSpawnPlayer();
         addTickerIfNeeded();
         startFloorMusicIfNeeded();
-    }
-
-    private void prepareWave(int wave) {
-        waveTimer = 20.0 + (wave * 5.0);
-        spawnTimer = 1.0; // Primer spawn rápido
-        waveActive = true;
-    }
-
-    private void resetHUD() {
-        score = 500;
-        coins = Math.max(0, com.layla.AppContext.balance().startCoins);
-        updateHudLabels();
     }
 
     public void backToMenu() { SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml"); }
@@ -411,217 +308,132 @@ public class GameController implements ViewLifecycle {
 
     public void startFloorMusicIfNeeded() {
         if (!musicStarted) {
-            String[] floor1Tracks = { "basement1.mp3", "basement2.mp3", "basement3.mp3" };
-            int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(floor1Tracks.length);
-            currentTrack = floor1Tracks[idx];
             try {
-                AssetsManager.playMusic(currentTrack, true);
+                AssetsManager.playMusic("basement1.mp3", true);
                 musicStarted = true;
-            } catch (Exception ex) {
-                System.err.println("[GameController] Could not play music: " + ex.getMessage());
+            } catch (Exception ex) { System.err.println("Music error: " + ex.getMessage()); }
+        }
+    }
+
+    // ==================== LÓGICA DE OLEADAS Y SPAWNS ====================
+
+    private void prepareWave() {
+        if (currentWave == WAVES_PER_FLOOR) {
+            startBossWave();
+            return;
+        }
+
+        // CORRECCIÓN: Tiempo de oleada = 10s + 2s por ronda (antes 20+5)
+        waveTimer = 10.0 + (currentWave * 2.0);
+        waveActive = true;
+        activeBoss = null;
+        if (bossHealthBox != null) bossHealthBox.setVisible(false);
+
+        // Ajuste de dificultad más agresivo para compensar rondas cortas
+        double difficulty = currentFloor * 1.5 + currentWave * 0.5;
+
+        // Spawn constante: mucho más rápido (de 1.5s a 0.2s)
+        constantSpawnInterval = Math.max(0.2, 1.5 - (difficulty * 0.15));
+
+        // Hordas: más frecuentes (cada 5-12s para asegurar al menos una)
+        hordeInterval = Math.max(5.0, 12.0 - (difficulty * 0.5));
+
+        // Tamaño horda
+        hordeSize = Math.min(25, 4 + (int)(difficulty * 1.5));
+
+        timeUntilNextSpawn = 0.5; // Empezar casi ya
+        timeUntilNextHorde = hordeInterval * 0.5; // Primera horda a mitad de intervalo
+
+        System.out.println("Wave " + currentWave + ": Time=" + waveTimer + "s, SpawnRate=" + constantSpawnInterval + "s");
+    }
+
+    private void startBossWave() {
+        waveActive = true;
+        waveTimer = 999999;
+        for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
+        enemies.clear();
+
+        double bx = gameArea.getWidth()/2 - 40;
+        double by = gameArea.getHeight()/2 - 100;
+        double bossHp = 500 + (currentFloor * 300);
+
+        activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter,
+            (deadBoss) -> handleBossDeath(),
+            (proj) -> gameLoop.addEntity(proj)
+        );
+        gameLoop.addEntity(activeBoss);
+
+        if (bossHealthBox != null) {
+            bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
+            bossHealthBox.setVisible(true);
+            bossHealthBox.setManaged(true);
+        }
+    }
+
+    private void handleBossDeath() {
+        activeBoss = null;
+        if (bossHealthBox != null) bossHealthBox.setVisible(false);
+        spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
+        endWave();
+    }
+
+    private void updateWaveLogic(double dt) {
+        if (!waveActive || activeBoss != null) return;
+
+        waveTimer -= dt;
+        if (waveTimer <= 0.0) {
+            endWave();
+            return;
+        }
+
+        timeUntilNextSpawn -= dt;
+        if (timeUntilNextSpawn <= 0.0) {
+            spawnEnemyAtRandomPos();
+            timeUntilNextSpawn = constantSpawnInterval;
+        }
+        timeUntilNextHorde -= dt;
+        if (timeUntilNextHorde <= 0.0) {
+            spawnHorde();
+            timeUntilNextHorde = hordeInterval;
+        }
+    }
+
+    private void spawnHorde() {
+        for (int i = 0; i < hordeSize; i++) spawnEnemyAtRandomPos();
+    }
+
+    private void spawnEnemyAtRandomPos() {
+        if (gameArea == null || player == null) return;
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        for (int i = 0; i < 15; i++) {
+            double x = enemyRng.nextDouble(0, w - 20);
+            double y = enemyRng.nextDouble(0, h - 20);
+            if (isValidSpawn(x, y, 20, 20)) {
+                EnemyType type = pickEnemyTypeForWave();
+                createSpawnIndicator(x, y, type);
+                return;
             }
         }
     }
 
-    // ==================== SPAWN PLAYER ====================
-    private void maybeSpawnPlayer() {
-        if (!startGateOpen) return;
-        if (player != null || input == null || gameLoop == null) return;
-
-        double width = gameArea.getWidth();
-        double height = gameArea.getHeight();
-        if (width <= 0 || height <= 0) return;
-
-        player = new Player(input, gameArea, statsService);
-
-        var bal = com.layla.AppContext.balance();
-        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
-        double baseHp = statsService.getMaxHealth();
-        player.setMaxHealth(baseHp);
-        player.setHealth(baseHp);
-
-        shootingService = new ShootingService(statsService);
-        shootingArmed = false;
-        shootingArmTimer = 0.6;
-
-        hud = new HudView(statsService, player);
-        hud.setTranslateX(12);
-        hud.setTranslateY(12);
-        if (overlayLayer != null) {
-            overlayLayer.getChildren().add(hud);
-            StackPane.setAlignment(hud, Pos.TOP_LEFT);
-        } else {
-            gameArea.getChildren().add(hud);
-        }
-
-        itemHud = new ItemHudView(statsService);
-        itemHud.refresh();
-        if (overlayLayer != null) {
-            overlayLayer.getChildren().add(itemHud);
-            StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
-            StackPane.setMargin(itemHud, new Insets(12, 8, 12, 8));
-        } else {
-            gameArea.getChildren().add(itemHud);
-        }
-
-        double startX = Math.max(0.0, (width - player.getWidth()) / 2.0);
-        double startY = Math.max(0.0, (height - player.getHeight()) / 2.0);
-        player.setPosition(startX, startY);
-        gameLoop.addEntity(player);
-
-        if (!gameLoop.isRunning()) gameLoop.start();
+    private void createSpawnIndicator(double x, double y, EnemyType type) {
+        SpawnIndicator indicator = new SpawnIndicator(x, y, 1.5, gameArea, (ind) -> {
+            spawnRealEnemy(ind.getX(), ind.getY(), type);
+        });
+        gameLoop.addEntity(indicator);
     }
 
-    // ==================== TICKER & GAME LOGIC ====================
-    private void addTickerIfNeeded() {
-        if (!startGateOpen || gameLoop == null) return;
-        if (ticker != null) return;
-
-        ticker = new GameEntity() {
-            private final Group view = new Group();
-
-            @Override public void update(double dt) {
-                if (!shootingArmed) {
-                    shootingArmTimer -= dt;
-                    if (shootingArmTimer <= 0.0) shootingArmed = true;
-                }
-
-                // --- 1. Lógica de Oleada (Survival) ---
-                if (waveActive && !paused && !gameOverShown) {
-                    waveTimer -= dt;
-                    updateHudLabels();
-
-                    if (waveTimer <= 0.0) {
-                        endWave();
-                    } else {
-                        spawnTimer -= dt;
-                        if (spawnTimer <= 0.0) {
-                            spawnEnemyBatch();
-                            spawnTimer = Math.max(0.5, 2.5 - (currentWave * 0.15));
-                        }
-                    }
-                }
-
-                // --- 2. Disparo ---
-                if (shootingService != null && input != null) {
-                    shootingService.update(dt, input.getMoveVector());
-                }
-
-                if (shootingArmed && !paused && player != null && !player.isDead() && input != null && shootingService != null) {
-                    double[] ar = input.getAimArrowCardinal();
-                    if (ar[0] != 0 || ar[1] != 0) {
-                        double[] mv = input.getMoveVector();
-                        double fx = (1.0 - bias) * ar[0] + bias * mv[0];
-                        double fy = (1.0 - bias) * ar[1] + bias * mv[1];
-                        shootingService.setAim(fx, fy);
-
-                        double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
-                        double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-
-                        shootingService.tryShoot(
-                            gameArea,
-                            gameLoop,
-                            px, py,
-                            player,
-                            (Projectile p) -> sound.play("shot")
-                        );
-                    }
-                }
-
-                // --- 3. HUD y Utilidades ---
-                hudRefreshTimer -= dt;
-                if (hud != null && hudRefreshTimer <= 0.0) {
-                    hud.refresh();
-                    hudRefreshTimer = 0.1;
-                }
-
-                applyEnemySeparation(dt);
-
-                if (!gameOverShown && player != null && player.isDead()) {
-                    showGameOverOverlay();
-                }
-            }
-
-            @Override public javafx.scene.Node getView() { return view; }
-            @Override public void onCollision(GameEntity other) {}
-        };
-
-        gameLoop.addEntity(ticker);
-        tickerAdded = true;
-    }
-
-    private void tryShootNow() {
-        if (!shootingArmed || paused) return;
-        if (player == null || player.isDead() || input == null || shootingService == null) return;
-
-        double[] ar = input.getAimArrowCardinal();
-        if (ar[0] == 0 && ar[1] == 0) return;
-
-        double[] mv = input.getMoveVector();
-        double fx = (1.0 - bias) * ar[0] + bias * mv[0];
-        double fy = (1.0 - bias) * ar[1] + bias * mv[1];
-        shootingService.setAim(fx, fy);
-
-        double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
-        double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-
-        shootingService.tryShoot(gameArea, gameLoop, px, py, player, (Projectile p) -> sound.play("shot"));
-    }
-
-    private boolean handleDebugItemHotkeys(KeyCode code) {
-        if (code == null) return false;
-        ItemId itemId = switch (code) {
-            case DIGIT1 -> ItemId.SWIFT_BOOTS;
-            case DIGIT2 -> ItemId.GLASS_CANNON;
-            case DIGIT3 -> ItemId.TEARS_UP;
-            case DIGIT4 -> ItemId.RANGE_UP;
-            case DIGIT5 -> ItemId.SHOT_SPEED_UP;
-            default -> null;
-        };
-        if (itemId == null) return false;
-
-        boolean granted = statsService.grantItem(itemId);
-        if (granted) {
-            applyBalanceToRuntimePlayer();
-            if (hud != null) hud.refresh();
-            if (itemHud != null) itemHud.refresh();
-            var def = com.layla.items.ItemRegistry.getDefinition(itemId);
-            if (player != null && gameLoop != null && def != null) {
-                double cx = player.getView().getLayoutX() + player.getWidth() * 0.5;
-                double cy = player.getView().getLayoutY() - 10.0;
-                gameLoop.addEntity(new FloatingTextEntity(def.getName(), cx, cy, e -> gameLoop.removeEntity(e)));
-            }
-        }
-        return granted;
-    }
-
-    // ==================== ENEMIGOS & OLEADAS ====================
-
-    private void spawnEnemyBatch() {
-        if (gameLoop == null || gameArea == null) return;
-        double width = gameArea.getWidth();
-        double height = gameArea.getHeight();
-        if (width <= 0.0 || height <= 0.0) return;
-
-        int batchSize = 1 + (currentWave / 3);
-
-        double waveIndex = Math.max(1.0, currentWave);
-        double hpMul = 1.0 + 0.15 * (waveIndex - 1.0);
-        double speedMul = 1.0 + 0.05 * (waveIndex - 1.0);
-        double dmgMul = 1.0 + 0.10 * (waveIndex - 1.0);
-
-        for (int i = 0; i < batchSize; i++) {
-            createAndSpawnEnemy(hpMul, speedMul, dmgMul, width, height);
-        }
-    }
-
-    private void createAndSpawnEnemy(double hpMul, double speedMul, double dmgMul, double width, double height) {
-        EnemyType type = pickTypeByWeight();
+    private void spawnRealEnemy(double x, double y, EnemyType type) {
+        double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
+        double hpMul = 1.0 + difficulty * 0.2;
+        double speedMul = 1.0 + difficulty * 0.05;
+        double dmgMul = 1.0 + difficulty * 0.1;
 
         Enemy enemy = new Enemy(
-            type,
-            gameArea,
-            this::getPlayerCenter,
+            type, gameArea, this::getPlayerCenter,
             e -> {
                 gameLoop.removeEntity(e);
                 if (e instanceof Enemy en) {
@@ -631,135 +443,148 @@ public class GameController implements ViewLifecycle {
             },
             ge -> gameLoop.addEntity(ge),
             k -> sound.play(k),
-            hpMul,
-            speedMul,
-            dmgMul
+            hpMul, speedMul, dmgMul
         );
-
-        placeEnemySafely(enemy, width, height);
-
+        enemy.setPosition(x, y);
         enemies.add(enemy);
         gameLoop.addEntity(enemy);
     }
 
-    private void handleEnemyDeathRewards(Enemy en) {
-        var bal = com.layla.AppContext.balance();
-        EnemyProfile profile = bal.profile(en.getType());
-
-        int bonus = 0;
-        int coinGain = 0;
-        if (profile != null) {
-            bonus = profile.score;
-            if (profile.score > 0) {
-                coinGain = Math.max(1, profile.score / 10);
-            }
-        }
-
-        score = Math.max(0, score + bonus);
-
-        if (coinGain > 0) {
-            double cx = en.getCenterX();
-            double cy = en.getCenterY();
-            Coin coin = new Coin(cx, cy, coinGain, gameArea, statsService, player,
-                c -> {
-                    coins += c.getValue();
-                    updateHudLabels();
-                    sound.play("item");
-                    gameLoop.removeEntity(c);
-
-                    // Floating text
-                    double tx = c.getView().getLayoutX();
-                    double ty = c.getView().getLayoutY() - 10;
-                    gameLoop.addEntity(new FloatingTextEntity("+" + c.getValue() + "¢", tx, ty, x -> gameLoop.removeEntity(x)));
-                }
-            );
-            gameLoop.addEntity(coin);
-        }
-
-        updateHudLabels();
+    private EnemyType pickEnemyTypeForWave() {
+        if (currentFloor == 1) return EnemyType.SHOOTER;
+        if (currentFloor == 2) return enemyRng.nextBoolean() ? EnemyType.SHOOTER : EnemyType.MELEE;
+        int roll = enemyRng.nextInt(100);
+        if (roll < 40) return EnemyType.SHOOTER;
+        if (roll < 70) return EnemyType.MELEE;
+        if (roll < 85) return EnemyType.TANK;
+        return EnemyType.KAMIKAZE;
     }
 
-    private void placeEnemySafely(Enemy enemy, double width, double height) {
-        double enemyWidth = enemy.getWidth();
-        double enemyHeight = enemy.getHeight();
-        double maxX = Math.max(0.0, width - enemyWidth);
-        double maxY = Math.max(0.0, height - enemyHeight);
-        double posX = 0.0, posY = 0.0;
-        boolean placed = false;
+    private void maybeSpawnPlayer() {
+        if (!startGateOpen) return;
+        if (player != null || input == null || gameLoop == null) return;
+        if (gameArea.getWidth() <= 0) return;
 
-        for (int attempt = 0; attempt < 15; attempt++) {
-            double candidateX = enemyRng.nextDouble(0.0, maxX);
-            double candidateY = enemyRng.nextDouble(0.0, maxY);
-            if (isValidSpawn(candidateX, candidateY, enemyWidth, enemyHeight)) {
-                posX = candidateX;
-                posY = candidateY;
-                placed = true;
-                break;
+        player = new Player(input, gameArea, statsService);
+        applyBalanceToRuntimePlayer();
+        player.setHealth(statsService.getMaxHealth());
+        player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 - 10);
+
+        shootingService = new ShootingService(statsService);
+        shootingArmed = false;
+
+        hud = new HudView(statsService, player);
+        hud.setTranslateX(12); hud.setTranslateY(12);
+        overlayLayer.getChildren().add(hud);
+        StackPane.setAlignment(hud, Pos.TOP_LEFT);
+
+        itemHud = new ItemHudView(statsService);
+        itemHud.refresh();
+        overlayLayer.getChildren().add(itemHud);
+        StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
+        StackPane.setMargin(itemHud, new Insets(12, 8, 12, 8));
+
+        gameLoop.addEntity(player);
+        if (!gameLoop.isRunning()) gameLoop.start();
+    }
+
+    private void addTickerIfNeeded() {
+        if (!startGateOpen || gameLoop == null) return;
+        if (ticker != null) return;
+
+        ticker = new GameEntity() {
+            private final Group view = new Group();
+            @Override public void update(double dt) {
+                if (!shootingArmed) {
+                    shootingArmTimer -= dt;
+                    if (shootingArmTimer <= 0.0) shootingArmed = true;
+                }
+                if (!paused && !gameOverShown) {
+                    updateWaveLogic(dt);
+                    if (activeBoss != null) {
+                        activeBoss.update(dt);
+                        if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
+                            player.takeDamage(1.0);
+                        }
+                    }
+                }
+                if (shootingService != null && input != null) shootingService.update(dt, input.getMoveVector());
+                if (shootingArmed && !paused && player != null && !player.isDead()) tryShootNow();
+
+                hudRefreshTimer -= dt;
+                if (hud != null && hudRefreshTimer <= 0.0) {
+                    hud.refresh();
+                    updateHudLabels();
+                    hudRefreshTimer = 0.1;
+                }
+                applyEnemySeparation(dt);
+                if (!gameOverShown && player != null && player.isDead()) showGameOverOverlay();
             }
-        }
+            @Override public javafx.scene.Node getView() { return view; }
+        };
+        gameLoop.addEntity(ticker);
+        tickerAdded = true;
+    }
 
-        if (!placed) { posX = 10; posY = 10; }
-        enemy.setPosition(posX, posY);
+    private void tryShootNow() {
+        double[] ar = input.getAimArrowCardinal();
+        if (ar[0] != 0 || ar[1] != 0) {
+            double[] mv = input.getMoveVector();
+            double fx = (1.0 - bias) * ar[0] + bias * mv[0];
+            double fy = (1.0 - bias) * ar[1] + bias * mv[1];
+            shootingService.setAim(fx, fy);
+            double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
+            double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
+            shootingService.tryShoot(gameArea, gameLoop, px, py, player, p -> sound.play("shot"));
+        }
+    }
+
+    private void handleEnemyDeathRewards(Enemy en) {
+        spawnRewardCoins(en.getCenterX(), en.getCenterY(), 5);
+    }
+
+    private void spawnRewardCoins(double x, double y, int amount) {
+        Coin coin = new Coin(x, y, amount, gameArea, statsService, player, c -> {
+            coins += c.getValue();
+            updateHudLabels();
+            sound.play("item");
+            gameLoop.removeEntity(c);
+        });
+        gameLoop.addEntity(coin);
+    }
+
+    private boolean handleDebugItemHotkeys(KeyCode code) {
+        if (code == null) return false;
+        ItemId itemId = switch (code) {
+            case DIGIT1 -> ItemId.SWIFT_BOOTS;
+            case DIGIT2 -> ItemId.GLASS_CANNON;
+            case DIGIT3 -> ItemId.TEARS_UP;
+            default -> null;
+        };
+        if (itemId != null) {
+            statsService.grantItem(itemId);
+            applyBalanceToRuntimePlayer();
+            return true;
+        }
+        return false;
     }
 
     private void endWave() {
         waveActive = false;
         List<Enemy> toKill = new ArrayList<>(enemies);
-        for (Enemy e : toKill) {
-            e.applyDamage(99999);
-        }
+        for (Enemy e : toKill) e.applyDamage(99999);
         spawnRoomRewardPedestal();
-    }
-
-    private double[] getPlayerCenter() {
-        if (player != null) {
-            return new double[] {
-                player.getView().getLayoutX() + player.getWidth() * 0.5,
-                player.getView().getLayoutY() + player.getHeight() * 0.5
-            };
-        }
-        return new double[] { 0, 0 };
-    }
-
-    private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
-        double[] center = getPlayerCenter();
-        double enemyCx = ex + ew * 0.5;
-        double enemyCy = ey + eh * 0.5;
-        double dx = center[0] - enemyCx;
-        double dy = center[1] - enemyCy;
-        return Math.hypot(dx, dy) > 250.0;
-    }
-
-    private EnemyType pickTypeByWeight() {
-        Map<EnemyType, Integer> weights = com.layla.AppContext.balance().spawnWeights();
-        if (weights.isEmpty()) return EnemyType.SHOOTER;
-        int total = weights.values().stream().filter(w -> w > 0).mapToInt(Integer::intValue).sum();
-        if (total <= 0) return EnemyType.SHOOTER;
-        int roll = enemyRng.nextInt(total);
-        int acc = 0;
-        for (var entry : weights.entrySet()) {
-            int w = Math.max(0, entry.getValue());
-            if (w == 0) continue;
-            acc += w;
-            if (roll < acc) return entry.getKey();
-        }
-        return EnemyType.SHOOTER;
     }
 
     private void spawnRoomRewardPedestal() {
         if (gameLoop == null || gameArea == null) return;
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
-        if (width <= 0.0 || height <= 0.0) return;
-
         ItemId[] allItems = ItemId.values();
         final ItemId itemId = allItems[rewardItemCursor % allItems.length];
         rewardItemCursor++;
 
-        ItemPedestal pedestal = new ItemPedestal(
-            itemId,
-            gameArea,
-            statsService,
+        ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
             e -> {
                 gameLoop.removeEntity(e);
                 if (itemHud != null) itemHud.refresh();
@@ -767,7 +592,6 @@ public class GameController implements ViewLifecycle {
             },
             k -> sound.play(k)
         );
-
         pedestal.setPosition((width - pedestal.getWidth()) * 0.5, (height - pedestal.getHeight()) * 0.5);
         gameLoop.addEntity(pedestal);
     }
@@ -775,7 +599,6 @@ public class GameController implements ViewLifecycle {
     private void showItemPickupOverlay(ItemId itemId) {
         paused = true;
         if (gameLoop != null) gameLoop.stop();
-
         final Node[] overlayRef = new Node[1];
         overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/item_pickup_overlay.fxml", 0.90, controller -> {
             if (controller instanceof ItemPickupOverlayController ipc) {
@@ -785,7 +608,6 @@ public class GameController implements ViewLifecycle {
                 Image icon = null;
                 String path = ItemRegistry.getIconPath(itemId);
                 if (path != null) icon = AssetsManager.loadImage(path.startsWith("/") ? path.substring(1) : path);
-
                 ipc.setItem(name, desc, icon);
                 ipc.setOnClose(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
@@ -798,7 +620,6 @@ public class GameController implements ViewLifecycle {
     private void showShopOverlay() {
         paused = true;
         if (gameLoop != null) gameLoop.stop();
-
         final javafx.scene.Node[] overlayRef = new javafx.scene.Node[1];
         overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/shop_overlay.fxml", 0.90, controller -> {
             if (controller instanceof ShopOverlayController soc) {
@@ -806,7 +627,6 @@ public class GameController implements ViewLifecycle {
                 soc.setCoins(coins);
                 soc.setRerollBasePrice(SHOP_REROLL_BASE_PRICE);
                 soc.setOffers(generateShopOffers(SHOP_OFFER_COUNT));
-
                 soc.setOnCoinsChanged(newCoins -> {
                     coins = Math.max(0, newCoins);
                     updateHudLabels();
@@ -816,7 +636,6 @@ public class GameController implements ViewLifecycle {
                     if (itemHud != null) itemHud.refresh();
                 });
                 soc.setOnRerollRequested(c -> c.setOffers(generateShopOffers(SHOP_OFFER_COUNT)));
-
                 soc.setOnClose(() -> {
                     coins = soc.getCoins();
                     updateHudLabels();
@@ -849,8 +668,24 @@ public class GameController implements ViewLifecycle {
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
         currentWave++;
-        prepareWave(currentWave);
+        // CORRECCIÓN: Al pasar de piso, reiniciamos la oleada a 1
+        if (currentWave > WAVES_PER_FLOOR) {
+            currentFloor++;
+            currentWave = 1;
+            changeFloorVisuals();
+        }
+        prepareWave();
         updateHudLabels();
+    }
+
+    private void changeFloorVisuals() {
+        String color = switch(currentFloor % 3) {
+            case 1 -> "#111111"; // Gris
+            case 2 -> "#2b2010"; // Marrón
+            case 0 -> "#10102b"; // Azul
+            default -> "#000000";
+        };
+        gameArea.setStyle("-fx-background-color: " + color + ";");
     }
 
     private void resetPlainGameArea() {
@@ -859,56 +694,46 @@ public class GameController implements ViewLifecycle {
         gameArea.setManaged(true); gameArea.setClip(null);
 
         AnchorPane anchor = null;
-        for (var n : root.getChildren()) if (n instanceof AnchorPane ap) { anchor = ap; break; }
+        for (var n : root.getChildren()) {
+            if (n instanceof AnchorPane ap) { anchor = ap; break; }
+        }
 
-        if (anchor != null && gameArea.getParent() != anchor) {
-            var p = gameArea.getParent();
-            if (p instanceof Pane pp) pp.getChildren().remove(gameArea);
-            if (!anchor.getChildren().contains(gameArea)) anchor.getChildren().add(gameArea);
+        if (anchor != null) {
+            if (!anchor.getChildren().contains(gameArea)) {
+                anchor.getChildren().add(gameArea);
+            }
             AnchorPane.setTopAnchor(gameArea, 72.0);
             AnchorPane.setBottomAnchor(gameArea, 0.0);
             AnchorPane.setLeftAnchor(gameArea, 0.0);
             AnchorPane.setRightAnchor(gameArea, 0.0);
+            if (hudBar != null) hudBar.toFront();
         }
         gameArea.setStyle("-fx-background-color: #111111;");
     }
 
     private void applyEnemySeparation(double dt) {
         if (gameArea == null || enemies.isEmpty()) return;
-        double dtScale = dt > 0.0 ? Math.max(0.75, Math.min(1.25, dt * 60.0)) : 1.0;
-        double maxStep = MAX_SEPARATION_STEP * dtScale;
         double areaW = gameArea.getWidth();
         double areaH = gameArea.getHeight();
-
         for (int i = 0; i < enemies.size(); i++) {
             Enemy a = enemies.get(i);
             if (a.isDead()) continue;
-
-            // Vs otros enemigos
             for (int j = i + 1; j < enemies.size(); j++) {
                 Enemy b = enemies.get(j);
                 if (b.isDead()) continue;
-
                 double dx = b.getCenterX() - a.getCenterX();
                 double dy = b.getCenterY() - a.getCenterY();
-                double distSq = dx*dx + dy*dy;
+                double distSq = dx * dx + dy * dy;
                 double radSum = a.getCollisionRadius() + b.getCollisionRadius();
-                if (distSq < radSum*radSum) {
+                if (distSq < radSum * radSum) {
                     double dist = Math.sqrt(distSq);
                     if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
                     double overlap = radSum - dist;
-                    double push = Math.min(overlap * 0.5, maxStep);
+                    double push = Math.min(overlap * 0.5, MAX_SEPARATION_STEP);
                     double nx = dx / dist;
                     double ny = dy / dist;
-
-                    a.setPosition(
-                        clamp(a.getView().getLayoutX() - nx * push, 0, areaW - a.getWidth()),
-                        clamp(a.getView().getLayoutY() - ny * push, 0, areaH - a.getHeight())
-                    );
-                    b.setPosition(
-                        clamp(b.getView().getLayoutX() + nx * push, 0, areaW - b.getWidth()),
-                        clamp(b.getView().getLayoutY() + ny * push, 0, areaH - b.getHeight())
-                    );
+                    a.setPosition(clamp(a.getView().getLayoutX() - nx * push, 0, areaW), clamp(a.getView().getLayoutY() - ny * push, 0, areaH));
+                    b.setPosition(clamp(b.getView().getLayoutX() + nx * push, 0, areaW), clamp(b.getView().getLayoutY() + ny * push, 0, areaH));
                 }
             }
         }
@@ -923,7 +748,6 @@ public class GameController implements ViewLifecycle {
         gameOverShown = true;
         sound.play("player_death");
         if (gameLoop != null) gameLoop.stop();
-
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
                 goc.setOnRetry(() -> {
@@ -947,19 +771,19 @@ public class GameController implements ViewLifecycle {
 
         if (gameLoop != null) gameLoop.clearEntities();
         if (ticker != null) ticker = null;
-
         enemies.clear();
         currentWave = 1;
+        currentFloor = 1;
         score = 500;
         coins = Math.max(0, com.layla.AppContext.balance().startCoins);
         statsService.clearItems();
-
         gameOverShown = false;
         shootingArmed = false;
         tickerAdded = false;
         rewardItemCursor = 0;
-
         updateHudLabels();
+        activeBoss = null;
+        if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
         if (hud != null) {
             if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
@@ -971,12 +795,29 @@ public class GameController implements ViewLifecycle {
             else gameArea.getChildren().remove(itemHud);
             itemHud = null;
         }
-
         player = null;
         maybeSpawnPlayer();
         addTickerIfNeeded();
         if (gameLoop != null) gameLoop.start();
+        prepareWave();
+    }
 
-        prepareWave(currentWave);
+    private double[] getPlayerCenter() {
+        if (player != null) {
+            return new double[] {
+                player.getView().getLayoutX() + player.getWidth() * 0.5,
+                player.getView().getLayoutY() + player.getHeight() * 0.5
+            };
+        }
+        return new double[] { 0, 0 };
+    }
+
+    private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
+        double[] center = getPlayerCenter();
+        double enemyCx = ex + ew * 0.5;
+        double enemyCy = ey + eh * 0.5;
+        double dx = center[0] - enemyCx;
+        double dy = center[1] - enemyCy;
+        return Math.hypot(dx, dy) > 250.0;
     }
 }

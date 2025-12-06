@@ -13,10 +13,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
-/**
- * Drop de moneda que cae al suelo y puede ser recogida por el jugador.
- * Incluye lógica de "magnetismo" basada en la estadística PICKUP_RANGE.
- */
 public final class Coin implements GameEntity {
 
     private static final double RADIUS = 6.0;
@@ -47,7 +43,6 @@ public final class Coin implements GameEntity {
         this.player = player;
         this.onCollect = Objects.requireNonNull(onCollect);
 
-        // Visual: Círculo dorado
         this.view = new Circle(RADIUS, Color.GOLD);
         this.view.setStroke(Color.ORANGE);
         this.view.setStrokeWidth(1.5);
@@ -55,8 +50,6 @@ public final class Coin implements GameEntity {
 
         this.view.setLayoutX(x);
         this.view.setLayoutY(y);
-
-        // Sombra ligera
         this.view.setEffect(new javafx.scene.effect.DropShadow(4.0, Color.color(0,0,0,0.4)));
 
         parent.getChildren().add(this.view);
@@ -72,7 +65,6 @@ public final class Coin implements GameEntity {
 
         timeAlive += dt;
 
-        // 1. Efecto visual de flotación ("Bobbing")
         if (!isMagnetized) {
             double bobOffset = Math.sin(timeAlive * BOB_SPEED) * BOB_AMPLITUDE;
             view.setTranslateY(bobOffset);
@@ -80,7 +72,6 @@ public final class Coin implements GameEntity {
             view.setTranslateY(0);
         }
 
-        // 2. Lógica de Magnetismo
         double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
         double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
         double cx = view.getLayoutX();
@@ -90,7 +81,6 @@ public final class Coin implements GameEntity {
         double dy = py - cy;
         double distSq = dx*dx + dy*dy;
 
-        // Rango de recogida
         double pickupRange = stats.getStat(PlayerStatId.PICKUP_RANGE);
         double pickupSq = pickupRange * pickupRange;
 

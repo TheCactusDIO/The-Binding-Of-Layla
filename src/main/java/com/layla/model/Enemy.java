@@ -36,7 +36,7 @@ public final class Enemy implements GameEntity {
     private final Consumer<GameEntity> onSpawn;
     private final Consumer<String> playSfx;
 
-    // Multiplicadores de oleada
+    // Multiplicadores
     private final double hpMultiplier;
     private final double speedMultiplier;
     private final double damageMultiplier;
@@ -48,7 +48,7 @@ public final class Enemy implements GameEntity {
     private boolean dead = false;
     private PauseTransition hitFlashTimer;
 
-    // Burst shooting (torretas)
+    // Burst shooting
     private int burstShotsRemaining = 0;
     private double burstShotTimer = 0.0;
     private double burstCooldownTimer = 0.0;

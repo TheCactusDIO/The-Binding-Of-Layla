@@ -4,7 +4,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.layla.core.GameEntity;
-import com.layla.model.Enemy;
 
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
@@ -26,19 +25,10 @@ public final class Projectile implements GameEntity {
     private final double lifetime;
     private final double damage;
     private final boolean fromEnemy;
-    private final GameEntity owner; // quien disparó, para ignorar autocolisión
+    private final GameEntity owner; // quien disparó
 
     private double time = 0.0;
 
-    // ---- Constructores ----
-    // Antiguo (compat) → bala del jugador
-    public Projectile(double dirX, double dirY,
-                      double speed, double lifetime, double damage,
-                      Pane pane, Consumer<GameEntity> onRemove) {
-        this(dirX, dirY, speed, lifetime, damage, false, pane, onRemove, null);
-    }
-
-    // Nuevo completo
     public Projectile(double dirX, double dirY,
                       double speed, double lifetime, double damage,
                       boolean fromEnemy,
@@ -61,6 +51,11 @@ public final class Projectile implements GameEntity {
 
         view.setManaged(false);
         view.setStroke(Color.BLACK);
+
+        // Color diferente para balas enemigas
+        if (fromEnemy) {
+            view.setFill(Color.ORANGERED);
+        }
     }
 
     @Override public void update(double dt) {
@@ -79,7 +74,7 @@ public final class Projectile implements GameEntity {
             return;
         }
 
-        // fuera de pantalla → elimina
+        // fuera de pantalla
         if (isOutOfPaneBounds()) {
             onRemove.accept(this);
         }
@@ -93,19 +88,26 @@ public final class Projectile implements GameEntity {
         // Ignora al owner (quien disparó)
         if (owner != null && other == owner) return;
 
-        // Bala del jugador golpea a Enemy → hace daño y se elimina
-        if (!fromEnemy && other instanceof Enemy e) {
-            e.onCollision(this); // para que Enemy aplique daño si no lo hace ya
+        // 1. Bala del JUGADOR golpea ENEMIGO
+        if (!fromEnemy && other instanceof com.layla.model.Enemy e) {
+            e.applyDamage(damage);
             onRemove.accept(this);
             return;
         }
-        // Bala enemiga golpea a Player → daño y se elimina
+
+        // 2. Bala del JUGADOR golpea JEFE (NUEVO)
+        if (!fromEnemy && other instanceof Boss b) {
+            b.takeDamage(damage);
+            onRemove.accept(this);
+            return;
+        }
+
+        // 3. Bala ENEMIGA golpea JUGADOR
         if (fromEnemy && other instanceof Player p) {
             p.takeDamage(damage);
             onRemove.accept(this);
             return;
         }
-        // (Si añades obstáculos, elimínala aquí al colisionar con ellos)
     }
 
     public double getDamage() { return damage; }
