@@ -19,8 +19,8 @@ public final class AppContext {
 
     private AppContext() {}
 
-    public static StatsService stats() { return STATS; }
-    public static GameBalance balance() { return BALANCE; }
+    public static StatsService stats()   { return STATS; }
+    public static GameBalance balance()  { return BALANCE; }
 
     // ==== Global balance ====
     public static final class GameBalance {
@@ -29,6 +29,9 @@ public final class AppContext {
         // Player
         public double startHp = 6.0;
         public double maxHp   = 6.0;
+
+        // 🔹 NUEVO: monedas iniciales del run
+        public int startCoins = 0;
 
         // Enemy defaults (legacy single-value knobs still used elsewhere)
         public double enemyBaseHp   = 6.0;
@@ -71,6 +74,9 @@ public final class AppContext {
             this.startHp = 6.0;
             this.maxHp   = 6.0;
 
+            // 🔹 Reset de monedas iniciales
+            this.startCoins = 0;
+
             this.enemyBaseHp   = 6.0;
             this.enemySpeedAvg = 130.0;
             this.enemyScoreK   = 5.0;
@@ -103,21 +109,21 @@ public final class AppContext {
                 return EnemyProfile.of(20, 110, 5, 1.2, 10, 260, 500, 6, false);
             }
             return switch (type) {
-                case SHOOTER -> EnemyProfile.of(20, 110, 5, 1.2, 10, 260, 500, 6, false);
-                case MELEE -> EnemyProfile.of(25, 140, 8, 0.0, 12, 0, 0, 0, false);
-                case TURRET -> EnemyProfile.of(30, 0, 3, 0.6, 0, 300, 650, 7, true);
-                case TANK -> EnemyProfile.of(60, 80, 10, 0.3, 4, 220, 450, 8, false);
-                case KAMIKAZE -> EnemyProfile.of(15, 170, 14, 0.0, 18, 0, 0, 0, false);
+                case SHOOTER  -> EnemyProfile.of(20, 110, 5, 1.2, 10, 260, 500, 6, false);
+                case MELEE    -> EnemyProfile.of(25, 140, 8, 0.0, 12, 0,   0,   0, false);
+                case TURRET   -> EnemyProfile.of(30, 0,   3, 0.6, 0,  300, 650, 7, true);
+                case TANK     -> EnemyProfile.of(60, 80, 10, 0.3, 4,  220, 450, 8, false);
+                case KAMIKAZE -> EnemyProfile.of(15, 170, 14, 0.0, 18, 0,   0,   0, false);
             };
         }
 
         private int defaultWeight(EnemyType type) {
             if (type == null) return 10;
             return switch (type) {
-                case SHOOTER -> 40;
-                case MELEE -> 30;
-                case TURRET -> 10;
-                case TANK -> 10;
+                case SHOOTER  -> 40;
+                case MELEE    -> 30;
+                case TURRET   -> 10;
+                case TANK     -> 10;
                 case KAMIKAZE -> 10;
             };
         }

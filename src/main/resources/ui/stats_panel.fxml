@@ -2,6 +2,10 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.layout.HBox?>
+
 
 <StackPane fx:controller="com.layla.ui.StatsPanelController"
            xmlns="http://javafx.com/javafx/21"
@@ -28,37 +32,45 @@
                                    style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold;"/>
 
                             <!-- PLAYER STATS -->
-                            <GridPane hgap="10" vgap="8">
-                                <columnConstraints>
-                                    <ColumnConstraints percentWidth="40"/>
-                                    <ColumnConstraints percentWidth="60"/>
-                                </columnConstraints>
+                                <GridPane hgap="10" vgap="8">
+                                    <columnConstraints>
+                                        <ColumnConstraints percentWidth="40"/>
+                                        <ColumnConstraints percentWidth="60"/>
+                                    </columnConstraints>
 
-                                <children>
-                                    <!-- Player HP -->
-                                    <Label text="Start HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="startHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                                    <children>
+                                        <!-- Player HP unificado -->
+                                        <Label text="HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="maxHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                    <Label text="Max HP" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="maxHpField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                                        <!-- Player stats -->
+                                        <Label text="Move Speed (px/s)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="moveSpeedField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                                    <!-- Player stats -->
-                                    <Label text="Move Speed (px/s)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="moveSpeedField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                                        <Label text="Fire Rate (shots/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="fireRateField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
 
-                                    <Label text="Fire Rate (shots/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="fireRateField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                                        <Label text="Projectile Speed (px/s)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="projSpeedField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-                                    <Label text="Projectile Speed (px/s)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="projSpeedField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                                        <Label text="Projectile Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
 
-                                    <Label text="Projectile Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+                                        <Label text="Projectile Damage" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="projDamageField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
 
-                                    <Label text="Projectile Damage" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
-                                    <TextField fx:id="projDamageField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
-                                </children>
-                            </GridPane>
+                                        <!-- Coins row -->
+                                        <HBox spacing="8.0"
+                                            GridPane.rowIndex="7"
+                                            GridPane.columnIndex="0"
+                                            GridPane.columnSpan="2">
+                                            <children>
+                                                <Label text="Coins:" style="-fx-text-fill: white;"/>
+                                                <Spinner fx:id="coinsSpinner" prefWidth="100.0"/>
+                                            </children>
+                                        </HBox>
+                                    </children>
+                                </GridPane>
 
                             <Separator/>
 

@@ -1,7 +1,6 @@
 package com.layla.ui;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -23,7 +22,6 @@ import com.layla.model.PlayerStatId;
 import com.layla.services.ShootingService;
 import com.layla.services.SoundService;
 import com.layla.services.StatsService;
-import com.layla.ui.ShopOverlayController;
 import com.layla.ui.ShopOverlayController.ShopOffer;
 
 import javafx.animation.FadeTransition;
@@ -73,8 +71,7 @@ public class GameController implements ViewLifecycle {
     private Timeline hudTimer;        // Reloj MM:SS
     private long elapsedSeconds = 0;
     private int score = 500;
-    private int coins = 0;
-    private Label timeLabel;
+    private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);    private Label timeLabel;
 
     // ---------- Estado ----------
     private boolean gameStarted = false;
@@ -109,11 +106,13 @@ public class GameController implements ViewLifecycle {
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
     private static final double SEPARATION_EPS = 1e-5;
     private static final double MAX_SEPARATION_STEP = 6.0;
+    private static final int SHOP_OFFER_COUNT = 3;
+    private static final int SHOP_REROLL_BASE_PRICE = 1;
 
     // Recompensas por sala
     private boolean rewardSpawnedThisRoom = false;
     private int roomsCleared = 0;
-    private int rewardItemCursor = 0;
+       private int rewardItemCursor = 0;
     private int currentWave = 1;
 
     // HUD lateral (estadísticas)
@@ -158,6 +157,13 @@ public class GameController implements ViewLifecycle {
                         if (c instanceof SettingsController sc) {
                             sc.setStatsService(statsService);
                             sc.setOverlayHost(overlayLayer); // host para abrir stats_panel.fxml encima del juego
+                            sc.setInitialCoins(coins); // 🔹 pasamos las monedas actuales
+
+                            sc.setOnCoinsChanged(newCoins -> { // 🔹 callback cuando cambien
+                                coins = Math.max(0, newCoins);
+                                updateHudLabels();
+                            });
+
                             sc.setOnClose(() -> {
                                 OverlayRouter.closeOverlay(overlayLayer, settingsNode[0]);
                                 settingsOpen = false;
@@ -191,13 +197,18 @@ public class GameController implements ViewLifecycle {
         statsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/stats_panel.fxml", 0.90, controller -> {
             if (controller instanceof StatsPanelController sp) {
                 sp.setStatsService(com.layla.AppContext.stats());
+
+                // Monedas actuales → panel
+                sp.setInitialCoins(coins);
+                sp.setOnCoinsChanged(newCoins -> {
+                    coins = Math.max(0, newCoins);
+                    updateHudLabels();
+                });
+
                 sp.setOnClose(() -> OverlayRouter.closeOverlay(overlayLayer, statsNode[0]));
                 sp.setOnStatsChanged(() -> {
-                    // 1) Refresca HUD al instante
                     if (hud != null) hud.refresh();
-                    // 2) Aplica balance en caliente al jugador
                     applyBalanceToRuntimePlayer();
-                    // 3) Aplica balance en caliente a TODOS los enemigos activos
                     applyBalanceToRuntimeEnemies();
                 });
                 sp.onShow();
@@ -205,23 +216,18 @@ public class GameController implements ViewLifecycle {
         });
     }
 
-    /** Aplica en runtime el balance (maxHp/startHp) al player actual sin romper la partida. */
+    /** Aplica en runtime el balance de vida al player actual (modelo de 1 sola vida). */
     private void applyBalanceToRuntimePlayer() {
         if (player == null) return;
         var bal = com.layla.AppContext.balance();
 
-        // Ajusta la vida máxima al vuelo y clampa la actual si es necesario.
+        // maxHp es nuestra única vida base
         statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
         player.setMaxHealth(statsService.getMaxHealth());
 
-        // Si el maxHp baja por debajo de la salud actual, setMaxHealth ya la clampa.
-        // Si quieres que al subir maxHp NO cambie la actual, no hagas nada más.
-
-        // Opcional: si quieres que al tocar startHp en el panel, se aplique SOLO al respawn,
-        // no modificamos la actual aquí. Si prefieres que se aplique en caliente, descomenta:
+        // Si quisieras que al tocar maxHp también cambie la vida actual, descomenta:
         // player.setHealth(Math.min(player.getHealth(), player.getMaxHealth()));
     }
-
 
     // ===================== HUD TIMER =====================
     private void pauseHudTimer()  { if (hudTimer != null) hudTimer.pause(); }
@@ -245,7 +251,6 @@ public class GameController implements ViewLifecycle {
             healthLabel.setManaged(false); // para que no reserve espacio en el HBox
         }
     }
-
 
     private void startHudTimerIfNeeded() {
         if (!startGateOpen) return;
@@ -378,7 +383,6 @@ public class GameController implements ViewLifecycle {
         });
     }
 
-
     @Override
     public void onExit() {
         if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
@@ -447,7 +451,8 @@ public class GameController implements ViewLifecycle {
         gameStarted = true;
         elapsedSeconds = 0;
         score = 500;
-        coins = 0;
+        // 🔹 ahora usamos las monedas iniciales del balance
+        coins = Math.max(0, com.layla.AppContext.balance().startCoins);
         currentWave = 1;
 
         // Reset de sala/recompensas al empezar un run
@@ -460,11 +465,10 @@ public class GameController implements ViewLifecycle {
         startHudTimerIfNeeded();
         updateHudLabels();
 
-        maybeSpawnPlayer();         // ahora sí puede spawnear
-        addTickerIfNeeded();        // engancha ticker
-        trySpawnInitialEnemies();   // primer batch
-
-        startFloorMusicIfNeeded();  // música de piso
+        maybeSpawnPlayer();
+        addTickerIfNeeded();
+        trySpawnInitialEnemies();
+        startFloorMusicIfNeeded();
     }
 
     public void setHUD(int score, int floor, int health) {
@@ -476,7 +480,7 @@ public class GameController implements ViewLifecycle {
     private void resetHUD() {
         elapsedSeconds = 0;
         score = 500;
-        coins = 0;
+        coins = Math.max(0, com.layla.AppContext.balance().startCoins);
         updateHudLabels();
     }
 
@@ -509,11 +513,12 @@ public class GameController implements ViewLifecycle {
 
         player = new Player(input, gameArea, statsService);
 
-        // Aplica balance global de vida
+        // Modelo de 1 sola vida: maxHp define vida máxima y actual al spawnear
         var bal = com.layla.AppContext.balance();
         statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
-        player.setMaxHealth(bal.maxHp);
-        player.setHealth(bal.startHp);
+        double baseHp = statsService.getMaxHealth();
+        player.setMaxHealth(baseHp);
+        player.setHealth(baseHp);
 
         shootingService = new ShootingService(statsService);
 
@@ -553,7 +558,6 @@ public class GameController implements ViewLifecycle {
 
     // ==================== SHOOTING (solo flechas) ====================
     /** Ticker invisible: cooldown flechas, refresco HUD, watchdog de spawn y GameOver. */
-        /** Ticker invisible: cooldown flechas, refresco HUD, watchdog de spawn y GameOver. */
     private void addTickerIfNeeded() {
         if (!startGateOpen || gameLoop == null) return;
         if (ticker != null) return; // ya existe un ticker registrado
@@ -621,9 +625,8 @@ public class GameController implements ViewLifecycle {
         };
 
         gameLoop.addEntity(ticker);
-        tickerAdded = true; // puedes mantenerlo si quieres para debugging
+        tickerAdded = true;
     }
-
 
     private void tryShootNow() {
         if (!shootingArmed || paused) return;
@@ -669,7 +672,6 @@ public class GameController implements ViewLifecycle {
             if (hud != null) hud.refresh();
             if (itemHud != null) itemHud.refresh();
 
-            // 🔹 Mensaje flotante al coger ítem
             var def = com.layla.items.ItemRegistry.getDefinition(itemId);
             if (player != null && gameLoop != null && def != null) {
                 double cx = player.getView().getLayoutX() + player.getWidth() * 0.5;
@@ -752,7 +754,7 @@ public class GameController implements ViewLifecycle {
                 type,
                 gameArea,
                 this::getPlayerCenter,
-                e -> { // onRemove
+                e -> {
                     gameLoop.removeEntity(e);
                     if (e instanceof Enemy en) {
                         enemies.remove(en);
@@ -795,8 +797,8 @@ public class GameController implements ViewLifecycle {
                         enemies.removeIf(x -> x == e);
                     }
                 },
-                ge -> gameLoop.addEntity(ge), // onSpawn (proyectiles enemigos)
-                k -> sound.play(k),           // sfx
+                ge -> gameLoop.addEntity(ge),
+                k -> sound.play(k),
                 hpMul,
                 speedMul,
                 dmgMul
@@ -854,16 +856,13 @@ public class GameController implements ViewLifecycle {
             gameArea,
             statsService,
             e -> {
-                // Al recoger el ítem y eliminar el pedestal
                 gameLoop.removeEntity(e);
                 if (itemHud != null) {
                     itemHud.refresh();
                 }
-
-                // Mostrar overlay estilo Isaac con nombre + descripción
                 showItemPickupOverlay(itemId);
             },
-            k -> sound.play(k) // aquí se usará "item"
+            k -> sound.play(k)
         );
 
         double pedWidth = pedestal.getWidth();
@@ -886,9 +885,8 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
-    /** Muestra un overlay estilo Isaac al recoger un ¡tem de pedestal. */
+    /** Muestra un overlay estilo Isaac al recoger un ítem de pedestal. */
     private void showItemPickupOverlay(ItemId itemId) {
-        // Pausar partida mientras se muestra el overlay
         paused = true;
         if (gameLoop != null && gameLoop.isRunning()) {
             gameLoop.stop();
@@ -903,11 +901,9 @@ public class GameController implements ViewLifecycle {
                 String name = (def != null ? def.getName() : itemId.name());
                 String desc = (def != null ? def.getDescription() : "");
 
-                // Cargar icono desde ItemRegistry
                 Image iconImage = null;
                 String iconPath = ItemRegistry.getIconPath(itemId);
                 if (iconPath != null) {
-                    // En ItemRegistry los paths suelen empezar por "/assets/..."
                     String rel = iconPath.startsWith("/") ? iconPath.substring(1) : iconPath;
                     iconImage = AssetsManager.loadImage(rel);
                 }
@@ -921,15 +917,16 @@ public class GameController implements ViewLifecycle {
         });
     }
 
-    private List<ShopOffer> generateShopOffers() {
+    private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
-        List<ItemId> pool = new ArrayList<>();
-        Collections.addAll(pool, ItemId.values());
-        Collections.shuffle(pool);
-        int offerCount = Math.min(3, pool.size());
-        for (int i = 0; i < offerCount; i++) {
-            ItemId itemId = pool.get(i);
-            int price = 10 + i * 5;
+        ItemId[] ids = ItemId.values();
+        if (ids.length == 0 || count <= 0) return offers;
+
+        int basePrice = Math.max(5, 10 + Math.max(0, currentWave - 1) * 2);
+        for (int i = 0; i < count; i++) {
+            ItemId itemId = ids[enemyRng.nextInt(ids.length)];
+            int variance = enemyRng.nextInt(0, 6);
+            int price = Math.max(5, basePrice + variance);
             offers.add(new ShopOffer(itemId, price));
         }
         return offers;
@@ -955,7 +952,20 @@ public class GameController implements ViewLifecycle {
             if (controller instanceof ShopOverlayController soc) {
                 soc.setStatsService(statsService);
                 soc.setCoins(coins);
-                soc.setOffers(generateShopOffers());
+                soc.setRerollBasePrice(SHOP_REROLL_BASE_PRICE);
+                soc.setOffers(generateShopOffers(SHOP_OFFER_COUNT));
+                soc.setOnCoinsChanged(newCoins -> {
+                    coins = Math.max(0, newCoins);
+                    updateHudLabels();
+                });
+
+                    // 🔹 Refrescar HUD e Item HUD cuando compres algo
+                soc.setOnItemsChanged(() -> {
+                    if (hud != null) hud.refresh();
+                    if (itemHud != null) itemHud.refresh();
+                });
+
+                soc.setOnRerollRequested(shopCtrl -> shopCtrl.setOffers(generateShopOffers(SHOP_OFFER_COUNT)));
                 soc.setOnClose(() -> {
                     coins = soc.getCoins();
                     updateHudLabels();
@@ -1005,7 +1015,7 @@ public class GameController implements ViewLifecycle {
         enemiesSpawned = true;
     }
 
-    /** Empuja suavemente a los enemigos entre si y lejos del centro del jugador para evitar solapes visibles. */
+    /** Empuja suavemente a los enemigos entre sí y lejos del centro del jugador para evitar solapes visibles. */
     private void applyEnemySeparation(double dt) {
         if (gameArea == null) return;
         final int count = enemies.size();
@@ -1073,7 +1083,6 @@ public class GameController implements ViewLifecycle {
                 a.setPosition(axPos, ayPos);
                 b.setPosition(bxPos, byPos);
 
-                // Actualiza el centro de A para las siguientes comparaciones del bucle interno
                 ax = axPos + a.getWidth() * 0.5;
                 ay = ayPos + a.getHeight() * 0.5;
             }
@@ -1162,8 +1171,8 @@ public class GameController implements ViewLifecycle {
             for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
         }
         if (ticker != null) {
-                gameLoop.removeEntity(ticker);
-                ticker = null;
+            gameLoop.removeEntity(ticker);
+            ticker = null;
         }
 
         enemies.clear();
@@ -1181,7 +1190,7 @@ public class GameController implements ViewLifecycle {
 
         elapsedSeconds = 0;
         score = 500;
-        coins = 0;
+        coins = Math.max(0, com.layla.AppContext.balance().startCoins);
         updateHudLabels();
         stopHudTimer();
         startHudTimerIfNeeded();

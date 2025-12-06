@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.IntConsumer;
 
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
@@ -20,12 +21,24 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 
 public class StatsPanelController {
     // Player & player-projectile fields
-    @FXML private TextField startHpField, maxHpField, moveSpeedField;
-    @FXML private TextField fireRateField, projSpeedField, projRangeField, projDamageField;
+    @FXML private TextField startHpField;   // solo info / legacy
+    @FXML private TextField maxHpField;     // este manda
+    @FXML private TextField moveSpeedField;
+    @FXML private TextField fireRateField;
+    @FXML private TextField projSpeedField;
+    @FXML private TextField projRangeField;
+    @FXML private TextField projDamageField;
+
+    // Coins on menu / en partida
+    private Integer initialCoins = null;            // null => usar balance.startCoins
+    private IntConsumer onCoinsChanged;             // usado solo en partida (GameController)
+    @FXML private Spinner<Integer> coinsSpinner;
 
     @FXML private CheckBox persistCheck;
     @FXML private ComboBox<EnemyType> enemyTypeCombo;
@@ -46,15 +59,44 @@ public class StatsPanelController {
             "enemy_balance.json"
     );
 
+    // --------- API pública extra ---------
     public void setOnClose(Runnable r)          { this.onClose = (r != null) ? r : () -> {}; }
     public void setOnStatsChanged(Runnable r)   { this.onStatsChanged = (r != null) ? r : () -> {}; }
     public void setStatsService(StatsService s) { if (s != null) this.stats = s; }
 
+    /** Coins iniciales (cuando vienes desde GameController en pausa). */
+    public void setInitialCoins(int coins) {
+        this.initialCoins = Math.max(0, coins);
+        if (coinsSpinner != null && coinsSpinner.getValueFactory() != null) {
+            coinsSpinner.getValueFactory().setValue(this.initialCoins);
+        }
+    }
+
+    /** Callback para avisar al GameController cuando cambien las monedas. */
+    public void setOnCoinsChanged(IntConsumer onCoinsChanged) {
+        this.onCoinsChanged = onCoinsChanged;
+    }
+
     @FXML
     private void initialize() {
-        // Live bindings so valid numbers apply immediately while typing.
+        // Bindings player/enemy + JSON de enemigos
         installLiveBindings();
         setupEnemyProfilesPanel();
+
+        // Spinner de monedas
+        if (coinsSpinner != null) {
+            SpinnerValueFactory<Integer> vf =
+                    new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 9999, 0);
+            coinsSpinner.setValueFactory(vf);
+            coinsSpinner.setEditable(true); // puedes escribir
+        }
+
+        // Start HP se queda solo como info / desactivado
+        if (startHpField != null) {
+            startHpField.setEditable(false);
+            startHpField.setDisable(true);
+            startHpField.setStyle("-fx-opacity: 0.6; -fx-control-inner-background: #333333;");
+        }
     }
 
     private void setupEnemyProfilesPanel() {
@@ -77,13 +119,24 @@ public class StatsPanelController {
         loadProfilesAsync();
     }
 
+    // ---------- Pantalla al abrir ----------
     /** Preload UI from global balance/stats. */
     public void onShow() {
         var bal = com.layla.AppContext.balance();
 
-        // Player HP
-        put(startHpField, bal.startHp);
-        put(maxHpField,   bal.maxHp);
+        // Primero cargamos JSON de usuario (puede tocar HP, stats y coins)
+        loadUserJsonIfExists();
+
+        // *** HP unificado ***
+        double hp = bal.maxHp;
+        if (bal.startHp > 0) {
+            hp = bal.maxHp;
+        }
+        bal.startHp = hp;
+        bal.maxHp   = hp;
+
+        if (startHpField != null) put(startHpField, hp);
+        if (maxHpField   != null) put(maxHpField,   hp);
 
         // Player stats (StatsService)
         var baseStats = stats.getBaseStats();
@@ -93,8 +146,14 @@ public class StatsPanelController {
         put(projRangeField, baseStats.getBase(PlayerStatId.PROJECTILE_RANGE));
         put(projDamageField,baseStats.getBase(PlayerStatId.PROJECTILE_DAMAGE));
 
-        // Optionally override with user JSON if present
-        loadUserJsonIfExists();
+        // Coins spinner
+        if (coinsSpinner != null && coinsSpinner.getValueFactory() != null) {
+            int coinsToShow = (initialCoins != null)
+                    ? initialCoins
+                    : Math.max(0, bal.startCoins);
+            coinsSpinner.getValueFactory().setValue(coinsToShow);
+        }
+
         refreshSelectedProfile();
     }
 
@@ -168,10 +227,11 @@ public class StatsPanelController {
     private void onApply() {
         var bal = com.layla.AppContext.balance();
 
-        // Player HP (balance)
-        bal.startHp = get(startHpField, bal.startHp);
-        bal.maxHp   = get(maxHpField,   bal.maxHp);
-        stats.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
+        // *** HP único ***
+        double hp = get(maxHpField, bal.maxHp);
+        bal.maxHp   = hp;
+        bal.startHp = hp;
+        stats.setBaseStat(PlayerStatId.MAX_HEALTH, hp);
 
         // Player/shooting stats (StatsService)
         stats.setBaseStat(PlayerStatId.MOVE_SPEED,        get(moveSpeedField, stats.getBaseStat(PlayerStatId.MOVE_SPEED)));
@@ -179,6 +239,15 @@ public class StatsPanelController {
         stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  get(projSpeedField, stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED)));
         stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  get(projRangeField, stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE)));
         stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, get(projDamageField,stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE)));
+
+        // Monedas: aplicamos al balance y opcionalmente al run actual
+        if (coinsSpinner != null && coinsSpinner.getValue() != null) {
+            int coins = Math.max(0, coinsSpinner.getValue());
+            bal.startCoins = coins;          // 🔹 esto se usará al empezar próximas partidas
+            if (onCoinsChanged != null) {    // 🔹 si estamos en pausa, actualiza también las coins del run
+                onCoinsChanged.accept(coins);
+            }
+        }
 
         if (persistCheck.isSelected()) saveUserJson();
 
@@ -192,6 +261,9 @@ public class StatsPanelController {
         stats.getBaseStats().resetDefaults();
         var bal = com.layla.AppContext.balance();
         bal.resetDefaults();
+
+        // Unificamos start/max HP en el valor por defecto
+        bal.startHp = bal.maxHp;
 
         // Repaint fields
         onShow();
@@ -228,12 +300,13 @@ public class StatsPanelController {
         liveNumber(projRangeField, v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, v); onStatsChanged.run(); });
         liveNumber(projDamageField,v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, v); onStatsChanged.run(); });
 
-        // Balance (player HP)
-        liveNumber(startHpField, v -> { var b = com.layla.AppContext.balance(); b.startHp = v; onStatsChanged.run(); });
-        liveNumber(maxHpField,   v -> {
+        // Balance (player HP) – solo maxHp manda
+        liveNumber(maxHpField, v -> {
             var b = com.layla.AppContext.balance();
             b.maxHp = v;
+            b.startHp = v;
             stats.setBaseStat(PlayerStatId.MAX_HEALTH, v);
+            if (startHpField != null) put(startHpField, v);
             onStatsChanged.run();
         });
     }
@@ -260,7 +333,6 @@ public class StatsPanelController {
     }
 
     private Path cfgPath() {
-        String home = System.getProperty("user.home");
         return Path.of(System.getProperty("user.home"), ".layla", "stats.json");
     }
 
@@ -274,10 +346,15 @@ public class StatsPanelController {
 
             var bal = com.layla.AppContext.balance();
 
-            if (m.containsKey("startHp")) bal.startHp = m.get("startHp");
-            if (m.containsKey("maxHp")) {
-                bal.maxHp = m.get("maxHp");
-                stats.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
+            // HP unificado: priorizamos maxHp si existe; si no, startHp
+            Double savedHp = null;
+            if (m.containsKey("maxHp"))        savedHp = m.get("maxHp");
+            else if (m.containsKey("startHp")) savedHp = m.get("startHp");
+
+            if (savedHp != null) {
+                bal.maxHp   = savedHp;
+                bal.startHp = savedHp;
+                stats.setBaseStat(PlayerStatId.MAX_HEALTH, savedHp);
             }
 
             if (m.containsKey("moveSpeed"))  stats.setBaseStat(PlayerStatId.MOVE_SPEED,       m.get("moveSpeed"));
@@ -301,7 +378,12 @@ public class StatsPanelController {
                 stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, m.get("damage"));
             }
 
-            // Las claves enemy* se ignoran ahora (los enemigos se configuran por perfil)
+            // 🔹 NUEVO: coins persistentes
+            if (m.containsKey("startCoins")) {
+                double c = m.get("startCoins");
+                bal.startCoins = (int) Math.max(0, Math.round(c));
+            }
+
         } catch (Exception ignored) {}
     }
 
@@ -313,13 +395,16 @@ public class StatsPanelController {
             Files.createDirectories(p.getParent());
 
             java.util.LinkedHashMap<String, Double> m = new java.util.LinkedHashMap<>();
-            m.put("startHp",       bal.startHp);
+            // Guardamos HP unificado
+            m.put("startHp",       bal.maxHp);
             m.put("maxHp",         bal.maxHp);
             m.put("moveSpeed",     stats.getBaseStat(PlayerStatId.MOVE_SPEED));
             m.put("fireRate",      stats.getBaseStat(PlayerStatId.FIRE_RATE));
             m.put("projSpeed",     stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED));
             m.put("projRange",     stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE));
             m.put("projDamage",    stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE));
+            // 🔹 NUEVO: guardamos startCoins como Double en el JSON
+            m.put("startCoins",    (double) Math.max(0, bal.startCoins));
             // No guardamos enemy* aquí; los enemigos van en enemy_balance.json
 
             String json = Json.toJson(m);
