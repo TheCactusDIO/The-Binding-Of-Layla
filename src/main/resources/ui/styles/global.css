@@ -32,3 +32,15 @@
   -fx-min-width: 300;
   -fx-alignment: center;
 }
+/* Tooltip personalizado estilo juego */
+.game-tooltip {
+    -fx-background-color: #111111;
+    -fx-background-radius: 0;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 2px;
+    -fx-text-fill: #ffffff;
+    -fx-font-family: "Upheaval TT (BRK)", "Segoe UI"; /* Tu fuente pixelada */
+    -fx-font-size: 14px;
+    -fx-padding: 8px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 10, 0, 2, 2);
+}

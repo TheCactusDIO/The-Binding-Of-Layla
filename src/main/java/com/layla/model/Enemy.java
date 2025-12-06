@@ -35,6 +35,8 @@ public final class Enemy implements GameEntity {
     private final Consumer<GameEntity> onRemove;
     private final Consumer<GameEntity> onSpawn;
     private final Consumer<String> playSfx;
+
+    // Multiplicadores de oleada
     private final double hpMultiplier;
     private final double speedMultiplier;
     private final double damageMultiplier;
@@ -51,9 +53,9 @@ public final class Enemy implements GameEntity {
     private double burstShotTimer = 0.0;
     private double burstCooldownTimer = 0.0;
 
-    // Buffer reutilizable para direcciones (evitar new double[] cada frame)
     private final double[] tmpDir = new double[2];
     private final double collisionRadius = Math.min(getWidth(), getHeight()) * 0.5;
+
     public Enemy(EnemyType type,
                  Pane boundsPane,
                  Supplier<double[]> playerCenterSupplier,
@@ -63,12 +65,14 @@ public final class Enemy implements GameEntity {
                  double hpMultiplier,
                  double speedMultiplier,
                  double damageMultiplier) {
+
         this.type = Objects.requireNonNull(type, "type");
         this.boundsPane = Objects.requireNonNull(boundsPane, "boundsPane");
         this.playerCenterSupplier = Objects.requireNonNull(playerCenterSupplier, "playerCenterSupplier");
         this.onRemove = Objects.requireNonNull(onRemove, "onRemove");
         this.onSpawn = Objects.requireNonNull(onSpawn, "onSpawn");
         this.playSfx = (playSfx != null ? playSfx : k -> {});
+
         this.hpMultiplier = Math.max(0.0, hpMultiplier);
         this.speedMultiplier = Math.max(0.0, speedMultiplier);
         this.damageMultiplier = Math.max(0.0, damageMultiplier);
@@ -76,16 +80,14 @@ public final class Enemy implements GameEntity {
         view.setManaged(false);
         view.setStroke(Color.BLACK);
 
-        applyTypeStyle(); // Color por enemigo
+        applyTypeStyle();
 
         EnemyProfile profile = AppContext.balance().profile(type);
         this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp * hpMultiplier) : 0.0;
         this.hp = this.maxHealth;
     }
 
-    public EnemyType getType() {
-        return type;
-    }
+    public EnemyType getType() { return type; }
 
     @Override
     public void update(double dt) {
@@ -114,17 +116,12 @@ public final class Enemy implements GameEntity {
             double ratio = maxHealth > 0.0 ? hp / maxHealth : 1.0;
             maxHealth = desiredMax;
             hp = Math.min(maxHealth, Math.max(0.0, ratio * maxHealth));
-            if (hp <= 0.0) {
-                die();
-            }
+            if (hp <= 0.0) die();
         } else if (hp > maxHealth) {
             hp = maxHealth;
         }
     }
 
-    /**
-     * Devuelve un vector dirección normalizado (target - enemy) en tmpDir o null si muy cerca.
-     */
     private double[] directionTo(double[] target) {
         double cx = getCenterX();
         double cy = getCenterY();
@@ -146,23 +143,16 @@ public final class Enemy implements GameEntity {
         dir[0] += jx;
         dir[1] += jy;
         double len = Math.hypot(dir[0], dir[1]);
-        if (len < EPSILON) {
-            dir[0] = 0.0;
-            dir[1] = 1.0;
-        } else {
-            dir[0] /= len;
-            dir[1] /= len;
-        }
+        if (len < EPSILON) { dir[0] = 0.0; dir[1] = 1.0; }
+        else { dir[0] /= len; dir[1] /= len; }
     }
 
     private void move(double[] dir, double distance) {
         if (distance <= 0.0) return;
         double nextX = view.getLayoutX() + dir[0] * distance;
         double nextY = view.getLayoutY() + dir[1] * distance;
-
         double maxX = Math.max(0.0, boundsPane.getWidth() - WIDTH);
         double maxY = Math.max(0.0, boundsPane.getHeight() - HEIGHT);
-
         view.setLayoutX(clamp(nextX, 0.0, maxX));
         view.setLayoutY(clamp(nextY, 0.0, maxY));
     }
@@ -195,7 +185,6 @@ public final class Enemy implements GameEntity {
     }
 
     private void applyTypeStyle() {
-        // Color principal por tipo
         switch (type) {
             case SHOOTER  -> view.setFill(Color.ORANGE);
             case MELEE    -> view.setFill(Color.CRIMSON);
@@ -203,12 +192,9 @@ public final class Enemy implements GameEntity {
             case TANK     -> view.setFill(Color.DARKOLIVEGREEN);
             case KAMIKAZE -> view.setFill(Color.MAGENTA);
         }
-
-        // Look más “pill” suave
         view.setArcWidth(6);
         view.setArcHeight(6);
 
-        // Si es estacionario, trazo discontinuo
         EnemyProfile p = AppContext.balance().profile(type);
         view.setStrokeWidth(1.5);
         view.getStrokeDashArray().clear();
@@ -217,15 +203,8 @@ public final class Enemy implements GameEntity {
         }
     }
 
-    @Override
-    public Node getView() {
-        return view;
-    }
-
-    @Override
-    public Bounds getBounds() {
-        return view.getBoundsInParent();
-    }
+    @Override public Node getView() { return view; }
+    @Override public Bounds getBounds() { return view.getBoundsInParent(); }
 
     @Override
     public void onCollision(GameEntity other) {
@@ -275,21 +254,15 @@ public final class Enemy implements GameEntity {
     public void setHealth(double newHp) {
         if (dead) return;
         hp = clamp(newHp, 0.0, maxHealth);
-        if (hp <= 0.0) {
-            die();
-        }
+        if (hp <= 0.0) die();
     }
 
-    public void addHealth(double delta) {
-        setHealth(hp + delta);
-    }
+    public void addHealth(double delta) { setHealth(hp + delta); }
 
     public void applyDamage(double dmg) {
         if (dead || dmg <= 0.0) return;
         setHealth(hp - dmg);
-        if (!dead) {
-            flashHit();
-        }
+        if (!dead) flashHit();
     }
 
     private void die() {
@@ -306,17 +279,12 @@ public final class Enemy implements GameEntity {
         return v;
     }
 
-    // ===================== AI HELPERS =====================
-
     private boolean hasValidTarget(double[] playerCenter) {
         return playerCenter != null && playerCenter.length >= 2;
     }
 
     private void handleMovement(EnemyProfile profile, double[] playerCenter, double dt) {
-        if (type == EnemyType.TURRET || profile.stationary || !hasValidTarget(playerCenter)) {
-            return;
-        }
-
+        if (type == EnemyType.TURRET || profile.stationary || !hasValidTarget(playerCenter)) return;
         switch (type) {
             case MELEE    -> moveMeleeZigZag(profile, playerCenter, dt);
             case SHOOTER  -> moveShooterKiting(profile, playerCenter, dt);
@@ -344,8 +312,7 @@ public final class Enemy implements GameEntity {
         double dy = dir[1] + py * wave * sideFactor;
         double len = Math.hypot(dx, dy);
         if (len < EPSILON) return;
-        dir[0] = dx / len;
-        dir[1] = dy / len;
+        dir[0] = dx / len; dir[1] = dy / len;
         applyJitter(dir, profile.jitter * 0.5);
         move(dir, profile.speed * speedMultiplier * dt);
     }
@@ -358,32 +325,20 @@ public final class Enemy implements GameEntity {
 
         double dirX = dx / dist;
         double dirY = dy / dist;
-
         double minRange = 140.0;
         double maxRange = 220.0;
         double speed = profile.speed * speedMultiplier;
-
         double moveX, moveY;
 
-        if (dist < minRange) {
-            // Huir del jugador
-            moveX = -dirX;
-            moveY = -dirY;
-        } else if (dist > maxRange) {
-            // Acercarse
-            moveX = dirX;
-            moveY = dirY;
-        } else {
-            // Zona óptima: se mueve poco, con jitter suave
-            tmpDir[0] = dirX;
-            tmpDir[1] = dirY;
+        if (dist < minRange) { moveX = -dirX; moveY = -dirY; }
+        else if (dist > maxRange) { moveX = dirX; moveY = dirY; }
+        else {
+            tmpDir[0] = dirX; tmpDir[1] = dirY;
             applyJitter(tmpDir, profile.jitter * 0.25);
             move(tmpDir, speed * dt * 0.2);
             return;
         }
-
-        tmpDir[0] = moveX;
-        tmpDir[1] = moveY;
+        tmpDir[0] = moveX; tmpDir[1] = moveY;
         applyJitter(tmpDir, profile.jitter);
         move(tmpDir, speed * dt);
     }
@@ -393,9 +348,7 @@ public final class Enemy implements GameEntity {
         if (dir == null) return;
         double hpRatio = maxHealth > 0.0 ? hp / maxHealth : 1.0;
         double speed = profile.speed * speedMultiplier;
-        if (hpRatio <= 0.5) {
-            speed *= 1.4;
-        }
+        if (hpRatio <= 0.5) speed *= 1.4;
         applyJitter(dir, profile.jitter);
         move(dir, speed * dt);
     }
@@ -408,22 +361,17 @@ public final class Enemy implements GameEntity {
 
         double dirX = dx / dist;
         double dirY = dy / dist;
-
         double nearDist = 120.0;
         double farDist = 260.0;
         double factor;
-        if (dist <= nearDist) {
-            factor = 1.6;
-        } else if (dist >= farDist) {
-            factor = 0.8;
-        } else {
+        if (dist <= nearDist) factor = 1.6;
+        else if (dist >= farDist) factor = 0.8;
+        else {
             double t = (dist - nearDist) / (farDist - nearDist);
             factor = 1.6 + (0.8 - 1.6) * t;
         }
-
         double speed = profile.speed * speedMultiplier * factor;
-        tmpDir[0] = dirX;
-        tmpDir[1] = dirY;
+        tmpDir[0] = dirX; tmpDir[1] = dirY;
         applyJitter(tmpDir, profile.jitter);
         move(tmpDir, speed * dt);
     }
@@ -447,15 +395,10 @@ public final class Enemy implements GameEntity {
 
     private void handleTurretShooting(EnemyProfile profile, double[] playerCenter, double dt) {
         double projSpeed = Math.max(0.0, profile.projSpeed);
-        double projRange = Math.max(0.0, profile.projRange);
-        double projDamage = Math.max(0.0, profile.projDamage * damageMultiplier);
-        if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) {
+        if (projSpeed <= 0.0) {
             burstShotsRemaining = 0;
-            burstShotTimer = 0.0;
-            burstCooldownTimer = 0.0;
             return;
         }
-
         double burstInterval = (profile.fireRate > 0.0) ? (1.0 / profile.fireRate) : Double.POSITIVE_INFINITY;
         final double perShotDelay = 0.1;
         final int burstSize = 3;
@@ -480,37 +423,24 @@ public final class Enemy implements GameEntity {
     private void fireBurstShot(double[] playerCenter, EnemyProfile profile) {
         if (burstShotsRemaining <= 0) return;
         burstShotsRemaining--;
-        if (hasValidTarget(playerCenter)) {
-            shootTowards(playerCenter, profile);
-        }
-        if (burstShotsRemaining <= 0) {
-            burstShotTimer = 0.0;
-        }
+        if (hasValidTarget(playerCenter)) shootTowards(playerCenter, profile);
+        if (burstShotsRemaining <= 0) burstShotTimer = 0.0;
     }
-
-    // ===================== FX / HIT =====================
 
     private void flashHit() {
         if (hitFlashTimer == null) {
             hitFlashTimer = new PauseTransition(Duration.millis(120));
             hitFlashTimer.setOnFinished(e -> {
                 view.setStroke(Color.BLACK);
-                try {
-                    applyTypeStyle();
-                } catch (Throwable ignored) {
-                    if (view.getFill() instanceof Color c) {
-                        view.setFill(Color.DARKRED);
-                    }
+                try { applyTypeStyle(); } catch (Throwable ignored) {
+                    if (view.getFill() instanceof Color c) view.setFill(Color.DARKRED);
                 }
             });
         } else {
             hitFlashTimer.stop();
         }
-
         view.setStroke(Color.WHITE);
-        if (view.getFill() instanceof Color c) {
-            view.setFill(c.brighter());
-        }
+        if (view.getFill() instanceof Color c) view.setFill(c.brighter());
         hitFlashTimer.playFromStart();
     }
 
@@ -525,19 +455,11 @@ public final class Enemy implements GameEntity {
             @Override public Node getView() { return fx; }
             @Override public void onCollision(GameEntity other) {}
         };
-
         onSpawn.accept(fxEntity);
-
         FadeTransition fade = new FadeTransition(Duration.millis(250), fx);
-        fade.setFromValue(1.0);
-        fade.setToValue(0.0);
-
+        fade.setFromValue(1.0); fade.setToValue(0.0);
         ScaleTransition scale = new ScaleTransition(Duration.millis(250), fx);
-        scale.setFromX(1.0);
-        scale.setFromY(1.0);
-        scale.setToX(1.8);
-        scale.setToY(1.8);
-
+        scale.setFromX(1.0); scale.setFromY(1.0); scale.setToX(1.8); scale.setToY(1.8);
         ParallelTransition pt = new ParallelTransition(fx, fade, scale);
         pt.setOnFinished(e -> onRemove.accept(fxEntity));
         pt.play();
