@@ -1,6 +1,8 @@
 package com.layla.ui;
 
 import com.layla.core.AssetsManager;
+import com.layla.core.TestEnv;
+import com.layla.services.StatsService;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
@@ -19,15 +21,13 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
-import com.layla.core.TestEnv;
-import com.layla.services.StatsService;
 
 public class MainMenuController {
 
     @FXML private StackPane root;
     @FXML private VBox menuBox;
     @FXML private Label titleLabel;
-    @FXML private Button playBtn, optionsBtn, exitBtn;
+    @FXML private Button playBtn, profilesBtn, optionsBtn, exitBtn; // profilesBtn añadido aquí
     @FXML private MediaView backgroundVideo;
 
     private MediaPlayer videoPlayer;
@@ -75,7 +75,8 @@ public class MainMenuController {
         menuBox.setFillWidth(false);
 
         var btnWidthBinding = min(360.0, max(220.0, menuBox.widthProperty().multiply(0.55)));
-        for (var b : new Button[]{playBtn, optionsBtn, exitBtn}) {
+        // Actualizar el array de botones para incluir profilesBtn
+        for (var b : new Button[]{playBtn, profilesBtn, optionsBtn, exitBtn}) {
             b.setMaxWidth(Region.USE_PREF_SIZE);
             b.prefWidthProperty().bind(btnWidthBinding);
         }
@@ -89,6 +90,7 @@ public class MainMenuController {
     }
 
     // ===================== VÍDEO FONDO =====================
+    // ... (Métodos de vídeo startBackgroundVideoSafely y retryVideoPlayerOnce sin cambios)
     private void startBackgroundVideoSafely() {
         try {
             backgroundVideo.setMediaPlayer(null);
@@ -172,7 +174,7 @@ public class MainMenuController {
             vbox.setMouseTransparent(true);
             String[] INTRO_TITLES = {
                 "Basement I","Te amo Maria","Apruebame pls",
-                "Cargando partida...","Prepared to die?","Por nuestra futura Layla"
+                "Cargando partida?","Prepared to die?","Por nuestra futura Layla"
             };
             int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(INTRO_TITLES.length);
             var title = new javafx.scene.control.Label(INTRO_TITLES[idx]);
@@ -201,6 +203,14 @@ public class MainMenuController {
             });
             finish.play();
         });
+    }
+
+    /** Nuevo método para navegar al selector de perfiles. */
+    @FXML
+    private void onProfilesClicked() {
+        System.out.println("[MainMenu] Profiles clicked");
+        cleanupMedia();
+        SceneRouter.goWithFadeKeepSize("ui/profile_select.fxml");
     }
 
     @FXML

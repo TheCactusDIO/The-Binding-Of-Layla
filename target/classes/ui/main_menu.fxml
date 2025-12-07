@@ -11,19 +11,18 @@
            prefWidth="1280" prefHeight="720"
            id="main-menu-root">
 
-    <!-- Capa de fondo: vídeo a pantalla completa -->
     <children>
         <MediaView fx:id="backgroundVideo" StackPane.alignment="CENTER"/>
 
-        <!-- Menú centrado -->
-        <VBox fx:id="menuBox"
+        <VBox
+        fx:id="menuBox"
               StackPane.alignment="CENTER"
               spacing="18"
               fillWidth="false"
               styleClass="menu-container">
 
-            <!-- IMPORTANTE: Label autocerrado (o con etiqueta de cierre) -->
             <children>
+
                 <Label fx:id="titleLabel"
                        text="The Binding of Layla"
                        wrapText="true"
@@ -32,6 +31,11 @@
                 <Button fx:id="playBtn"
                         text="Play"
                         onAction="#onPlayClicked"
+                        styleClass="menu-button"/>
+
+                <Button fx:id="profilesBtn"
+                        text="Profiles"
+                        onAction="#onProfilesClicked"
                         styleClass="menu-button"/>
 
                 <Button fx:id="optionsBtn"

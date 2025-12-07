@@ -26,10 +26,14 @@ public class DatabaseService {
             try (Connection conn = DriverManager.getConnection(CONNECTION_STRING);
                  Statement stmt = conn.createStatement()) {
 
-                // 1. Tabla de Perfiles (Estadísticas Globales)
+                // Habilitar Foreign Keys
+                stmt.execute("PRAGMA foreign_keys = ON");
+
+                // 1. Tabla de Perfiles (Añadido 'name')
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS profiles (
                         id INTEGER PRIMARY KEY,
+                        name TEXT,
                         run_count INTEGER DEFAULT 0,
                         win_count INTEGER DEFAULT 0,
                         death_count INTEGER DEFAULT 0,
@@ -48,7 +52,7 @@ public class DatabaseService {
                         killed INTEGER DEFAULT 0,
                         killed_by INTEGER DEFAULT 0,
                         PRIMARY KEY (profile_id, enemy_type),
-                        FOREIGN KEY(profile_id) REFERENCES profiles(id)
+                        FOREIGN KEY(profile_id) REFERENCES profiles(id) ON DELETE CASCADE
                     )
                 """);
 
@@ -61,7 +65,7 @@ public class DatabaseService {
                         floor INTEGER,
                         is_win INTEGER,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(profile_id) REFERENCES profiles(id)
+                        FOREIGN KEY(profile_id) REFERENCES profiles(id) ON DELETE CASCADE
                     )
                 """);
 
@@ -78,13 +82,14 @@ public class DatabaseService {
     // --- MÉTODOS DE PERFIL ---
 
     public ProfileSummary getProfileSummary(int profileId) {
-        String sql = "SELECT run_count, win_count, death_count, current_streak, best_streak FROM profiles WHERE id = ?";
+        String sql = "SELECT name, run_count, win_count, death_count, current_streak, best_streak FROM profiles WHERE id = ?";
         try (Connection conn = DriverManager.getConnection(CONNECTION_STRING);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, profileId);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
                 return new ProfileSummary(
+                    rs.getString("name"),
                     rs.getInt("run_count"),
                     rs.getInt("win_count"),
                     rs.getInt("death_count"),
@@ -95,7 +100,52 @@ public class DatabaseService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return new ProfileSummary(0,0,0,0,0);
+        return new ProfileSummary(null, 0,0,0,0,0);
+    }
+
+    public void setProfileName(int profileId, String name) {
+        String sql = "UPDATE profiles SET name = ? WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection(CONNECTION_STRING);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, name);
+            pstmt.setInt(2, profileId);
+            pstmt.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // "Borrar" un perfil significa resetear sus estadísticas y borrar sus datos relacionados
+    public void resetProfile(int profileId) {
+        try (Connection conn = DriverManager.getConnection(CONNECTION_STRING)) {
+            conn.setAutoCommit(false);
+
+            // 1. Borrar historial y stats de enemigos
+            try (PreparedStatement p1 = conn.prepareStatement("DELETE FROM run_history WHERE profile_id = ?");
+                 PreparedStatement p2 = conn.prepareStatement("DELETE FROM enemy_stats WHERE profile_id = ?")) {
+                p1.setInt(1, profileId);
+                p1.executeUpdate();
+                p2.setInt(1, profileId);
+                p2.executeUpdate();
+            }
+
+            // 2. Resetear fila del perfil (sin borrar el ID)
+            String resetSql = """
+                UPDATE profiles SET
+                name = NULL, run_count = 0, win_count = 0, death_count = 0,
+                current_streak = 0, best_streak = 0, last_played = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """;
+            try (PreparedStatement p3 = conn.prepareStatement(resetSql)) {
+                p3.setInt(1, profileId);
+                p3.executeUpdate();
+            }
+
+            conn.commit();
+            System.out.println("[Database] Profile " + profileId + " reset.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // --- MÉTODOS DE ACTUALIZACIÓN DE ESTADÍSTICAS ---
@@ -103,9 +153,8 @@ public class DatabaseService {
     public void recordRunEndAsync(int profileId, boolean isWin, int score, int floor) {
         CompletableFuture.runAsync(() -> {
             try (Connection conn = DriverManager.getConnection(CONNECTION_STRING)) {
-                conn.setAutoCommit(false); // Transacción
+                conn.setAutoCommit(false);
 
-                // 1. Guardar historial
                 try (PreparedStatement ph = conn.prepareStatement(
                         "INSERT INTO run_history (profile_id, score, floor, is_win) VALUES (?, ?, ?, ?)")) {
                     ph.setInt(1, profileId);
@@ -115,7 +164,6 @@ public class DatabaseService {
                     ph.executeUpdate();
                 }
 
-                // 2. Actualizar perfil (racha, contadores)
                 String updateProfile = isWin
                     ? "UPDATE profiles SET run_count = run_count + 1, win_count = win_count + 1, " +
                       "current_streak = current_streak + 1, " +
@@ -129,8 +177,6 @@ public class DatabaseService {
                 }
 
                 conn.commit();
-                System.out.println("[Database] Run saved for Profile " + profileId);
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -154,12 +200,13 @@ public class DatabaseService {
                 pstmt.setString(2, enemyType);
                 pstmt.executeUpdate();
             } catch (Exception e) {
-                e.printStackTrace(); // En prod, loguear menos agresivo para no spammear
+                e.printStackTrace();
             }
         });
     }
 
     public enum StatType { SEEN, KILLED, KILLED_BY }
 
-    public record ProfileSummary(int runs, int wins, int deaths, int streak, int bestStreak) {}
+    // DTO Actualizado con 'name'
+    public record ProfileSummary(String name, int runs, int wins, int deaths, int streak, int bestStreak) {}
 }
