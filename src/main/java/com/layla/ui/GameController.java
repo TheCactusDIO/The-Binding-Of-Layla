@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.layla.AppContext;
 import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
+import com.layla.db.DatabaseService; // Importar
 import com.layla.entities.Boss;
 import com.layla.entities.Coin;
 import com.layla.entities.ItemPedestal;
@@ -80,12 +82,8 @@ public class GameController implements ViewLifecycle {
     private int pendingSpawns = 0;
     private boolean waveInProgress = false;
 
-    // Tiempos
     private double constantSpawnInterval;
-    private double hordeInterval;
-    private int hordeSize;
     private double timeUntilNextSpawn = 0.0;
-    private double timeUntilNextHorde = 0.0;
 
     // Estado
     private boolean gameStarted = false;
@@ -103,6 +101,8 @@ public class GameController implements ViewLifecycle {
     private final StatsService statsService = com.layla.AppContext.stats();
     private ShootingService shootingService;
     private final SoundService sound = new SoundService();
+    // Usamos el servicio global de DB
+    private final DatabaseService db = AppContext.db();
 
     private double bias = 0.2;
     private boolean tickerAdded = false;
@@ -421,6 +421,8 @@ public class GameController implements ViewLifecycle {
                 gameLoop.removeEntity(e);
                 if (e instanceof Enemy en) {
                     enemies.remove(en);
+                    // STATS: Enemigo Matado
+                    db.incrementEnemyStatAsync(AppContext.getProfileId(), en.getType().name(), DatabaseService.StatType.KILLED);
                     handleEnemyDeathRewards(en);
                 }
             },
@@ -431,6 +433,9 @@ public class GameController implements ViewLifecycle {
         enemy.setPosition(x, y);
         enemies.add(enemy);
         gameLoop.addEntity(enemy);
+
+        // STATS: Enemigo Visto
+        db.incrementEnemyStatAsync(AppContext.getProfileId(), type.name(), DatabaseService.StatType.SEEN);
     }
 
     private void spawnBoss() {
@@ -451,6 +456,9 @@ public class GameController implements ViewLifecycle {
         );
         gameLoop.addEntity(activeBoss);
 
+        // STATS: Boss visto
+        db.incrementEnemyStatAsync(AppContext.getProfileId(), "BOSS_FLOOR_" + currentFloor, DatabaseService.StatType.SEEN);
+
         if (bossHealthBox != null) {
             bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
             bossHealthBox.setVisible(true);
@@ -462,6 +470,8 @@ public class GameController implements ViewLifecycle {
         if (activeBoss != null) {
             gameLoop.removeEntity(activeBoss);
             activeBoss = null;
+            // STATS: Boss matado
+            db.incrementEnemyStatAsync(AppContext.getProfileId(), "BOSS_FLOOR_" + currentFloor, DatabaseService.StatType.KILLED);
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
@@ -532,6 +542,10 @@ public class GameController implements ViewLifecycle {
                         activeBoss.update(dt);
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
                             player.takeDamage(1.0);
+                            // STATS: Muerto por Boss (si muere ahora)
+                            if (player.isDead()) {
+                                db.incrementEnemyStatAsync(AppContext.getProfileId(), "BOSS_FLOOR_" + currentFloor, DatabaseService.StatType.KILLED_BY);
+                            }
                         }
                     }
                 }
@@ -706,6 +720,9 @@ public class GameController implements ViewLifecycle {
         gameOverShown = true;
         if (gameLoop != null) gameLoop.stop();
 
+        // STATS: Victoria
+        db.recordRunEndAsync(AppContext.getProfileId(), true, score + (coins * 2), currentFloor);
+
         // Reusamos el GameOverController, pero cambiamos el texto
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
@@ -821,6 +838,14 @@ public class GameController implements ViewLifecycle {
         gameOverShown = true;
         sound.play("player_death");
         if (gameLoop != null) gameLoop.stop();
+
+        // STATS: Derrota (actualizar perfil)
+        db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
+
+        // Si fue una muerte por enemigo "genérico" que no fuera el boss,
+        // no tenemos la referencia exacta aquí (necesitaríamos que Player pasara el causante).
+        // Pero hemos cubierto Boss y Proyectiles/Enemies normales en sus collision handlers.
+
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
                 goc.setOnRetry(() -> {

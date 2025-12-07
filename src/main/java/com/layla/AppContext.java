@@ -9,6 +9,7 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.layla.db.DatabaseService; // Import nuevo
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.services.StatsService;
@@ -17,10 +18,18 @@ public final class AppContext {
     private static final StatsService STATS = new StatsService();
     private static final GameBalance BALANCE = new GameBalance();
 
+    // Servicios globales nuevos
+    private static final DatabaseService DB = new DatabaseService();
+    private static int currentProfileId = 1; // Por defecto 1
+
     private AppContext() {}
 
     public static StatsService stats()   { return STATS; }
     public static GameBalance balance()  { return BALANCE; }
+    public static DatabaseService db()   { return DB; }
+
+    public static int getProfileId() { return currentProfileId; }
+    public static void setProfileId(int id) { currentProfileId = id; }
 
     // ==== Global balance ====
     public static final class GameBalance {
@@ -29,24 +38,21 @@ public final class AppContext {
         // Player
         public double startHp = 6.0;
         public double maxHp   = 6.0;
-
-        // 🔹 NUEVO: monedas iniciales del run
         public int startCoins = 0;
 
-        // Enemy defaults (legacy single-value knobs still used elsewhere)
+        // Enemy defaults
         public double enemyBaseHp   = 6.0;
         public double enemySpeedAvg = 130.0;
         public double enemyScoreK   = 5.0;
 
-        // Enemy projectile stats (legacy global knobs)
-        public double enemyProjSpeed  = 180.0; // px/s
-        public double enemyProjRange  = 2.2;   // seconds of life
-        public double enemyProjDamage = 1.0;   // HP
-        public double enemyContactDamage = 1.0; // damage on touch
-        public double enemyFireRate = 0.8;      // shots per second
-        public double enemyFireJitter = 0.35;   // +-25% random spread
+        // Enemy projectile stats
+        public double enemyProjSpeed  = 180.0;
+        public double enemyProjRange  = 2.2;
+        public double enemyProjDamage = 1.0;
+        public double enemyContactDamage = 1.0;
+        public double enemyFireRate = 0.8;
+        public double enemyFireJitter = 0.35;
 
-        // Micro anti-tunneling
         public double projectileMicroStepPx = 12.0;
         public int    projectileMaxSubSteps = 6;
 
@@ -73,8 +79,6 @@ public final class AppContext {
         public void resetDefaults() {
             this.startHp = 6.0;
             this.maxHp   = 6.0;
-
-            // 🔹 Reset de monedas iniciales
             this.startCoins = 0;
 
             this.enemyBaseHp   = 6.0;
@@ -152,9 +156,7 @@ public final class AppContext {
                     }
                     ensureEnemyDefaults();
                 }
-            } catch (Exception ignored) {
-                // keep defaults on failure
-            }
+            } catch (Exception ignored) {}
         }
 
         public void saveToJson(Path path) {
@@ -167,9 +169,7 @@ public final class AppContext {
                     BalanceDTO dto = new BalanceDTO(enemyProfiles, spawnWeights);
                     GSON.toJson(dto, writer);
                 }
-            } catch (Exception ignored) {
-                // fail silently to avoid UI freeze
-            }
+            } catch (Exception ignored) {}
         }
 
         private void ensureEnemyDefaults() {
