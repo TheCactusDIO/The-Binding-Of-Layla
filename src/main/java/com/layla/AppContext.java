@@ -10,6 +10,7 @@ import java.util.Map;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.layla.db.DatabaseService;
+import com.layla.model.CharacterType;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.services.AchievementService;
@@ -25,6 +26,10 @@ public final class AppContext {
     private static NotificationService notificationInstance;
 
     private static int currentProfileId = 1;
+
+    // NUEVO: Configuración de la partida actual
+    private static CharacterType selectedCharacter = CharacterType.LAYLA;
+    private static boolean hardMode = false;
 
     private AppContext() {}
 
@@ -50,6 +55,13 @@ public final class AppContext {
     public static void setProfileId(int id) {
         currentProfileId = id;
     }
+
+    // NUEVO: Getters y Setters para configuración de run
+    public static CharacterType getSelectedCharacter() { return selectedCharacter; }
+    public static void setSelectedCharacter(CharacterType c) { selectedCharacter = c; }
+
+    public static boolean isHardMode() { return hardMode; }
+    public static void setHardMode(boolean hm) { hardMode = hm; }
 
     // ==== Global balance ====
     public static final class GameBalance {

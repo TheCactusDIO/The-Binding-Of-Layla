@@ -27,10 +27,7 @@ public class MainMenuController {
     @FXML private StackPane root;
     @FXML private VBox menuBox;
     @FXML private Label titleLabel;
-
-    // CAMBIO: Se ha eliminado bestiaryBtn y achievementsBtn, se añade collectionBtn
     @FXML private Button playBtn, profilesBtn, collectionBtn, optionsBtn, exitBtn;
-
     @FXML private MediaView backgroundVideo;
 
     private MediaPlayer videoPlayer;
@@ -76,7 +73,6 @@ public class MainMenuController {
 
         var btnWidthBinding = min(360.0, max(220.0, menuBox.widthProperty().multiply(0.55)));
 
-        // CAMBIO: Actualizamos la lista de botones para el binding de ancho
         for (var b : new Button[]{playBtn, profilesBtn, collectionBtn, optionsBtn, exitBtn}) {
             if (b != null) {
                 b.setMaxWidth(Region.USE_PREF_SIZE);
@@ -149,58 +145,9 @@ public class MainMenuController {
 
     @FXML
     private void onPlayClicked() {
-        System.out.println("[MainMenu] Play clicked");
-        cleanupMedia();
-        SceneRouter.goWithFadeKeepSize("ui/game.fxml");
-
-        SceneRouter.whenControllerIs(GameController.class, gc -> {
-            var overlayLayer = gc.getOverlayLayer();
-            if (overlayLayer == null) {
-                gc.startFloorMusicIfNeeded();
-                return;
-            }
-            var overlay = new javafx.scene.layout.StackPane();
-            overlay.setStyle("-fx-background-color: black;");
-            overlay.setOpacity(1.0);
-            var rootPane = overlayLayer.getScene().getRoot();
-            if (rootPane instanceof javafx.scene.layout.Region r) {
-                overlay.prefWidthProperty().bind(r.widthProperty());
-                overlay.prefHeightProperty().bind(r.heightProperty());
-            }
-            var vbox = new javafx.scene.layout.VBox(8);
-            vbox.setAlignment(javafx.geometry.Pos.CENTER);
-            vbox.setMouseTransparent(true);
-            String[] INTRO_TITLES = {
-                "Basement I","Te amo Maria","Apruebame pls",
-                "Cargando partida...","Prepared to die?","Por nuestra futura Layla"
-            };
-            int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(INTRO_TITLES.length);
-            var title = new javafx.scene.control.Label(INTRO_TITLES[idx]);
-            title.getStyleClass().add("intro-title");
-            var subtitle = new javafx.scene.control.Label("The Binding of Layla");
-            subtitle.getStyleClass().add("intro-subtitle");
-            vbox.getChildren().addAll(title, subtitle);
-            overlay.getChildren().add(vbox);
-            overlayLayer.getChildren().add(overlay);
-
-            var fadeIn = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), vbox);
-            fadeIn.setFromValue(0); fadeIn.setToValue(1);
-            var hold   = new javafx.animation.PauseTransition(javafx.util.Duration.millis(1600));
-            var fadeOut= new javafx.animation.FadeTransition(javafx.util.Duration.millis(300), vbox);
-            fadeOut.setFromValue(1); fadeOut.setToValue(0);
-            new javafx.animation.SequentialTransition(fadeIn, hold, fadeOut).play();
-
-            final int SFX_MS = 5000;
-            com.layla.core.AssetsManager.setSfxVolume(1.0);
-            com.layla.core.AssetsManager.playSfx("game_start.wav");
-            var finish = new javafx.animation.PauseTransition(javafx.util.Duration.millis(SFX_MS));
-            finish.setOnFinished(ev -> {
-                overlayLayer.getChildren().remove(overlay);
-                gc.signalGameStart();
-                gc.startFloorMusicIfNeeded();
-            });
-            finish.play();
-        });
+        System.out.println("[MainMenu] Play clicked -> Going to Run Setup");
+        // CAMBIO PRINCIPAL: Ahora vamos a la configuración de run
+        SceneRouter.goWithFadeKeepSize("ui/run_setup.fxml");
     }
 
     @FXML
@@ -210,7 +157,6 @@ public class MainMenuController {
         SceneRouter.goWithFadeKeepSize("ui/profile_select.fxml");
     }
 
-    // CAMBIO: Nuevo método unificado para la colección
     @FXML
     private void onCollectionClicked() {
         System.out.println("[MainMenu] Collection clicked");

@@ -17,8 +17,9 @@ import com.layla.entities.Player;
 import com.layla.entities.SpawnIndicator;
 import com.layla.items.ItemDefinition;
 import com.layla.items.ItemId;
-import com.layla.items.ItemPoolType; // Importante
+import com.layla.items.ItemPoolType;
 import com.layla.items.ItemRegistry;
+import com.layla.model.CharacterType;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyType;
 import com.layla.model.PlayerStatId;
@@ -101,7 +102,6 @@ public class GameController implements ViewLifecycle {
     private ShootingService shootingService;
     private final SoundService sound = new SoundService();
     private final DatabaseService db = AppContext.db();
-    // NUEVO: Servicio de Logros
     private final AchievementService achievements = AppContext.achievements();
 
     private double bias = 0.2;
@@ -245,7 +245,22 @@ public class GameController implements ViewLifecycle {
     private void applyBalanceToRuntimePlayer() {
         if (player == null) return;
         var bal = com.layla.AppContext.balance();
-        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, bal.maxHp);
+
+        // MODIFICADO: Aplicar stats base según personaje seleccionado
+        CharacterType charType = AppContext.getSelectedCharacter();
+        double initialMaxHp = bal.maxHp;
+
+        if (charType == CharacterType.THE_FRAGILE) {
+            initialMaxHp = 2.0; // 1 Corazón
+            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.5); // Más daño
+            statsService.setBaseStat(PlayerStatId.MOVE_SPEED, statsService.getBaseStat(PlayerStatId.MOVE_SPEED) * 1.1);
+        } else {
+            // Reset por si acaso venimos de una run anterior con el otro personaje
+            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.0);
+            // Restaurar velocidad base original si es necesario, o dejarla como está
+        }
+
+        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, initialMaxHp);
         player.setMaxHealth(statsService.getMaxHealth());
         player.setHealth(Math.min(player.getHealth(), player.getMaxHealth()));
     }
@@ -416,6 +431,12 @@ public class GameController implements ViewLifecycle {
 
     private void spawnRealEnemy(double x, double y, EnemyType type) {
         double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
+
+        // MODIFICADO: Ajustar dificultad si es Hard Mode
+        if (AppContext.isHardMode()) {
+            difficulty *= 1.5;
+        }
+
         double hpMul = 1.0 + difficulty * 0.2;
         double speedMul = 1.0 + difficulty * 0.05;
         double dmgMul = 1.0 + difficulty * 0.1;
@@ -426,13 +447,9 @@ public class GameController implements ViewLifecycle {
                 gameLoop.removeEntity(e);
                 if (e instanceof Enemy en) {
                     enemies.remove(en);
-                    // STATS y ACHIEVEMENTS
                     db.incrementEnemyStatAsync(AppContext.getProfileId(), en.getType().name(), DatabaseService.StatType.KILLED);
-                    // Como el método es async y no retorna valor inmediato, obtenemos el total aproximado
-                    // O le pedimos a AchievementService que consulte
                     long total = db.getStatTotal(AppContext.getProfileId(), "TOTAL_KILLS");
                     achievements.onEnemyKilled(total + 1);
-
                     handleEnemyDeathRewards(en);
                 }
             },
@@ -626,10 +643,8 @@ public class GameController implements ViewLifecycle {
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
 
-        // [FIX] Obtener SOLO los ítems desbloqueados para el pool de Tesoro (Sala Boss = reward bueno)
         List<ItemDefinition> availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
 
-        // Si no hay nada en el pool (raro), no spawnear nada o spawnear monedas
         if (availableItems.isEmpty()) return;
 
         ItemDefinition def = availableItems.get(rewardItemCursor % availableItems.size());
@@ -707,14 +722,11 @@ public class GameController implements ViewLifecycle {
 
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
-
-        // [FIX] Filtrar ítems de la TIENDA desbloqueados
         List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
-        // También podemos mezclar con ítems de tesoro comunes para variedad
         List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
 
         List<ItemDefinition> pool = new ArrayList<>(shopItems);
-        pool.addAll(treasureItems); // Mix simple
+        pool.addAll(treasureItems);
 
         if (pool.isEmpty()) return offers;
 
@@ -740,7 +752,7 @@ public class GameController implements ViewLifecycle {
             currentWave = 1;
             changeFloorVisuals();
 
-            if (currentFloor > 1) { // Trigger FLOOR CLEAR
+            if (currentFloor > 1) {
                 achievements.onGameEnd(false, currentFloor - 1, 0, 0, 0);
             }
         }
