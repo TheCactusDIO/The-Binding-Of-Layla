@@ -12,15 +12,19 @@ import com.google.gson.GsonBuilder;
 import com.layla.db.DatabaseService;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
+import com.layla.services.AchievementService;
 import com.layla.services.StatsService;
+import com.layla.ui.NotificationService;
 
 public final class AppContext {
     private static final StatsService STATS = new StatsService();
     private static final GameBalance BALANCE = new GameBalance();
-
-    // Servicios globales nuevos
     private static final DatabaseService DB = new DatabaseService();
-    private static int currentProfileId = 1; // Por defecto 1
+
+    private static AchievementService achievementInstance;
+    private static NotificationService notificationInstance;
+
+    private static int currentProfileId = 1;
 
     private AppContext() {}
 
@@ -28,8 +32,24 @@ public final class AppContext {
     public static GameBalance balance()  { return BALANCE; }
     public static DatabaseService db()   { return DB; }
 
+    public static NotificationService notifications() {
+        if (notificationInstance == null) {
+            notificationInstance = new NotificationService();
+        }
+        return notificationInstance;
+    }
+
+    public static AchievementService achievements() {
+        if (achievementInstance == null) {
+            achievementInstance = new AchievementService(db(), notifications());
+        }
+        return achievementInstance;
+    }
+
     public static int getProfileId() { return currentProfileId; }
-    public static void setProfileId(int id) { currentProfileId = id; }
+    public static void setProfileId(int id) {
+        currentProfileId = id;
+    }
 
     // ==== Global balance ====
     public static final class GameBalance {

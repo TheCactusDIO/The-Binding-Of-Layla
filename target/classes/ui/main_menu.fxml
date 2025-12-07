@@ -21,7 +21,6 @@
               styleClass="menu-container">
 
             <children>
-
                 <Label fx:id="titleLabel"
                        text="The Binding of Layla"
                        wrapText="true"
@@ -40,6 +39,11 @@
                 <Button fx:id="bestiaryBtn"
                         text="Bestiary"
                         onAction="#onBestiaryClicked"
+                        styleClass="menu-button"/>
+
+                <Button fx:id="achievementsBtn"
+                        text="Achievements"
+                        onAction="#onOpenAchievements"
                         styleClass="menu-button"/>
 
                 <Button fx:id="optionsBtn"

@@ -16,10 +16,8 @@
            styleClass="game-root">
 
     <children>
-        <!-- Capa base con HUD + área de juego -->
         <AnchorPane pickOnBounds="false">
             <children>
-                <!-- HUD superior -->
                 <HBox fx:id="hudBar"
                       alignment="CENTER"
                       spacing="40.0"
@@ -28,7 +26,7 @@
                       maxHeight="96.0"
                       AnchorPane.topAnchor="0.0"
                       AnchorPane.leftAnchor="0.0"
-                    AnchorPane.rightAnchor="0.0"
+                      AnchorPane.rightAnchor="0.0"
                       styleClass="hud-bar">
                     <children>
                         <Label fx:id="scoreLabel"  text="Score: 0"  styleClass="hud-label"/>
@@ -38,7 +36,6 @@
                     </children>
                 </HBox>
 
-                <!-- Área de juego -->
                 <Pane fx:id="gameArea"
                       AnchorPane.topAnchor="72.0"
                       AnchorPane.bottomAnchor="0.0"
@@ -47,9 +44,8 @@
             </children>
         </AnchorPane>
 
-        <!-- 🔝 Capa superior para overlays (intro, pause, etc.) -->
         <StackPane fx:id="overlayLayer"
-                   pickOnBounds="true"
+                   pickOnBounds="false"
                    mouseTransparent="false"
                    style="-fx-background-color: transparent;"/>
     </children>

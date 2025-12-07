@@ -27,7 +27,8 @@ public class MainMenuController {
     @FXML private StackPane root;
     @FXML private VBox menuBox;
     @FXML private Label titleLabel;
-    @FXML private Button playBtn, profilesBtn, bestiaryBtn, optionsBtn, exitBtn; // bestiaryBtn añadido
+    // IMPORTANTE: Se añade achievementsBtn a la lista de botones inyectados
+    @FXML private Button playBtn, profilesBtn, bestiaryBtn, achievementsBtn, optionsBtn, exitBtn;
     @FXML private MediaView backgroundVideo;
 
     private MediaPlayer videoPlayer;
@@ -73,10 +74,12 @@ public class MainMenuController {
 
         var btnWidthBinding = min(360.0, max(220.0, menuBox.widthProperty().multiply(0.55)));
 
-        // Actualizar array de botones para incluir bestiaryBtn
-        for (var b : new Button[]{playBtn, profilesBtn, bestiaryBtn, optionsBtn, exitBtn}) {
-            b.setMaxWidth(Region.USE_PREF_SIZE);
-            b.prefWidthProperty().bind(btnWidthBinding);
+        // Actualizamos el array para que incluya todos los botones nuevos y se redimensionen bien
+        for (var b : new Button[]{playBtn, profilesBtn, bestiaryBtn, achievementsBtn, optionsBtn, exitBtn}) {
+            if (b != null) {
+                b.setMaxWidth(Region.USE_PREF_SIZE);
+                b.prefWidthProperty().bind(btnWidthBinding);
+            }
         }
 
         titleLabel.setWrapText(true);
@@ -167,7 +170,7 @@ public class MainMenuController {
             vbox.setMouseTransparent(true);
             String[] INTRO_TITLES = {
                 "Basement I","Te amo Maria","Apruebame pls",
-                "Cargando partida?","Prepared to die?","Por nuestra futura Layla"
+                "Cargando partida...","Prepared to die?","Por nuestra futura Layla"
             };
             int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(INTRO_TITLES.length);
             var title = new javafx.scene.control.Label(INTRO_TITLES[idx]);
@@ -210,6 +213,14 @@ public class MainMenuController {
         System.out.println("[MainMenu] Bestiary clicked");
         cleanupMedia();
         SceneRouter.goWithFadeKeepSize("ui/bestiary.fxml");
+    }
+
+    // ESTE ES EL MÉTODO QUE FALTABA
+    @FXML
+    private void onOpenAchievements() {
+        System.out.println("[MainMenu] Achievements clicked");
+        cleanupMedia();
+        SceneRouter.goWithFadeKeepSize("ui/achievements.fxml");
     }
 
     @FXML

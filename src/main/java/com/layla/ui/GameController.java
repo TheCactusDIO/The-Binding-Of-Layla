@@ -21,6 +21,7 @@ import com.layla.items.ItemRegistry;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyType;
 import com.layla.model.PlayerStatId;
+import com.layla.services.AchievementService;
 import com.layla.services.ShootingService;
 import com.layla.services.SoundService;
 import com.layla.services.StatsService;
@@ -99,6 +100,8 @@ public class GameController implements ViewLifecycle {
     private ShootingService shootingService;
     private final SoundService sound = new SoundService();
     private final DatabaseService db = AppContext.db();
+    // NUEVO: Servicio de Logros
+    private final AchievementService achievements = AppContext.achievements();
 
     private double bias = 0.2;
     private boolean tickerAdded = false;
@@ -253,6 +256,15 @@ public class GameController implements ViewLifecycle {
             hudBar.setOpacity(1.0);
             new FadeTransition(Duration.millis(400), hudBar).play();
         }
+
+        // NUEVO: Instalar notificaciones en el root
+        NotificationService ns = AppContext.notifications();
+        if (root != null && !root.getChildren().contains(ns.getView())) {
+            root.getChildren().add(ns.getView());
+            StackPane.setAlignment(ns.getView(), Pos.TOP_CENTER);
+            StackPane.setMargin(ns.getView(), new Insets(10, 0, 0, 0));
+        }
+
         Platform.runLater(() -> {
             var sc = gameArea.getScene();
             if (input == null) input = new InputService();
@@ -413,7 +425,12 @@ public class GameController implements ViewLifecycle {
                 gameLoop.removeEntity(e);
                 if (e instanceof Enemy en) {
                     enemies.remove(en);
+                    // STATS y ACHIEVEMENTS
                     db.incrementEnemyStatAsync(AppContext.getProfileId(), en.getType().name(), DatabaseService.StatType.KILLED);
+
+                    long total = db.getStatTotal(AppContext.getProfileId(), "TOTAL_KILLS");
+                    achievements.onEnemyKilled(total + 1);
+
                     handleEnemyDeathRewards(en);
                 }
             },
@@ -445,7 +462,7 @@ public class GameController implements ViewLifecycle {
         activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter,
             (deadBoss) -> handleBossDeath(bossId),
             (proj) -> gameLoop.addEntity(proj),
-            bossId // Pasar ID
+            bossId
         );
         gameLoop.addEntity(activeBoss);
 
@@ -463,6 +480,7 @@ public class GameController implements ViewLifecycle {
             gameLoop.removeEntity(activeBoss);
             activeBoss = null;
             db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.KILLED);
+            achievements.onBossKilled(); // Trigger logro boss
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
@@ -475,18 +493,17 @@ public class GameController implements ViewLifecycle {
     }
 
     private EnemyType pickEnemyTypeForWave() {
-        // [FIX 2] Incluir TURRET en el spawn
         int roll = enemyRng.nextInt(100);
         if (currentFloor == 1) {
             if (roll < 70) return EnemyType.SHOOTER;
             if (roll < 90) return EnemyType.MELEE;
-            return EnemyType.TURRET; // Pequeña chance en piso 1
+            return EnemyType.TURRET;
         }
 
         if (roll < 25) return EnemyType.SHOOTER;
         if (roll < 50) return EnemyType.MELEE;
         if (roll < 75) return EnemyType.TANK;
-        if (roll < 90) return EnemyType.TURRET; // Más chance
+        if (roll < 90) return EnemyType.TURRET;
         return EnemyType.KAMIKAZE;
     }
 
@@ -535,7 +552,6 @@ public class GameController implements ViewLifecycle {
                     if (activeBoss != null) {
                         activeBoss.update(dt);
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
-                            // Registrar contacto con el jefe como fuente de daño
                             player.setLastHitSource("BOSS_FLOOR_" + currentFloor);
                             player.takeDamage(1.0);
                         }
@@ -703,6 +719,10 @@ public class GameController implements ViewLifecycle {
             }
             currentWave = 1;
             changeFloorVisuals();
+
+            if (currentFloor > 1) { // Trigger FLOOR CLEAR
+                achievements.onGameEnd(false, currentFloor - 1, 0, 0, 0);
+            }
         }
         startWave(currentWave);
         updateHudLabels();
@@ -713,6 +733,7 @@ public class GameController implements ViewLifecycle {
         if (gameLoop != null) gameLoop.stop();
 
         db.recordRunEndAsync(AppContext.getProfileId(), true, score + (coins * 2), currentFloor);
+        achievements.onGameEnd(true, currentFloor, statsService.getOwnedItems().size(), coins, player.getHealth());
 
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
@@ -732,7 +753,6 @@ public class GameController implements ViewLifecycle {
     }
 
     private void changeFloorVisuals() {
-        // ... (código existente igual)
         if (gameArea.getParent() instanceof AnchorPane parent) {
             gameArea.setStyle("-fx-background-color: transparent;");
 
@@ -772,7 +792,6 @@ public class GameController implements ViewLifecycle {
     }
 
     private void resetPlainGameArea() {
-        // ... (código existente igual)
         if (gameArea == null || root == null) return;
         gameArea.setScaleX(1.0); gameArea.setScaleY(1.0);
         gameArea.setManaged(true); gameArea.setClip(null);
@@ -794,7 +813,6 @@ public class GameController implements ViewLifecycle {
     }
 
     private void applyEnemySeparation(double dt) {
-        // ... (código existente igual)
         if (gameArea == null || enemies.isEmpty()) return;
         double areaW = gameArea.getWidth();
         double areaH = gameArea.getHeight();
@@ -832,14 +850,15 @@ public class GameController implements ViewLifecycle {
         sound.play("player_death");
         if (gameLoop != null) gameLoop.stop();
 
-        // STATS: Derrota
         db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
 
-        // [FIX 1] Registrar la estadística de KILLED_BY si hay fuente
         String killer = player.getLastHitSource();
         if (killer != null) {
             db.incrementEnemyStatAsync(AppContext.getProfileId(), killer, DatabaseService.StatType.KILLED_BY);
         }
+
+        long totalDeaths = db.getStatTotal(AppContext.getProfileId(), "TOTAL_DEATHS");
+        achievements.onDeath(totalDeaths + 1);
 
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
@@ -859,7 +878,6 @@ public class GameController implements ViewLifecycle {
     }
 
     private void restartGame() {
-        // ... (código existente igual)
         if (pauseOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, pauseOverlay); pauseOverlay = null; }
         if (shopOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, shopOverlay); shopOverlay = null; }
         paused = false;

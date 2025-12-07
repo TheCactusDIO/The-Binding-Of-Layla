@@ -2,6 +2,7 @@ com\layla\ui\StatsPanelController.class
 com\layla\core\VideoSettings.class
 com\layla\services\HighScoreService$ScoreEntry.class
 com\layla\ui\StatsPanelController$Json.class
+com\layla\ui\NotificationService.class
 com\layla\model\EnemyType.class
 com\layla\core\GameLoop$1.class
 com\layla\services\StatsService$1.class
@@ -14,10 +15,14 @@ com\layla\entities\Coin.class
 com\layla\ui\SceneRouter$1.class
 com\layla\items\ItemPoolType.class
 com\layla\model\Enemy.class
+com\layla\model\Achievement.class
 com\layla\ui\SettingsController.class
+com\layla\db\DatabaseService$AchievementStatus.class
 com\layla\ui\IntroVideoController.class
 com\layla\AppContext$GameBalance$BalanceDTO.class
 com\layla\AppContext$1.class
+com\layla\services\AchievementService.class
+com\layla\model\AchievementDefinition.class
 com\layla\ui\GameController$2.class
 com\layla\db\DatabaseService$EnemyStatEntry.class
 com\layla\services\ShootingService.class
@@ -58,6 +63,7 @@ com\layla\db\DatabaseService$StatType.class
 com\layla\core\AssetsManager.class
 com\layla\ui\ViewLifecycle.class
 com\layla\entities\SpawnIndicator.class
+com\layla\ui\AchievementsController.class
 com\layla\entities\ItemPedestal.class
 com\layla\ui\ItemPickupOverlayController.class
 com\layla\ui\LoadingController.class
