@@ -116,12 +116,18 @@ public class GameController implements ViewLifecycle {
     private static final int SHOP_OFFER_COUNT = 3;
     private static final int SHOP_REROLL_BASE_PRICE = 1;
 
-    // --- NUEVO: Constantes para penalización de Score ---
-    private static final int SCORE_PENALTY_PER_SECOND = 1;  // Baja 1 punto cada segundo
-    private static final int SCORE_PENALTY_ON_DAMAGE = 20;  // Baja 20 puntos al recibir daño
-    private static final int SCORE_PENALTY_ON_BUY = 30;     // Baja 30 puntos al comprar un ítem
+    // Constantes para penalización de Score
+    private static final int SCORE_PENALTY_PER_SECOND = 1;
+    private static final int SCORE_PENALTY_ON_DAMAGE = 20;
+    private static final int SCORE_PENALTY_ON_BUY = 30;
 
-    // --- NUEVO: Variables de control de Score ---
+    // --- NUEVO: Mecánica de Combos ---
+    private int comboCount = 0;
+    private double comboMultiplier = 1.0;
+    private double comboTimer = 0.0;
+    private static final double COMBO_MAX_TIME = 3.5; // Segundos para mantener el combo
+    // ---------------------------------
+
     private double scoreTimer = 0.0;
     private double lastPlayerHealth = -1.0;
 
@@ -186,7 +192,10 @@ public class GameController implements ViewLifecycle {
     }
 
     private void updateHudLabels() {
-        if (scoreLabel != null) scoreLabel.setText("Score: " + score);
+        // Mejorado para mostrar el multiplicador de combo si es > 1
+        String multiplierText = comboMultiplier > 1.0 ? String.format(" (x%.1f)", comboMultiplier) : "";
+        if (scoreLabel != null) scoreLabel.setText("Score: " + score + multiplierText);
+
         if (coinLabel  != null) coinLabel.setText("Coins: " + coins);
 
         String floorName = switch(currentFloor) {
@@ -508,8 +517,8 @@ public class GameController implements ViewLifecycle {
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
-        // Bonificación por Boss
-        int bossScore = 1000 * currentFloor;
+        // Bonificación por Boss multiplicada por combo actual
+        int bossScore = (int)(1000 * currentFloor * comboMultiplier);
         this.score += bossScore;
 
         spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
@@ -546,7 +555,6 @@ public class GameController implements ViewLifecycle {
         player.setHealth(statsService.getMaxHealth());
         player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 - 10);
 
-        // Inicializar salud anterior para el detector de daño
         lastPlayerHealth = player.getHealth();
 
         shootingService = new ShootingService(statsService);
@@ -582,14 +590,24 @@ public class GameController implements ViewLifecycle {
                 if (!paused && !gameOverShown) {
                     updateGreedLogic(dt);
 
-                    // --- NUEVO: Lógica de Score Timer (baja 1 punto cada segundo) ---
+                    // Lógica de Score Timer (penalización tiempo)
                     scoreTimer += dt;
                     if (scoreTimer >= 1.0) {
                         score = Math.max(0, score - SCORE_PENALTY_PER_SECOND);
                         scoreTimer -= 1.0;
                         updateHudLabels();
                     }
-                    // ----------------------------------------------------------------
+
+                    // --- Lógica Combo Timer (reseteo si no matas) ---
+                    if (comboTimer > 0.0) {
+                        comboTimer -= dt;
+                        if (comboTimer <= 0.0) {
+                            comboCount = 0;
+                            comboMultiplier = 1.0;
+                            updateHudLabels();
+                        }
+                    }
+                    // ------------------------------------------------
 
                     if (activeBoss != null) {
                         activeBoss.update(dt);
@@ -603,17 +621,20 @@ public class GameController implements ViewLifecycle {
                 if (shootingService != null && input != null) shootingService.update(dt, input.getMoveVector());
                 if (shootingArmed && !paused && player != null && !player.isDead()) tryShootNow();
 
-                // --- NUEVO: Detectar daño recibido y penalizar Score ---
+                // Detectar daño recibido (penaliza puntos y resetea combo)
                 if (player != null) {
                     double currentHp = player.getHealth();
-                    // Solo penalizamos si la vida BAJA (no si sube por curación)
                     if (lastPlayerHealth > 0 && currentHp < lastPlayerHealth) {
                         score = Math.max(0, score - SCORE_PENALTY_ON_DAMAGE);
+                        // --- BUG FIX: Recibir daño resetea el combo ---
+                        comboCount = 0;
+                        comboMultiplier = 1.0;
+                        comboTimer = 0.0;
+                        // ----------------------------------------------
                         updateHudLabels();
                     }
                     lastPlayerHealth = currentHp;
                 }
-                // -----------------------------------------------------
 
                 hudRefreshTimer -= dt;
                 if (hud != null && hudRefreshTimer <= 0.0) {
@@ -646,12 +667,20 @@ public class GameController implements ViewLifecycle {
     private void handleEnemyDeathRewards(Enemy en) {
         spawnRewardCoins(en.getCenterX(), en.getCenterY(), 5);
 
+        // --- Lógica Multiplicador Combo ---
+        comboCount++;
+        comboTimer = COMBO_MAX_TIME; // Reinicia el tiempo disponible
+        // Multiplicador sube 0.1 por cada baja, hasta un máximo (ej: x5.0)
+        comboMultiplier = Math.min(5.0, 1.0 + (comboCount * 0.1));
+        // ----------------------------------
+
         EnemyProfile profile = com.layla.AppContext.balance().profile(en.getType());
-        if (profile != null) {
-            this.score += profile.score;
-        } else {
-            this.score += 10;
-        }
+        int basePoints = (profile != null) ? profile.score : 10;
+
+        // --- BUG FIX: Sumar puntos escalados por combo ---
+        this.score += (int)(basePoints * comboMultiplier);
+        // --------------------------------------------------
+
         updateHudLabels();
     }
 
@@ -742,16 +771,12 @@ public class GameController implements ViewLifecycle {
                     updateHudLabels();
                 });
 
-                // --- NUEVO: Callback cuando se compra un ítem ---
                 soc.setOnItemsChanged(() -> {
-                    // Penalización de score por comprar
                     score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
-
                     if (hud != null) hud.refresh();
                     if (itemHud != null) itemHud.refresh();
                     updateHudLabels();
                 });
-                // ------------------------------------------------
 
                 soc.setOnRerollRequested(c -> c.setOffers(generateShopOffers(SHOP_OFFER_COUNT)));
                 soc.setOnClose(() -> {
@@ -978,6 +1003,11 @@ public class GameController implements ViewLifecycle {
         tickerAdded = false;
         rewardItemCursor = 0;
         pendingSpawns = 0;
+
+        // Reset Combo
+        comboCount = 0;
+        comboMultiplier = 1.0;
+        comboTimer = 0.0;
 
         updateHudLabels();
         activeBoss = null;
