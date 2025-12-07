@@ -6,12 +6,6 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Text;
 
-/**
- * Controlador del overlay de Game Over.
- * Expone callbacks configurables desde GameController:
- *   - setOnRetry(Runnable)
- *   - setOnBackToMenu(Runnable)
- */
 public class GameOverController {
 
     @FXML private StackPane root;
@@ -30,9 +24,19 @@ public class GameOverController {
         this.onBackToMenu = (r != null) ? r : () -> {};
     }
 
+    // Método nuevo para cambiar el texto (Ej: "VICTORY!")
+    public void setTitle(String text) {
+        if (titleText != null) {
+            titleText.setText(text);
+            // Opcional: Cambiar color si es victoria
+            if ("VICTORY!".equals(text)) {
+                titleText.setStyle("-fx-fill: #ffd700; -fx-font-size: 32px; -fx-font-weight: bold;");
+            }
+        }
+    }
+
     @FXML
     private void initialize() {
-        // Foco para recibir teclas
         if (root != null) {
             root.setFocusTraversable(true);
             root.requestFocus();
@@ -50,14 +54,6 @@ public class GameOverController {
         }
     }
 
-    // Handlers FXML
-    @FXML
-    private void onRetry() {
-        onRetry.run();
-    }
-
-    @FXML
-    private void onMenu() {
-        onBackToMenu.run();
-    }
+    @FXML private void onRetry() { onRetry.run(); }
+    @FXML private void onMenu() { onBackToMenu.run(); }
 }

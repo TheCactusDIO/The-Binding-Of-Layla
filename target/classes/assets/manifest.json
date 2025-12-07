@@ -10,7 +10,8 @@
     "assets/sounds/shot.mp3",
     "assets/sounds/enemy_death.mp3",
     "assets/sounds/item.mp3",
-    "assets/sounds/player_death.mp3"
+    "assets/sounds/player_death.mp3",
+    "assets/sounds/coin.mp3"
   ],
   "music": [
     "assets/music/menu.mp3",

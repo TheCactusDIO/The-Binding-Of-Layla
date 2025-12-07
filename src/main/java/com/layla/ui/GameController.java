@@ -72,6 +72,7 @@ public class GameController implements ViewLifecycle {
 
     // ---------- Lógica de Oleadas ----------
     private static final int WAVES_PER_FLOOR = 5;
+    private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
     private int currentWave = 1;
 
@@ -79,7 +80,7 @@ public class GameController implements ViewLifecycle {
     private int pendingSpawns = 0;
     private boolean waveInProgress = false;
 
-    // Tiempos dinámicos
+    // Tiempos
     private double constantSpawnInterval;
     private double hordeInterval;
     private int hordeSize;
@@ -87,6 +88,7 @@ public class GameController implements ViewLifecycle {
     private double timeUntilNextHorde = 0.0;
 
     // Estado
+    private boolean gameStarted = false;
     private boolean paused = false;
     private boolean gameOverShown = false;
 
@@ -184,7 +186,7 @@ public class GameController implements ViewLifecycle {
             case 2 -> "Caves";
             case 3 -> "Depths";
             case 4 -> "Womb";
-            default -> "Sheol " + (currentFloor-4);
+            default -> "Sheol";
         };
         if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + currentWave + "/" + WAVES_PER_FLOOR);
 
@@ -222,7 +224,6 @@ public class GameController implements ViewLifecycle {
             }
         }
 
-        // UI del Boss (centrada abajo)
         bossHealthBar = new ProgressBar(1.0);
         bossHealthBar.setPrefWidth(600);
         bossHealthBar.setStyle("-fx-accent: #cc0000; -fx-control-inner-background: #333333; -fx-text-box-border: transparent;");
@@ -254,12 +255,10 @@ public class GameController implements ViewLifecycle {
     @Override
     public void onEnter() {
         resetPlainGameArea();
-
         if (hudBar != null) {
             hudBar.setOpacity(1.0);
             new FadeTransition(Duration.millis(400), hudBar).play();
         }
-
         Platform.runLater(() -> {
             var sc = gameArea.getScene();
             if (input == null) input = new InputService();
@@ -298,8 +297,8 @@ public class GameController implements ViewLifecycle {
     public void signalGameStart() {
         if (startGateOpen) return;
         startGateOpen = true;
+        gameStarted = true;
 
-        // Reset total
         currentFloor = 1;
         currentWave = 1;
         enemies.clear();
@@ -351,7 +350,7 @@ public class GameController implements ViewLifecycle {
 
     private void updateGreedLogic(double dt) {
         if (activeBoss != null) return;
-        if (!waveInProgress) return; // Si no hay oleada activa (estamos en tienda/recompensa), no hacer nada
+        if (!waveInProgress) return;
 
         nextWaveTimer -= dt;
 
@@ -460,12 +459,13 @@ public class GameController implements ViewLifecycle {
     }
 
     private void handleBossDeath() {
-        activeBoss = null;
+        if (activeBoss != null) {
+            gameLoop.removeEntity(activeBoss);
+            activeBoss = null;
+        }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
         spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
-
-        // PARAMOS las oleadas. El juego queda "en pausa lógica" hasta que cojas el ítem y cierres la tienda.
         waveInProgress = false;
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
@@ -575,7 +575,7 @@ public class GameController implements ViewLifecycle {
         Coin coin = new Coin(x, y, amount, gameArea, statsService, player, c -> {
             coins += c.getValue();
             updateHudLabels();
-            sound.play("item");
+            sound.play("coin");
             gameLoop.removeEntity(c);
         });
         gameLoop.addEntity(coin);
@@ -663,7 +663,7 @@ public class GameController implements ViewLifecycle {
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
                     shopOverlay = null;
                     Platform.runLater(() -> {
-                        startNextWave(); // Avanza al cerrar tienda
+                        startNextWave();
                         if (gameLoop != null && !gameOverShown) gameLoop.start();
                         paused = false;
                     });
@@ -688,17 +688,40 @@ public class GameController implements ViewLifecycle {
 
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
-
-        currentWave++; // Avanzar ronda
-        // Si acabamos la ronda de Jefe (5), pasar al siguiente piso
+        currentWave++;
         if (currentWave > WAVES_PER_FLOOR) {
             currentFloor++;
+            if (currentFloor > MAX_FLOORS) {
+                showVictoryOverlay();
+                return;
+            }
             currentWave = 1;
             changeFloorVisuals();
         }
-
         startWave(currentWave);
         updateHudLabels();
+    }
+
+    private void showVictoryOverlay() {
+        gameOverShown = true;
+        if (gameLoop != null) gameLoop.stop();
+
+        // Reusamos el GameOverController, pero cambiamos el texto
+        gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
+            if (controller instanceof GameOverController goc) {
+                goc.setTitle("VICTORY!");
+                goc.setOnRetry(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    restartGame();
+                });
+                goc.setOnBackToMenu(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    backToMenu();
+                });
+            }
+        });
     }
 
     private void changeFloorVisuals() {
