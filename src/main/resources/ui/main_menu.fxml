@@ -36,14 +36,9 @@
                         onAction="#onProfilesClicked"
                         styleClass="menu-button"/>
 
-                <Button fx:id="bestiaryBtn"
-                        text="Bestiary"
-                        onAction="#onBestiaryClicked"
-                        styleClass="menu-button"/>
-
-                <Button fx:id="achievementsBtn"
-                        text="Achievements"
-                        onAction="#onOpenAchievements"
+                <Button fx:id="collectionBtn"
+                        text="Collection"
+                        onAction="#onCollectionClicked"
                         styleClass="menu-button"/>
 
                 <Button fx:id="optionsBtn"

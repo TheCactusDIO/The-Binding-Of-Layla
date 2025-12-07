@@ -27,8 +27,10 @@ public class MainMenuController {
     @FXML private StackPane root;
     @FXML private VBox menuBox;
     @FXML private Label titleLabel;
-    // IMPORTANTE: Se añade achievementsBtn a la lista de botones inyectados
-    @FXML private Button playBtn, profilesBtn, bestiaryBtn, achievementsBtn, optionsBtn, exitBtn;
+
+    // CAMBIO: Se ha eliminado bestiaryBtn y achievementsBtn, se añade collectionBtn
+    @FXML private Button playBtn, profilesBtn, collectionBtn, optionsBtn, exitBtn;
+
     @FXML private MediaView backgroundVideo;
 
     private MediaPlayer videoPlayer;
@@ -74,8 +76,8 @@ public class MainMenuController {
 
         var btnWidthBinding = min(360.0, max(220.0, menuBox.widthProperty().multiply(0.55)));
 
-        // Actualizamos el array para que incluya todos los botones nuevos y se redimensionen bien
-        for (var b : new Button[]{playBtn, profilesBtn, bestiaryBtn, achievementsBtn, optionsBtn, exitBtn}) {
+        // CAMBIO: Actualizamos la lista de botones para el binding de ancho
+        for (var b : new Button[]{playBtn, profilesBtn, collectionBtn, optionsBtn, exitBtn}) {
             if (b != null) {
                 b.setMaxWidth(Region.USE_PREF_SIZE);
                 b.prefWidthProperty().bind(btnWidthBinding);
@@ -208,19 +210,12 @@ public class MainMenuController {
         SceneRouter.goWithFadeKeepSize("ui/profile_select.fxml");
     }
 
+    // CAMBIO: Nuevo método unificado para la colección
     @FXML
-    private void onBestiaryClicked() {
-        System.out.println("[MainMenu] Bestiary clicked");
+    private void onCollectionClicked() {
+        System.out.println("[MainMenu] Collection clicked");
         cleanupMedia();
-        SceneRouter.goWithFadeKeepSize("ui/bestiary.fxml");
-    }
-
-    // ESTE ES EL MÉTODO QUE FALTABA
-    @FXML
-    private void onOpenAchievements() {
-        System.out.println("[MainMenu] Achievements clicked");
-        cleanupMedia();
-        SceneRouter.goWithFadeKeepSize("ui/achievements.fxml");
+        SceneRouter.goWithFadeKeepSize("ui/collection.fxml");
     }
 
     @FXML

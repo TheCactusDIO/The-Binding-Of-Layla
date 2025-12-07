@@ -17,6 +17,7 @@ import com.layla.entities.Player;
 import com.layla.entities.SpawnIndicator;
 import com.layla.items.ItemDefinition;
 import com.layla.items.ItemId;
+import com.layla.items.ItemPoolType; // Importante
 import com.layla.items.ItemRegistry;
 import com.layla.model.Enemy;
 import com.layla.model.EnemyType;
@@ -257,7 +258,7 @@ public class GameController implements ViewLifecycle {
             new FadeTransition(Duration.millis(400), hudBar).play();
         }
 
-        // NUEVO: Instalar notificaciones en el root
+        // NUEVO: Instalar notificaciones en el root de la escena de juego
         NotificationService ns = AppContext.notifications();
         if (root != null && !root.getChildren().contains(ns.getView())) {
             root.getChildren().add(ns.getView());
@@ -427,7 +428,8 @@ public class GameController implements ViewLifecycle {
                     enemies.remove(en);
                     // STATS y ACHIEVEMENTS
                     db.incrementEnemyStatAsync(AppContext.getProfileId(), en.getType().name(), DatabaseService.StatType.KILLED);
-
+                    // Como el método es async y no retorna valor inmediato, obtenemos el total aproximado
+                    // O le pedimos a AchievementService que consulte
                     long total = db.getStatTotal(AppContext.getProfileId(), "TOTAL_KILLS");
                     achievements.onEnemyKilled(total + 1);
 
@@ -623,8 +625,15 @@ public class GameController implements ViewLifecycle {
         if (gameLoop == null || gameArea == null) return;
         double width = gameArea.getWidth();
         double height = gameArea.getHeight();
-        ItemId[] allItems = ItemId.values();
-        final ItemId itemId = allItems[rewardItemCursor % allItems.length];
+
+        // [FIX] Obtener SOLO los ítems desbloqueados para el pool de Tesoro (Sala Boss = reward bueno)
+        List<ItemDefinition> availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
+
+        // Si no hay nada en el pool (raro), no spawnear nada o spawnear monedas
+        if (availableItems.isEmpty()) return;
+
+        ItemDefinition def = availableItems.get(rewardItemCursor % availableItems.size());
+        final ItemId itemId = def.getId();
         rewardItemCursor++;
 
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
@@ -698,12 +707,23 @@ public class GameController implements ViewLifecycle {
 
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
-        ItemId[] ids = ItemId.values();
+
+        // [FIX] Filtrar ítems de la TIENDA desbloqueados
+        List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
+        // También podemos mezclar con ítems de tesoro comunes para variedad
+        List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
+
+        List<ItemDefinition> pool = new ArrayList<>(shopItems);
+        pool.addAll(treasureItems); // Mix simple
+
+        if (pool.isEmpty()) return offers;
+
         int basePrice = Math.max(5, 10 + Math.max(0, currentWave - 1) * 2);
+
         for (int i = 0; i < count; i++) {
-            ItemId itemId = ids[enemyRng.nextInt(ids.length)];
+            ItemDefinition def = pool.get(enemyRng.nextInt(pool.size()));
             int price = Math.max(5, basePrice + enemyRng.nextInt(0, 6));
-            offers.add(new ShopOffer(itemId, price));
+            offers.add(new ShopOffer(def.getId(), price));
         }
         return offers;
     }

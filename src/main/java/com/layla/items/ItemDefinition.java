@@ -13,51 +13,41 @@ public final class ItemDefinition {
     private final String description;
     private final ItemPoolType poolType;
     private final List<StatModifier> modifiers;
-    //private final boolean unique;
+
+    // NUEVO: ID del logro necesario para desbloquear este ítem (null = desbloqueado por defecto)
+    private final String requiredAchievementId;
 
     public ItemDefinition(ItemId id,
                           String name,
                           String description,
                           ItemPoolType poolType,
                           List<StatModifier> modifiers,
-                          boolean unique) {
+                          String requiredAchievementId) { // Constructor completo
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
         this.description = Objects.requireNonNull(description, "description");
         this.poolType = Objects.requireNonNull(poolType, "poolType");
         this.modifiers = List.copyOf(Objects.requireNonNull(modifiers, "modifiers"));
-        //this.unique = unique;
+        this.requiredAchievementId = requiredAchievementId;
     }
 
+    // Constructor de conveniencia (para ítems sin requisitos)
     public ItemDefinition(ItemId id,
                           String name,
                           String description,
                           ItemPoolType poolType,
                           List<StatModifier> modifiers) {
-        this(id, name, description, poolType, modifiers, true);
+        this(id, name, description, poolType, modifiers, null);
     }
 
-    public ItemId getId() {
-        return id;
-    }
+    public ItemId getId() { return id; }
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public ItemPoolType getPoolType() { return poolType; }
+    public List<StatModifier> getModifiers() { return modifiers; }
 
-    public String getName() {
-        return name;
-    }
+    // NUEVO Getter
+    public String getRequiredAchievementId() { return requiredAchievementId; }
 
-    public String getDescription() {
-        return description;
-    }
-
-    public ItemPoolType getPoolType() {
-        return poolType;
-    }
-
-    public List<StatModifier> getModifiers() {
-        return modifiers;
-    }
-
-    // public boolean isUnique() {
-    //     return unique;
-    // }
+    public boolean isUnlockedByDefault() { return requiredAchievementId == null; }
 }

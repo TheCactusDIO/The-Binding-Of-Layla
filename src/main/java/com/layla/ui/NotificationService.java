@@ -14,7 +14,7 @@ public final class NotificationService {
         container = new VBox(10);
         container.setPrefWidth(250);
         container.setMaxWidth(250);
-        container.setManaged(true);
+        container.setManaged(true); // Permitir que se posicione y gestione
         container.setOpacity(0.0);
         container.setAlignment(javafx.geometry.Pos.TOP_RIGHT);
 
@@ -38,7 +38,8 @@ public final class NotificationService {
             VBox content = new VBox(5, titleLabel, msgLabel);
             content.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #ffd54f; -fx-border-width: 2; -fx-border-radius: 8;");
             content.setMaxWidth(250);
-            // Hacer que la notificación en sí tampoco bloquee el ratón (opcional, pero recomendable para toasts)
+
+            // [FIX] Hacer que la notificación en sí tampoco bloquee el ratón (opcional, pero recomendable para toasts)
             content.setMouseTransparent(true);
 
             container.getChildren().add(0, content);

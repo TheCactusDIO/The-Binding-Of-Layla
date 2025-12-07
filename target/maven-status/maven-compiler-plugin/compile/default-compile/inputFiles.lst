@@ -27,6 +27,7 @@ C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\lay
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\db\DatabaseService.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\services\HighScoreService.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\SettingsController.java
+C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\ItemsController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\FloatingTextEntity.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\entities\ItemPedestal.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\entities\Coin.java
@@ -51,5 +52,6 @@ C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\lay
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\items\ItemRegistry.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\BestiaryController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\core\InputService.java
+C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\CollectionController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\IntroVideoController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\model\Achievement.java
