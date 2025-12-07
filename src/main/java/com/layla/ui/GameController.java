@@ -34,6 +34,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -53,6 +54,8 @@ public class GameController implements ViewLifecycle {
     @FXML private StackPane root;
     @FXML private StackPane overlayLayer;
 
+    private ImageView backgroundView;
+
     private javafx.scene.Node pauseOverlay;
     private javafx.scene.Node gameOverOverlay;
     private javafx.scene.Node shopOverlay;
@@ -67,14 +70,16 @@ public class GameController implements ViewLifecycle {
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
-    // Lógica de Oleadas
+    // ---------- Lógica de Oleadas ----------
     private static final int WAVES_PER_FLOOR = 5;
     private int currentFloor = 1;
     private int currentWave = 1;
 
-    private double waveTimer = 0.0;
-    private boolean waveActive = false;
+    private double nextWaveTimer = 0.0;
+    private int pendingSpawns = 0;
+    private boolean waveInProgress = false;
 
+    // Tiempos dinámicos
     private double constantSpawnInterval;
     private double hordeInterval;
     private int hordeSize;
@@ -82,7 +87,6 @@ public class GameController implements ViewLifecycle {
     private double timeUntilNextHorde = 0.0;
 
     // Estado
-    private boolean gameStarted = false;
     private boolean paused = false;
     private boolean gameOverShown = false;
 
@@ -135,7 +139,6 @@ public class GameController implements ViewLifecycle {
                         backToMenu();
                     });
                 });
-
                 poc.setOnSettings(() -> {
                     final javafx.scene.Node[] settingsNode = new javafx.scene.Node[1];
                     settingsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/settings.fxml", 0.90, c -> {
@@ -180,17 +183,21 @@ public class GameController implements ViewLifecycle {
             case 1 -> "Basement";
             case 2 -> "Caves";
             case 3 -> "Depths";
-            default -> "Hell " + (currentFloor-3);
+            case 4 -> "Womb";
+            default -> "Sheol " + (currentFloor-4);
         };
-        if (floorLabel != null) floorLabel.setText(floorName + " - " + currentWave + "/" + WAVES_PER_FLOOR);
+        if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + currentWave + "/" + WAVES_PER_FLOOR);
 
         if (timeLabel != null) {
             if (activeBoss != null) {
                 timeLabel.setText("BOSS");
                 timeLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-weight: bold;");
-            } else if (waveActive) {
-                timeLabel.setText("Time: " + formatTime(waveTimer));
+            } else if (waveInProgress) {
+                timeLabel.setText("Next: " + formatTime(nextWaveTimer));
                 timeLabel.setStyle("-fx-text-fill: white;");
+                if (nextWaveTimer <= 3.0) {
+                    timeLabel.setStyle("-fx-text-fill: #ff5555; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
+                }
             } else {
                 timeLabel.setText("CLEAR");
                 timeLabel.setStyle("-fx-text-fill: #55ff55;");
@@ -215,23 +222,22 @@ public class GameController implements ViewLifecycle {
             }
         }
 
-        // UI del Boss
+        // UI del Boss (centrada abajo)
         bossHealthBar = new ProgressBar(1.0);
-        bossHealthBar.setPrefWidth(600); // Más ancha
+        bossHealthBar.setPrefWidth(600);
         bossHealthBar.setStyle("-fx-accent: #cc0000; -fx-control-inner-background: #333333; -fx-text-box-border: transparent;");
         bossNameLabel = new Label("BOSS");
         bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px; -fx-effect: dropshadow(gaussian, black, 2, 1, 0, 0);");
 
         bossHealthBox = new VBox(4, bossNameLabel, bossHealthBar);
         bossHealthBox.setAlignment(Pos.CENTER);
-        bossHealthBox.setManaged(false);
+        bossHealthBox.setManaged(true);
         bossHealthBox.setVisible(false);
 
-        // CORRECCIÓN: Posición BOTTOM_CENTER para no tapar la acción
         if (overlayLayer != null) {
             overlayLayer.getChildren().add(bossHealthBox);
             StackPane.setAlignment(bossHealthBox, Pos.BOTTOM_CENTER);
-            StackPane.setMargin(bossHealthBox, new Insets(0, 0, 40, 0));
+            StackPane.setMargin(bossHealthBox, new Insets(0, 0, 80, 0));
         }
 
         updateHudLabels();
@@ -286,16 +292,22 @@ public class GameController implements ViewLifecycle {
         gameOverShown = false;
         paused = false;
         activeBoss = null;
+        waveInProgress = false;
     }
 
     public void signalGameStart() {
         if (startGateOpen) return;
         startGateOpen = true;
-        gameStarted = true;
+
+        // Reset total
         currentFloor = 1;
         currentWave = 1;
+        enemies.clear();
+        pendingSpawns = 0;
 
-        prepareWave();
+        changeFloorVisuals();
+        startWave(currentWave);
+
         updateHudLabels();
         maybeSpawnPlayer();
         addTickerIfNeeded();
@@ -315,113 +327,85 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    // ==================== LÓGICA DE OLEADAS Y SPAWNS ====================
+    // ==================== LÓGICA DE OLEADAS ====================
 
-    private void prepareWave() {
-        if (currentWave == WAVES_PER_FLOOR) {
-            startBossWave();
+    private void startWave(int wave) {
+        if (wave == WAVES_PER_FLOOR) {
+            spawnBoss();
             return;
         }
 
-        // CORRECCIÓN: Tiempo de oleada = 10s + 2s por ronda (antes 20+5)
-        waveTimer = 10.0 + (currentWave * 2.0);
-        waveActive = true;
-        activeBoss = null;
-        if (bossHealthBox != null) bossHealthBox.setVisible(false);
+        waveInProgress = true;
+        nextWaveTimer = 10.0 + (wave * 2.0);
 
-        // Ajuste de dificultad más agresivo para compensar rondas cortas
-        double difficulty = currentFloor * 1.5 + currentWave * 0.5;
+        double difficulty = currentFloor * 1.5 + wave * 0.5;
+        int enemyCount = 4 + (int)(difficulty * 1.3);
 
-        // Spawn constante: mucho más rápido (de 1.5s a 0.2s)
-        constantSpawnInterval = Math.max(0.2, 1.5 - (difficulty * 0.15));
+        spawnWaveEnemies(enemyCount);
 
-        // Hordas: más frecuentes (cada 5-12s para asegurar al menos una)
-        hordeInterval = Math.max(5.0, 12.0 - (difficulty * 0.5));
+        constantSpawnInterval = Math.max(0.25, 2.0 - (difficulty * 0.15));
+        timeUntilNextSpawn = 1.0;
 
-        // Tamaño horda
-        hordeSize = Math.min(25, 4 + (int)(difficulty * 1.5));
-
-        timeUntilNextSpawn = 0.5; // Empezar casi ya
-        timeUntilNextHorde = hordeInterval * 0.5; // Primera horda a mitad de intervalo
-
-        System.out.println("Wave " + currentWave + ": Time=" + waveTimer + "s, SpawnRate=" + constantSpawnInterval + "s");
+        System.out.println("Wave " + wave + " (F" + currentFloor + ") started.");
     }
 
-    private void startBossWave() {
-        waveActive = true;
-        waveTimer = 999999;
-        for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
-        enemies.clear();
+    private void updateGreedLogic(double dt) {
+        if (activeBoss != null) return;
+        if (!waveInProgress) return; // Si no hay oleada activa (estamos en tienda/recompensa), no hacer nada
 
-        double bx = gameArea.getWidth()/2 - 40;
-        double by = gameArea.getHeight()/2 - 100;
-        double bossHp = 500 + (currentFloor * 300);
-
-        activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter,
-            (deadBoss) -> handleBossDeath(),
-            (proj) -> gameLoop.addEntity(proj)
-        );
-        gameLoop.addEntity(activeBoss);
-
-        if (bossHealthBox != null) {
-            bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
-            bossHealthBox.setVisible(true);
-            bossHealthBox.setManaged(true);
-        }
-    }
-
-    private void handleBossDeath() {
-        activeBoss = null;
-        if (bossHealthBox != null) bossHealthBox.setVisible(false);
-        spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
-        endWave();
-    }
-
-    private void updateWaveLogic(double dt) {
-        if (!waveActive || activeBoss != null) return;
-
-        waveTimer -= dt;
-        if (waveTimer <= 0.0) {
-            endWave();
-            return;
-        }
+        nextWaveTimer -= dt;
 
         timeUntilNextSpawn -= dt;
         if (timeUntilNextSpawn <= 0.0) {
-            spawnEnemyAtRandomPos();
-            timeUntilNextSpawn = constantSpawnInterval;
+            createSpawnIndicator(
+                enemyRng.nextDouble(50, gameArea.getWidth()-50),
+                enemyRng.nextDouble(50, gameArea.getHeight()-50),
+                pickEnemyTypeForWave(),
+                0.0
+            );
+            timeUntilNextSpawn = constantSpawnInterval * 3.0;
         }
-        timeUntilNextHorde -= dt;
-        if (timeUntilNextHorde <= 0.0) {
-            spawnHorde();
-            timeUntilNextHorde = hordeInterval;
-        }
-    }
 
-    private void spawnHorde() {
-        for (int i = 0; i < hordeSize; i++) spawnEnemyAtRandomPos();
-    }
+        boolean timeUp = nextWaveTimer <= 0.0;
+        boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
-    private void spawnEnemyAtRandomPos() {
-        if (gameArea == null || player == null) return;
-        double w = gameArea.getWidth();
-        double h = gameArea.getHeight();
-        if (w <= 0 || h <= 0) return;
-
-        for (int i = 0; i < 15; i++) {
-            double x = enemyRng.nextDouble(0, w - 20);
-            double y = enemyRng.nextDouble(0, h - 20);
-            if (isValidSpawn(x, y, 20, 20)) {
-                EnemyType type = pickEnemyTypeForWave();
-                createSpawnIndicator(x, y, type);
-                return;
+        if (timeUp || allDead) {
+            if (currentWave < WAVES_PER_FLOOR) {
+                currentWave++;
+                startWave(currentWave);
             }
         }
     }
 
-    private void createSpawnIndicator(double x, double y, EnemyType type) {
-        SpawnIndicator indicator = new SpawnIndicator(x, y, 1.5, gameArea, (ind) -> {
+    private void spawnWaveEnemies(int count) {
+        if (gameArea == null || player == null) return;
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+
+        for (int i = 0; i < count; i++) {
+            double x = 0, y = 0;
+            boolean valid = false;
+            for(int tries=0; tries<10; tries++) {
+                x = enemyRng.nextDouble(20, w - 40);
+                y = enemyRng.nextDouble(20, h - 40);
+                if (isValidSpawn(x, y, 20, 20)) {
+                    valid = true;
+                    break;
+                }
+            }
+            if(!valid) { x=50; y=50; }
+
+            EnemyType type = pickEnemyTypeForWave();
+            double spawnDelay = enemyRng.nextDouble(0.2, 1.5);
+            createSpawnIndicator(x, y, type, spawnDelay);
+        }
+    }
+
+    private void createSpawnIndicator(double x, double y, EnemyType type, double delay) {
+        pendingSpawns++;
+        SpawnIndicator indicator = new SpawnIndicator(x, y, 1.5 + delay, gameArea, (ind) -> {
             spawnRealEnemy(ind.getX(), ind.getY(), type);
+            pendingSpawns--;
         });
         gameLoop.addEntity(indicator);
     }
@@ -450,15 +434,57 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(enemy);
     }
 
+    private void spawnBoss() {
+        waveInProgress = true;
+        nextWaveTimer = 99999;
+
+        for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
+        enemies.clear();
+        pendingSpawns = 0;
+
+        double bx = gameArea.getWidth()/2 - 40;
+        double by = gameArea.getHeight()/2 - 100;
+        double bossHp = 400 + (currentFloor * 250);
+
+        activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter,
+            (deadBoss) -> handleBossDeath(),
+            (proj) -> gameLoop.addEntity(proj)
+        );
+        gameLoop.addEntity(activeBoss);
+
+        if (bossHealthBox != null) {
+            bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
+            bossHealthBox.setVisible(true);
+            bossHealthBox.setManaged(true);
+        }
+    }
+
+    private void handleBossDeath() {
+        activeBoss = null;
+        if (bossHealthBox != null) bossHealthBox.setVisible(false);
+
+        spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
+
+        // PARAMOS las oleadas. El juego queda "en pausa lógica" hasta que cojas el ítem y cierres la tienda.
+        waveInProgress = false;
+
+        for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
+
+        spawnRoomRewardPedestal();
+    }
+
     private EnemyType pickEnemyTypeForWave() {
-        if (currentFloor == 1) return EnemyType.SHOOTER;
-        if (currentFloor == 2) return enemyRng.nextBoolean() ? EnemyType.SHOOTER : EnemyType.MELEE;
+        if (currentFloor == 1) return enemyRng.nextInt(100) < 80 ? EnemyType.SHOOTER : EnemyType.MELEE;
+        if (currentFloor == 2) return enemyRng.nextBoolean() ? EnemyType.MELEE : EnemyType.TANK;
+
         int roll = enemyRng.nextInt(100);
-        if (roll < 40) return EnemyType.SHOOTER;
-        if (roll < 70) return EnemyType.MELEE;
+        if (roll < 30) return EnemyType.SHOOTER;
+        if (roll < 60) return EnemyType.MELEE;
         if (roll < 85) return EnemyType.TANK;
         return EnemyType.KAMIKAZE;
     }
+
+    // ==================== RESTO DE LÓGICA ====================
 
     private void maybeSpawnPlayer() {
         if (!startGateOpen) return;
@@ -499,8 +525,9 @@ public class GameController implements ViewLifecycle {
                     shootingArmTimer -= dt;
                     if (shootingArmTimer <= 0.0) shootingArmed = true;
                 }
+
                 if (!paused && !gameOverShown) {
-                    updateWaveLogic(dt);
+                    updateGreedLogic(dt);
                     if (activeBoss != null) {
                         activeBoss.update(dt);
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
@@ -508,6 +535,7 @@ public class GameController implements ViewLifecycle {
                         }
                     }
                 }
+
                 if (shootingService != null && input != null) shootingService.update(dt, input.getMoveVector());
                 if (shootingArmed && !paused && player != null && !player.isDead()) tryShootNow();
 
@@ -567,13 +595,6 @@ public class GameController implements ViewLifecycle {
             return true;
         }
         return false;
-    }
-
-    private void endWave() {
-        waveActive = false;
-        List<Enemy> toKill = new ArrayList<>(enemies);
-        for (Enemy e : toKill) e.applyDamage(99999);
-        spawnRoomRewardPedestal();
     }
 
     private void spawnRoomRewardPedestal() {
@@ -642,7 +663,7 @@ public class GameController implements ViewLifecycle {
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
                     shopOverlay = null;
                     Platform.runLater(() -> {
-                        startNextWave();
+                        startNextWave(); // Avanza al cerrar tienda
                         if (gameLoop != null && !gameOverShown) gameLoop.start();
                         paused = false;
                     });
@@ -667,25 +688,56 @@ public class GameController implements ViewLifecycle {
 
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
-        currentWave++;
-        // CORRECCIÓN: Al pasar de piso, reiniciamos la oleada a 1
+
+        currentWave++; // Avanzar ronda
+        // Si acabamos la ronda de Jefe (5), pasar al siguiente piso
         if (currentWave > WAVES_PER_FLOOR) {
             currentFloor++;
             currentWave = 1;
             changeFloorVisuals();
         }
-        prepareWave();
+
+        startWave(currentWave);
         updateHudLabels();
     }
 
     private void changeFloorVisuals() {
-        String color = switch(currentFloor % 3) {
-            case 1 -> "#111111"; // Gris
-            case 2 -> "#2b2010"; // Marrón
-            case 0 -> "#10102b"; // Azul
-            default -> "#000000";
-        };
-        gameArea.setStyle("-fx-background-color: " + color + ";");
+        if (gameArea.getParent() instanceof AnchorPane parent) {
+            gameArea.setStyle("-fx-background-color: transparent;");
+
+            if (backgroundView == null) {
+                backgroundView = new ImageView();
+                AnchorPane.setTopAnchor(backgroundView, 72.0);
+                AnchorPane.setBottomAnchor(backgroundView, 0.0);
+                AnchorPane.setLeftAnchor(backgroundView, 0.0);
+                AnchorPane.setRightAnchor(backgroundView, 0.0);
+                parent.getChildren().add(0, backgroundView);
+            }
+
+            if (currentFloor == 1) {
+                try {
+                    String path = "assets/background/basement.png";
+                    Image img = AssetsManager.loadImage(path);
+                    if (img == null) img = new Image(getClass().getResourceAsStream("/" + path));
+                    backgroundView.setImage(img);
+                    backgroundView.setPreserveRatio(false);
+                    backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
+                    backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
+                } catch (Exception e) {
+                    gameArea.setStyle("-fx-background-color: #111111;");
+                }
+            } else {
+                backgroundView.setImage(null);
+                String color = switch(currentFloor % 3) {
+                    case 2 -> "#2b2010";
+                    case 0 -> "#10102b";
+                    default -> "#111111";
+                };
+                gameArea.setStyle("-fx-background-color: " + color + ";");
+            }
+            backgroundView.toBack();
+            if (hudBar != null) hudBar.toFront();
+        }
     }
 
     private void resetPlainGameArea() {
@@ -699,16 +751,14 @@ public class GameController implements ViewLifecycle {
         }
 
         if (anchor != null) {
-            if (!anchor.getChildren().contains(gameArea)) {
-                anchor.getChildren().add(gameArea);
-            }
+            if (!anchor.getChildren().contains(gameArea)) anchor.getChildren().add(gameArea);
             AnchorPane.setTopAnchor(gameArea, 72.0);
             AnchorPane.setBottomAnchor(gameArea, 0.0);
             AnchorPane.setLeftAnchor(gameArea, 0.0);
             AnchorPane.setRightAnchor(gameArea, 0.0);
             if (hudBar != null) hudBar.toFront();
         }
-        gameArea.setStyle("-fx-background-color: #111111;");
+        changeFloorVisuals();
     }
 
     private void applyEnemySeparation(double dt) {
@@ -781,6 +831,8 @@ public class GameController implements ViewLifecycle {
         shootingArmed = false;
         tickerAdded = false;
         rewardItemCursor = 0;
+        pendingSpawns = 0;
+
         updateHudLabels();
         activeBoss = null;
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
@@ -799,7 +851,9 @@ public class GameController implements ViewLifecycle {
         maybeSpawnPlayer();
         addTickerIfNeeded();
         if (gameLoop != null) gameLoop.start();
-        prepareWave();
+
+        changeFloorVisuals();
+        startWave(currentWave);
     }
 
     private double[] getPlayerCenter() {

@@ -26,8 +26,8 @@ public class Boss implements GameEntity {
     private double hp;
     private double maxHp;
     private double speed = 45.0;
+    private boolean dead = false; // Evita muertes múltiples
 
-    // Lógica de ataque
     private double attackTimer = 0.0;
     private int phase = 1;
 
@@ -43,12 +43,10 @@ public class Boss implements GameEntity {
         this.onDeath = Objects.requireNonNull(onDeath);
         this.onSpawnProjectile = Objects.requireNonNull(onSpawnProjectile);
 
-        // Visual: Un círculo grande y amenazante
         this.view = new Circle(40.0, Color.DARKRED);
         this.view.setStroke(Color.BLACK);
         this.view.setStrokeWidth(4.0);
         this.view.setStrokeType(StrokeType.INSIDE);
-        // Efecto de "Boss": sombra roja
         this.view.setEffect(new javafx.scene.effect.DropShadow(20, Color.RED));
 
         this.view.setLayoutX(x);
@@ -59,9 +57,8 @@ public class Boss implements GameEntity {
 
     @Override
     public void update(double dt) {
-        if (hp <= 0) return;
+        if (dead || hp <= 0) return;
 
-        // 1. Movimiento: Persecución lenta pero implacable
         double[] pPos = playerPos.get();
         double dx = pPos[0] - view.getLayoutX();
         double dy = pPos[1] - view.getLayoutY();
@@ -72,7 +69,6 @@ public class Boss implements GameEntity {
             view.setLayoutY(view.getLayoutY() + (dy / dist) * speed * dt);
         }
 
-        // 2. Ataques (Patrón simple: disparo radial cada 2s)
         attackTimer += dt;
         if (attackTimer > 2.0) {
             performAttack();
@@ -81,24 +77,22 @@ public class Boss implements GameEntity {
     }
 
     private void performAttack() {
-        // Dispara 8 proyectiles en círculo
-        int projectiles = 8 + (phase * 2); // Más proyectiles en fases avanzadas
+        if (dead) return;
+        int projectiles = 8 + (phase * 2);
         for (int i = 0; i < projectiles; i++) {
             double angle = (2 * Math.PI / projectiles) * i;
             double dirX = Math.cos(angle);
             double dirY = Math.sin(angle);
 
-            // Creamos proyectil enemigo (usamos la clase Projectile existente)
             Projectile p = new Projectile(
                 dirX, dirY,
-                200.0, 3.0, 1.0, // velocidad, vida, daño
-                true, // isFromEnemy
+                200.0, 3.0, 1.0,
+                true,
                 parent,
-                ent -> parent.getChildren().remove(ent.getView()), // Simple remove callback
+                ent -> parent.getChildren().remove(ent.getView()),
                 this
             );
 
-            // Salen del centro del boss
             p.getView().setLayoutX(view.getLayoutX());
             p.getView().setLayoutY(view.getLayoutY());
 
@@ -107,23 +101,19 @@ public class Boss implements GameEntity {
     }
 
     public void takeDamage(double amount) {
+        if (dead) return;
         hp -= amount;
 
-        // Feedback visual de daño (brillo blanco breve)
         view.setFill(Color.WHITE);
-
-        // 🛠️ CORRECCIÓN: Separamos la creación de la animación de su ejecución
         PauseTransition flash = new PauseTransition(Duration.millis(100));
         flash.setOnFinished(e -> {
-            // Si estamos en fase 2, vuelve a rojo, si no a rojo oscuro
-            view.setFill(Color.DARKRED);
+            if (!dead) view.setFill(Color.DARKRED);
         });
         flash.play();
 
         if (hp <= 0) {
             die();
         } else if (hp < maxHp * 0.5 && phase == 1) {
-            // Fase 2: Se vuelve más rápido y borde amarillo al 50% de vida
             phase = 2;
             speed *= 1.5;
             view.setStroke(Color.YELLOW);
@@ -131,12 +121,15 @@ public class Boss implements GameEntity {
     }
 
     private void die() {
+        if (dead) return;
+        dead = true;
         parent.getChildren().remove(view);
         onDeath.accept(this);
     }
 
     public double getHp() { return hp; }
     public double getMaxHp() { return maxHp; }
+    public boolean isDead() { return dead; }
 
     @Override public Node getView() { return view; }
     @Override public Bounds getBounds() { return view.getBoundsInParent(); }
