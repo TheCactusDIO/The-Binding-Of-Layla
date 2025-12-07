@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
@@ -14,26 +13,12 @@
 <StackPane fx:id="root"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.BestiaryController"
-           style="-fx-background-color: #111111;">
+           style="-fx-background-color: transparent;"> <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650">
 
-    <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650">
+        <HBox spacing="20" VBox.vgrow="ALWAYS" style="-fx-padding: 20;">
 
-        <HBox alignment="CENTER_LEFT" style="-fx-padding: 20;">
-            <Button text="&lt; BACK" onAction="#onBack" styleClass="menu-button"
-                    style="-fx-font-size: 14px; -fx-padding: 8 20;"/>
-            <Label text="BESTIARY" maxWidth="Infinity" HBox.hgrow="ALWAYS" alignment="CENTER"
-                   style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 42px;
-                          -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);"/>
-            <Label text="       " style="-fx-font-size: 14px;"/>
-        </HBox>
-
-        <HBox spacing="20" VBox.vgrow="ALWAYS" style="-fx-padding: 0 40 40 40;">
-
-            <VBox spacing="10" HBox.hgrow="ALWAYS"
-                  style="-fx-background-color: #222; -fx-background-radius: 12; -fx-border-color: #444; -fx-border-width: 2; -fx-border-radius: 12;">
-                <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
-
-                <Label text="ENCOUNTERS" style="-fx-text-fill: #888; -fx-font-weight: bold;"/>
+            <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
+                <Label text="ENCOUNTERS" styleClass="section-header"/>
 
                 <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;"
                             hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
@@ -44,11 +29,9 @@
                 </ScrollPane>
             </VBox>
 
-            <VBox fx:id="detailsPanel" spacing="15" alignment="TOP_CENTER" prefWidth="380" minWidth="380"
-                  style="-fx-background-color: #1a1a1a; -fx-background-radius: 12; -fx-border-color: #555; -fx-border-width: 2; -fx-border-radius: 12;">
-                <padding><Insets top="30" right="30" bottom="30" left="30"/></padding>
+            <VBox fx:id="detailsPanel" spacing="15" alignment="TOP_CENTER" prefWidth="380" minWidth="380" styleClass="detail-panel">
 
-                <StackPane style="-fx-background-color: #111; -fx-background-radius: 8; -fx-padding: 20;">
+                <StackPane styleClass="icon-box-large">
                     <ImageView fx:id="detailImage" fitWidth="120" fitHeight="120" preserveRatio="true"/>
                 </StackPane>
 

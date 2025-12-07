@@ -14,11 +14,8 @@
       fx:controller="com.layla.ui.ItemsController"
       style="-fx-background-color: transparent; -fx-padding: 20;">
 
-    <VBox spacing="10" HBox.hgrow="ALWAYS"
-          style="-fx-background-color: #222; -fx-background-radius: 12; -fx-border-color: #444; -fx-border-width: 2; -fx-border-radius: 12;">
-        <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
-
-        <Label text="UNLOCKED ITEMS" style="-fx-text-fill: #888; -fx-font-weight: bold;"/>
+    <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
+        <Label text="UNLOCKED ITEMS" styleClass="section-header"/>
 
         <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;"
                     hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
@@ -29,11 +26,9 @@
         </ScrollPane>
     </VBox>
 
-    <VBox fx:id="detailsPanel" spacing="15" alignment="TOP_CENTER" prefWidth="320" minWidth="320"
-          style="-fx-background-color: #1a1a1a; -fx-background-radius: 12; -fx-border-color: #555; -fx-border-width: 2; -fx-border-radius: 12;">
-        <padding><Insets top="30" right="30" bottom="30" left="30"/></padding>
+    <VBox fx:id="detailsPanel" spacing="15" alignment="TOP_CENTER" prefWidth="320" minWidth="320" styleClass="detail-panel">
 
-        <StackPane style="-fx-background-color: #111; -fx-background-radius: 8; -fx-padding: 20;">
+        <StackPane styleClass="icon-box-large">
             <ImageView fx:id="detailImage" fitWidth="80" fitHeight="80" preserveRatio="true"/>
         </StackPane>
 
@@ -44,12 +39,12 @@
 
         <Separator style="-fx-opacity: 0.3;"/>
 
-        <Label text="EFFECTS" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
+        <Label text="EFFECTS" styleClass="section-header"/>
         <Label fx:id="detailDescription" text="..." wrapText="true" style="-fx-text-fill: white; -fx-font-style: italic;"/>
 
         <Separator style="-fx-opacity: 0.3;"/>
 
-        <Label text="STATS" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
+        <Label text="STATS" styleClass="section-header"/>
         <Label fx:id="detailStats" text="..." wrapText="true" style="-fx-text-fill: #00ff00;"/>
 
     </VBox>
