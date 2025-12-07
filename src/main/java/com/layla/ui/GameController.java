@@ -21,6 +21,7 @@ import com.layla.items.ItemPoolType;
 import com.layla.items.ItemRegistry;
 import com.layla.model.CharacterType;
 import com.layla.model.Enemy;
+import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.model.PlayerStatId;
 import com.layla.services.AchievementService;
@@ -114,6 +115,15 @@ public class GameController implements ViewLifecycle {
     private static final double MAX_SEPARATION_STEP = 6.0;
     private static final int SHOP_OFFER_COUNT = 3;
     private static final int SHOP_REROLL_BASE_PRICE = 1;
+
+    // --- NUEVO: Constantes para penalización de Score ---
+    private static final int SCORE_PENALTY_PER_SECOND = 1;  // Baja 1 punto cada segundo
+    private static final int SCORE_PENALTY_ON_DAMAGE = 20;  // Baja 20 puntos al recibir daño
+    private static final int SCORE_PENALTY_ON_BUY = 30;     // Baja 30 puntos al comprar un ítem
+
+    // --- NUEVO: Variables de control de Score ---
+    private double scoreTimer = 0.0;
+    private double lastPlayerHealth = -1.0;
 
     private int rewardItemCursor = 0;
     private HudView hud;
@@ -246,18 +256,15 @@ public class GameController implements ViewLifecycle {
         if (player == null) return;
         var bal = com.layla.AppContext.balance();
 
-        // MODIFICADO: Aplicar stats base según personaje seleccionado
         CharacterType charType = AppContext.getSelectedCharacter();
         double initialMaxHp = bal.maxHp;
 
         if (charType == CharacterType.THE_FRAGILE) {
-            initialMaxHp = 2.0; // 1 Corazón
-            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.5); // Más daño
+            initialMaxHp = 2.0;
+            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.5);
             statsService.setBaseStat(PlayerStatId.MOVE_SPEED, statsService.getBaseStat(PlayerStatId.MOVE_SPEED) * 1.1);
         } else {
-            // Reset por si acaso venimos de una run anterior con el otro personaje
             statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.0);
-            // Restaurar velocidad base original si es necesario, o dejarla como está
         }
 
         statsService.setBaseStat(PlayerStatId.MAX_HEALTH, initialMaxHp);
@@ -273,7 +280,6 @@ public class GameController implements ViewLifecycle {
             new FadeTransition(Duration.millis(400), hudBar).play();
         }
 
-        // NUEVO: Instalar notificaciones en el root de la escena de juego
         NotificationService ns = AppContext.notifications();
         if (root != null && !root.getChildren().contains(ns.getView())) {
             root.getChildren().add(ns.getView());
@@ -432,7 +438,6 @@ public class GameController implements ViewLifecycle {
     private void spawnRealEnemy(double x, double y, EnemyType type) {
         double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
 
-        // MODIFICADO: Ajustar dificultad si es Hard Mode
         if (AppContext.isHardMode()) {
             difficulty *= 1.5;
         }
@@ -499,11 +504,16 @@ public class GameController implements ViewLifecycle {
             gameLoop.removeEntity(activeBoss);
             activeBoss = null;
             db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.KILLED);
-            achievements.onBossKilled(); // Trigger logro boss
+            achievements.onBossKilled();
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
+        // Bonificación por Boss
+        int bossScore = 1000 * currentFloor;
+        this.score += bossScore;
+
         spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
+        updateHudLabels();
         waveInProgress = false;
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
@@ -535,6 +545,9 @@ public class GameController implements ViewLifecycle {
         applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
         player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 - 10);
+
+        // Inicializar salud anterior para el detector de daño
+        lastPlayerHealth = player.getHealth();
 
         shootingService = new ShootingService(statsService);
         shootingArmed = false;
@@ -568,6 +581,16 @@ public class GameController implements ViewLifecycle {
 
                 if (!paused && !gameOverShown) {
                     updateGreedLogic(dt);
+
+                    // --- NUEVO: Lógica de Score Timer (baja 1 punto cada segundo) ---
+                    scoreTimer += dt;
+                    if (scoreTimer >= 1.0) {
+                        score = Math.max(0, score - SCORE_PENALTY_PER_SECOND);
+                        scoreTimer -= 1.0;
+                        updateHudLabels();
+                    }
+                    // ----------------------------------------------------------------
+
                     if (activeBoss != null) {
                         activeBoss.update(dt);
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
@@ -579,6 +602,18 @@ public class GameController implements ViewLifecycle {
 
                 if (shootingService != null && input != null) shootingService.update(dt, input.getMoveVector());
                 if (shootingArmed && !paused && player != null && !player.isDead()) tryShootNow();
+
+                // --- NUEVO: Detectar daño recibido y penalizar Score ---
+                if (player != null) {
+                    double currentHp = player.getHealth();
+                    // Solo penalizamos si la vida BAJA (no si sube por curación)
+                    if (lastPlayerHealth > 0 && currentHp < lastPlayerHealth) {
+                        score = Math.max(0, score - SCORE_PENALTY_ON_DAMAGE);
+                        updateHudLabels();
+                    }
+                    lastPlayerHealth = currentHp;
+                }
+                // -----------------------------------------------------
 
                 hudRefreshTimer -= dt;
                 if (hud != null && hudRefreshTimer <= 0.0) {
@@ -610,6 +645,14 @@ public class GameController implements ViewLifecycle {
 
     private void handleEnemyDeathRewards(Enemy en) {
         spawnRewardCoins(en.getCenterX(), en.getCenterY(), 5);
+
+        EnemyProfile profile = com.layla.AppContext.balance().profile(en.getType());
+        if (profile != null) {
+            this.score += profile.score;
+        } else {
+            this.score += 10;
+        }
+        updateHudLabels();
     }
 
     private void spawnRewardCoins(double x, double y, int amount) {
@@ -698,10 +741,18 @@ public class GameController implements ViewLifecycle {
                     coins = Math.max(0, newCoins);
                     updateHudLabels();
                 });
+
+                // --- NUEVO: Callback cuando se compra un ítem ---
                 soc.setOnItemsChanged(() -> {
+                    // Penalización de score por comprar
+                    score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
+
                     if (hud != null) hud.refresh();
                     if (itemHud != null) itemHud.refresh();
+                    updateHudLabels();
                 });
+                // ------------------------------------------------
+
                 soc.setOnRerollRequested(c -> c.setOffers(generateShopOffers(SHOP_OFFER_COUNT)));
                 soc.setOnClose(() -> {
                     coins = soc.getCoins();
