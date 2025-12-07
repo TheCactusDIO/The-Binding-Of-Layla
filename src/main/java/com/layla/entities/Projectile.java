@@ -25,7 +25,10 @@ public final class Projectile implements GameEntity {
     private final double lifetime;
     private final double damage;
     private final boolean fromEnemy;
-    private final GameEntity owner; // quien disparó
+    private final GameEntity owner;
+
+    // NUEVO: Nombre de la fuente (quién disparó)
+    private final String sourceName;
 
     private double time = 0.0;
 
@@ -33,7 +36,8 @@ public final class Projectile implements GameEntity {
                       double speed, double lifetime, double damage,
                       boolean fromEnemy,
                       Pane pane, Consumer<GameEntity> onRemove,
-                      GameEntity owner) {
+                      GameEntity owner,
+                      String sourceName) { // Nuevo parámetro
 
         double len = Math.hypot(dirX, dirY);
         if (len < 1e-6) { dirX = 0; dirY = -1; len = 1; }
@@ -45,6 +49,7 @@ public final class Projectile implements GameEntity {
         this.damage = damage;
         this.fromEnemy = fromEnemy;
         this.owner = owner;
+        this.sourceName = sourceName;
 
         this.pane = Objects.requireNonNull(pane, "pane");
         this.onRemove = Objects.requireNonNull(onRemove, "onRemove");
@@ -52,7 +57,6 @@ public final class Projectile implements GameEntity {
         view.setManaged(false);
         view.setStroke(Color.BLACK);
 
-        // Color diferente para balas enemigas
         if (fromEnemy) {
             view.setFill(Color.ORANGERED);
         }
@@ -61,20 +65,17 @@ public final class Projectile implements GameEntity {
     @Override public void update(double dt) {
         if (dt <= 0) return;
 
-        // movimiento
         double nx = view.getLayoutX() + dirX * speed * dt;
         double ny = view.getLayoutY() + dirY * speed * dt;
         view.setLayoutX(nx);
         view.setLayoutY(ny);
 
-        // lifetime
         time += dt;
         if (time >= lifetime) {
             onRemove.accept(this);
             return;
         }
 
-        // fuera de pantalla
         if (isOutOfPaneBounds()) {
             onRemove.accept(this);
         }
@@ -85,25 +86,28 @@ public final class Projectile implements GameEntity {
 
     @Override
     public void onCollision(GameEntity other) {
-        // Ignora al owner (quien disparó)
         if (owner != null && other == owner) return;
 
-        // 1. Bala del JUGADOR golpea ENEMIGO
+        // Bala del JUGADOR golpea ENEMIGO
         if (!fromEnemy && other instanceof com.layla.model.Enemy e) {
             e.applyDamage(damage);
             onRemove.accept(this);
             return;
         }
 
-        // 2. Bala del JUGADOR golpea JEFE (NUEVO)
+        // Bala del JUGADOR golpea JEFE
         if (!fromEnemy && other instanceof Boss b) {
             b.takeDamage(damage);
             onRemove.accept(this);
             return;
         }
 
-        // 3. Bala ENEMIGA golpea JUGADOR
+        // Bala ENEMIGA golpea JUGADOR
         if (fromEnemy && other instanceof Player p) {
+            // NUEVO: Registrar quién disparó antes de dañar
+            if (sourceName != null) {
+                p.setLastHitSource(sourceName);
+            }
             p.takeDamage(damage);
             onRemove.accept(this);
             return;

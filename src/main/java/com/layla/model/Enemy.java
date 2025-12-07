@@ -23,7 +23,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 public final class Enemy implements GameEntity {
-
+    // ... (Variables igual que antes)
     private static final double WIDTH = 22.0;
     private static final double HEIGHT = 22.0;
     private static final double EPSILON = 1e-6;
@@ -36,7 +36,6 @@ public final class Enemy implements GameEntity {
     private final Consumer<GameEntity> onSpawn;
     private final Consumer<String> playSfx;
 
-    // Multiplicadores
     private final double hpMultiplier;
     private final double speedMultiplier;
     private final double damageMultiplier;
@@ -48,7 +47,6 @@ public final class Enemy implements GameEntity {
     private boolean dead = false;
     private PauseTransition hitFlashTimer;
 
-    // Burst shooting
     private int burstShotsRemaining = 0;
     private double burstShotTimer = 0.0;
     private double burstCooldownTimer = 0.0;
@@ -110,6 +108,40 @@ public final class Enemy implements GameEntity {
         }
     }
 
+    private void shootTowards(double[] target, EnemyProfile profile) {
+        double[] dir = directionTo(target);
+        if (dir == null) return;
+
+        double projSpeed = Math.max(0.0, profile.projSpeed);
+        double projRange = Math.max(0.0, profile.projRange);
+        double projDamage = Math.max(0.0, profile.projDamage * damageMultiplier);
+        if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) return;
+
+        double lifetime = projRange / projSpeed;
+        if (!Double.isFinite(lifetime) || lifetime <= 0.0) return;
+
+        // NUEVO: Pasamos type.name() como sourceName
+        Projectile projectile = new Projectile(
+                dir[0], dir[1],
+                projSpeed,
+                lifetime,
+                projDamage,
+                true,
+                boundsPane,
+                onRemove,
+                this,
+                type.name()
+        );
+        projectile.getView().setLayoutX(getCenterX() - 4.0);
+        projectile.getView().setLayoutY(getCenterY() - 4.0);
+        onSpawn.accept(projectile);
+    }
+
+    // ... (Métodos de movimiento sin cambios) ...
+    // Necesitamos copiarlos todos o el compilador se quejará, pero por brevedad asumo que
+    // copias los métodos helper (directionTo, applyJitter, move, handleMovement, etc)
+    // del archivo original. Solo pongo lo relevante.
+
     private void syncHealthWithProfile(EnemyProfile profile) {
         double desiredMax = Math.max(0.0, profile.baseHp * hpMultiplier);
         if (Math.abs(desiredMax - maxHealth) > 1e-6) {
@@ -157,33 +189,6 @@ public final class Enemy implements GameEntity {
         view.setLayoutY(clamp(nextY, 0.0, maxY));
     }
 
-    private void shootTowards(double[] target, EnemyProfile profile) {
-        double[] dir = directionTo(target);
-        if (dir == null) return;
-
-        double projSpeed = Math.max(0.0, profile.projSpeed);
-        double projRange = Math.max(0.0, profile.projRange);
-        double projDamage = Math.max(0.0, profile.projDamage * damageMultiplier);
-        if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) return;
-
-        double lifetime = projRange / projSpeed;
-        if (!Double.isFinite(lifetime) || lifetime <= 0.0) return;
-
-        Projectile projectile = new Projectile(
-                dir[0], dir[1],
-                projSpeed,
-                lifetime,
-                projDamage,
-                true,
-                boundsPane,
-                onRemove,
-                this
-        );
-        projectile.getView().setLayoutX(getCenterX() - 4.0);
-        projectile.getView().setLayoutY(getCenterY() - 4.0);
-        onSpawn.accept(projectile);
-    }
-
     private void applyTypeStyle() {
         switch (type) {
             case SHOOTER  -> view.setFill(Color.ORANGE);
@@ -221,12 +226,15 @@ public final class Enemy implements GameEntity {
             double dmg = (profile != null ? profile.contactDmg : AppContext.balance().enemyContactDamage);
             dmg *= damageMultiplier;
             if (dmg > 0.0) {
+                // NUEVO: Registrar fuente de daño
+                player.setLastHitSource(type.name());
                 player.takeDamage(dmg);
                 playSfx.accept("hurt");
             }
         }
     }
 
+    // ... Getters y setters (copy/paste del original) ...
     public double getWidth() { return WIDTH; }
     public double getHeight() { return HEIGHT; }
     public double getHealth() { return hp; }

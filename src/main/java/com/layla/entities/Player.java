@@ -6,7 +6,6 @@ import java.util.function.Supplier;
 
 import com.layla.core.GameEntity;
 import com.layla.core.InputService;
-import com.layla.model.Enemy;
 import com.layla.model.PlayerStatId;
 import com.layla.services.StatsService;
 
@@ -16,44 +15,31 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
-/**
- * Controllable player entity driven by keyboard input.
- */
 public final class Player implements GameEntity {
 
-    private static final double TAU_ACCEL    = 0.035;  // acelera rápido
-    private static final double TAU_DECEL    = 0.090;  // frena suave al soltar
-    private static final double TAU_REVERSE  = 0.045;  // invertir dirección ágil
+    private static final double TAU_ACCEL    = 0.035;
+    private static final double TAU_DECEL    = 0.090;
+    private static final double TAU_REVERSE  = 0.045;
 
     private final Rectangle view = new Rectangle(26, 26);
     private final Supplier<double[]> moveSupplier;
     private final Pane boundsPane;
-    private final StatsService statsService; // <- asignado una única vez en el ctor
+    private final StatsService statsService;
 
     private double vx;
     private double vy;
 
-    // --- HEALTH ---
-    private double health = 6.0;      // 3 corazones completos (2 HP = 1 corazón)
-    private double maxHealth = 6.0;   // 3 corazones por defecto
+    private double health = 6.0;
+    private double maxHealth = 6.0;
     private boolean dead = false;
 
-    // I-frames tras recibir daño
     private double invulnTimer = 0.0;
-    private static final double INVULN_DURATION = 0.6; // segundos
+    private static final double INVULN_DURATION = 0.6;
 
-    // SFX desacoplado
-    private final Consumer<String> playSfx; // keys esperadas: "hurt", "dead"
+    private final Consumer<String> playSfx;
 
-    // -------------------- CONSTRUCTORES --------------------
-
-    public Player(InputService input, Pane boundsPane, StatsService statsService) {
-        this(Objects.requireNonNull(input, "input")::getMoveVector, boundsPane, statsService, null);
-    }
-
-    public Player(Supplier<double[]> moveSupplier, Pane boundsPane, StatsService statsService) {
-        this(moveSupplier, boundsPane, statsService, null);
-    }
+    // NUEVO: Rastreo de la fuente de daño
+    private String lastHitSource = null;
 
     public Player(Supplier<double[]> moveSupplier,
                   Pane boundsPane,
@@ -61,40 +47,48 @@ public final class Player implements GameEntity {
                   Consumer<String> playSfx) {
         this.moveSupplier = Objects.requireNonNull(moveSupplier, "moveSupplier");
         this.boundsPane   = Objects.requireNonNull(boundsPane, "boundsPane");
-        // si te pasan null, usa el global
         this.statsService = (statsService != null) ? statsService : com.layla.AppContext.stats();
         this.playSfx      = (playSfx != null ? playSfx : k -> {});
-        this.invulnTimer = 1.0; // i-frames iniciales
+        this.invulnTimer = 1.0;
         view.setFill(Color.RED);
         view.setStroke(Color.BLACK);
+    }
+
+    // Constructor de conveniencia
+    public Player(InputService input, Pane boundsPane, StatsService statsService) {
+        this(Objects.requireNonNull(input, "input")::getMoveVector, boundsPane, statsService, null);
+    }
+
+    // NUEVO: Getter y Setter para la fuente de daño
+    public void setLastHitSource(String source) {
+        this.lastHitSource = source;
+    }
+
+    public String getLastHitSource() {
+        return lastHitSource;
     }
 
     @Override
     public void update(double dt) {
         if (dt <= 0 || dead) return;
 
-        // Tictac i-frames
         if (invulnTimer > 0.0) invulnTimer = Math.max(0.0, invulnTimer - dt);
 
         syncMaxHealthFromStats();
 
-        // 1) Input (-1..1) -> velocidad objetivo
         double[] mv = moveSupplier.get();
         double maxSpeed = statsService.getStat(PlayerStatId.MOVE_SPEED);
         double targetVx = mv[0] * maxSpeed;
         double targetVy = mv[1] * maxSpeed;
 
-        // 2) Taus por eje
         double tauX = pickTau(vx, targetVx);
         double tauY = pickTau(vy, targetVy);
 
-        // 3) Suavizado exponencial independiente de fps
         double ax = 1.0 - Math.exp(-dt / tauX);
         double ay = 1.0 - Math.exp(-dt / tauY);
         vx += (targetVx - vx) * ax;
         vy += (targetVy - vy) * ay;
 
-        // 4) Clamp de velocidad total
         double speed = Math.hypot(vx, vy);
         if (speed > maxSpeed && speed > 0) {
             double s = maxSpeed / speed;
@@ -102,11 +96,9 @@ public final class Player implements GameEntity {
             vy *= s;
         }
 
-        // 5) Integración en mundo (layoutX/layoutY)
         double nextX = view.getLayoutX() + vx * dt;
         double nextY = view.getLayoutY() + vy * dt;
 
-        // 6) Clamping contra límites del Pane
         double maxX = Math.max(0.0, boundsPane.getWidth()  - view.getWidth());
         double maxY = Math.max(0.0, boundsPane.getHeight() - view.getHeight());
         if (nextX < 0.0)        { nextX = 0.0; vx = 0.0; }
@@ -114,49 +106,30 @@ public final class Player implements GameEntity {
         if (nextY < 0.0)        { nextY = 0.0; vy = 0.0; }
         else if (nextY > maxY)  { nextY = maxY; vy = 0.0; }
 
-        // 7) Aplicar posición final
         view.setLayoutX(nextX);
         view.setLayoutY(nextY);
     }
 
     private static double pickTau(double v, double tv) {
-        if (tv == 0.0) return TAU_DECEL;                           // soltar → frenar suave
-        if (Math.signum(v) != Math.signum(tv) && v != 0.0) return TAU_REVERSE; // invertir
-        return TAU_ACCEL;                                          // acelerar
+        if (tv == 0.0) return TAU_DECEL;
+        if (Math.signum(v) != Math.signum(tv) && v != 0.0) return TAU_REVERSE;
+        return TAU_ACCEL;
     }
-
-    // --- GameEntity ---
 
     @Override
     public Node getView() {
         return view;
     }
 
-    // Nota: si GameEntity no define getBounds(), no usar @Override aquí.
     public Bounds getBounds() {
-        // Bounds en coordenadas del padre (coinciden con mundo al usar layoutX/Y)
         return view.getBoundsInParent();
     }
 
     @Override
     public void onCollision(GameEntity other) {
         if (dead) return;
-
-        // Enemy bullets damage the player using the projectile's damage
-        if (other instanceof Projectile proj) {
-            if (proj.isFromEnemy()) {
-                takeDamage(proj.getDamage());   // ← use projectile damage, not 1.0
-            }
-            return;
-        }
-
-        // Contact with enemies: keep as-is (tweak value if you want 0.5 HP per touch)
-        if (other instanceof Enemy) {
-            return;
-        }
+        // Collision logic se maneja principalmente en Projectile o GameController para enemigos
     }
-
-    // --- Utilidades públicas ---
 
     public void setPosition(double x, double y) {
         view.setLayoutX(x);
@@ -166,34 +139,28 @@ public final class Player implements GameEntity {
     public double getWidth()  { return view.getWidth(); }
     public double getHeight() { return view.getHeight(); }
 
-    // ==================== HEALTH SYSTEM ====================
-
     public double getHealth() { return health; }
     public double getMaxHealth() { return maxHealth; }
     public boolean isDead() { return dead; }
 
-    /** Ajusta la salud actual, con clamping [0, maxHealth]. */
     public void setHealth(double health) {
         this.health = Math.max(0.0, Math.min(health, maxHealth));
         if (this.health <= 0.0) die();
     }
 
-    /** Aumenta o reduce la salud (ej: curación negativa = daño). */
     public void addHealth(double delta) {
         setHealth(this.health + delta);
     }
 
-    /** Ajusta la vida máxima y clampa la actual. */
     public void setMaxHealth(double maxHealth) {
         this.maxHealth = Math.max(0.0, maxHealth);
         if (health > this.maxHealth) health = this.maxHealth;
         if (health <= 0.0 && !dead) die();
     }
 
-    /** Aplica daño directo respetando i-frames. */
     public void takeDamage(double amount) {
         if (dead || amount <= 0.0) return;
-        if (invulnTimer > 0.0) return; // i-frames activos
+        if (invulnTimer > 0.0) return;
 
         health = Math.max(0.0, health - amount);
         if (health <= 0.0) {
@@ -209,10 +176,8 @@ public final class Player implements GameEntity {
         dead = true;
         health = 0.0;
         playSfx.accept("dead");
-        // Notificación de Game Over se gestiona en GameController (detecta player.isDead()).
     }
 
-    /** Syncs MAX_HEALTH stat so passive items take effect instantly. */
     private void syncMaxHealthFromStats() {
         double desiredMax = statsService.getStat(PlayerStatId.MAX_HEALTH);
         if (Math.abs(desiredMax - maxHealth) > 1e-6) {

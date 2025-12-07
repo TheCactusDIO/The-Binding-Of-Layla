@@ -22,11 +22,12 @@ public class Boss implements GameEntity {
     private final Supplier<double[]> playerPos;
     private final Consumer<Boss> onDeath;
     private final Consumer<GameEntity> onSpawnProjectile;
+    private final String bossId; // Identificador para stats (ej: BOSS_FLOOR_1)
 
     private double hp;
     private double maxHp;
     private double speed = 45.0;
-    private boolean dead = false; // Evita muertes múltiples
+    private boolean dead = false;
 
     private double attackTimer = 0.0;
     private int phase = 1;
@@ -34,7 +35,8 @@ public class Boss implements GameEntity {
     public Boss(double x, double y, double maxHp, Pane parent,
                 Supplier<double[]> playerPos,
                 Consumer<Boss> onDeath,
-                Consumer<GameEntity> onSpawnProjectile) {
+                Consumer<GameEntity> onSpawnProjectile,
+                String bossId) { // NUEVO parámetro
 
         this.maxHp = maxHp;
         this.hp = maxHp;
@@ -42,6 +44,7 @@ public class Boss implements GameEntity {
         this.playerPos = Objects.requireNonNull(playerPos);
         this.onDeath = Objects.requireNonNull(onDeath);
         this.onSpawnProjectile = Objects.requireNonNull(onSpawnProjectile);
+        this.bossId = bossId;
 
         this.view = new Circle(40.0, Color.DARKRED);
         this.view.setStroke(Color.BLACK);
@@ -90,7 +93,8 @@ public class Boss implements GameEntity {
                 true,
                 parent,
                 ent -> parent.getChildren().remove(ent.getView()),
-                this
+                this,
+                bossId // NUEVO: Fuente del daño
             );
 
             p.getView().setLayoutX(view.getLayoutX());
@@ -133,4 +137,14 @@ public class Boss implements GameEntity {
 
     @Override public Node getView() { return view; }
     @Override public Bounds getBounds() { return view.getBoundsInParent(); }
+
+    @Override
+    public void onCollision(GameEntity other) {
+        // Si el jugador choca con el boss (daño por contacto)
+        if (other instanceof Player p) {
+            p.setLastHitSource(bossId);
+            // El daño real se aplica en GameController habitualmente para el boss,
+            // pero si estuviera aquí, también estaría cubierto.
+        }
+    }
 }

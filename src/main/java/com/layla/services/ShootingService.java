@@ -13,25 +13,18 @@ import com.layla.model.PlayerStatId;
 
 import javafx.scene.layout.Pane;
 
-/**
- * Gestiona disparos del jugador leyendo las estadísticas centralizadas.
- * Añade "owner" para ignorar autocolisión inicial con el jugador.
- */
 public final class ShootingService {
 
-    private final StatsService statsService; // asignado en ctor
+    private final StatsService statsService;
     private double timer = 0.0;
 
-    // Última dirección válida (por defecto, arriba)
     private double aimX = 0.0;
     private double aimY = -1.0;
 
     public ShootingService(StatsService statsService) {
-        // si te pasan null, usa el global
         this.statsService = (statsService != null) ? statsService : AppContext.stats();
     }
 
-    /** Refresca cooldown y fija aim según movimiento (si hay). */
     public void update(double dt, double[] moveVec) {
         timer = max(0.0, timer - dt);
 
@@ -57,10 +50,6 @@ public final class ShootingService {
         }
     }
 
-    /**
-     * Intenta disparar si el cooldown ha terminado.
-     * @return true si se crea un proyectil.
-     */
     public boolean tryShoot(Pane gameArea,
                             GameLoop loop,
                             double originX, double originY,
@@ -83,16 +72,16 @@ public final class ShootingService {
         if (alen < 1e-6) { ax = 0.0; ay = -1.0; }
         else { ax /= alen; ay /= alen; }
 
-        // Jugador dispara → fromEnemy = false y owner = player
         Projectile p = new Projectile(
             ax, ay,
             projectileSpeed,
             lifetime,
             damage,
-            /*fromEnemy*/ false,
+            false,
             gameArea,
             loop::removeEntity,
-            owner
+            owner,
+            "PLAYER" // NUEVO: Fuente
         );
         p.getView().setLayoutX(originX - 4.0);
         p.getView().setLayoutY(originY - 4.0);
@@ -100,7 +89,6 @@ public final class ShootingService {
         loop.addEntity(p);
         if (onSpawn != null) onSpawn.accept(p);
 
-        // Reinicia cooldown
         timer = fireCooldown;
         return true;
     }

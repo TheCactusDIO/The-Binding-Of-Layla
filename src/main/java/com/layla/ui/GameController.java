@@ -9,7 +9,7 @@ import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 import com.layla.core.GameLoop;
 import com.layla.core.InputService;
-import com.layla.db.DatabaseService; // Importar
+import com.layla.db.DatabaseService;
 import com.layla.entities.Boss;
 import com.layla.entities.Coin;
 import com.layla.entities.ItemPedestal;
@@ -62,7 +62,6 @@ public class GameController implements ViewLifecycle {
     private javafx.scene.Node gameOverOverlay;
     private javafx.scene.Node shopOverlay;
 
-    // UI del Boss
     private VBox bossHealthBox;
     private ProgressBar bossHealthBar;
     private Label bossNameLabel;
@@ -72,7 +71,6 @@ public class GameController implements ViewLifecycle {
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
-    // ---------- Lógica de Oleadas ----------
     private static final int WAVES_PER_FLOOR = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
@@ -85,7 +83,6 @@ public class GameController implements ViewLifecycle {
     private double constantSpawnInterval;
     private double timeUntilNextSpawn = 0.0;
 
-    // Estado
     private boolean gameStarted = false;
     private boolean paused = false;
     private boolean gameOverShown = false;
@@ -101,7 +98,6 @@ public class GameController implements ViewLifecycle {
     private final StatsService statsService = com.layla.AppContext.stats();
     private ShootingService shootingService;
     private final SoundService sound = new SoundService();
-    // Usamos el servicio global de DB
     private final DatabaseService db = AppContext.db();
 
     private double bias = 0.2;
@@ -122,7 +118,6 @@ public class GameController implements ViewLifecycle {
     private boolean shootingArmed = false;
     private double shootingArmTimer = 0.6;
 
-    // ===================== PAUSA =====================
     @FXML
     private void onPausePressed() {
         if (gameOverShown || pauseOverlay != null || paused) return;
@@ -171,7 +166,6 @@ public class GameController implements ViewLifecycle {
         });
     }
 
-    // ===================== HUD =====================
     private static String formatTime(double seconds) {
         int s = (int) Math.ceil(seconds);
         return String.format("%02d", s);
@@ -326,8 +320,6 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    // ==================== LÓGICA DE OLEADAS ====================
-
     private void startWave(int wave) {
         if (wave == WAVES_PER_FLOOR) {
             spawnBoss();
@@ -421,7 +413,6 @@ public class GameController implements ViewLifecycle {
                 gameLoop.removeEntity(e);
                 if (e instanceof Enemy en) {
                     enemies.remove(en);
-                    // STATS: Enemigo Matado
                     db.incrementEnemyStatAsync(AppContext.getProfileId(), en.getType().name(), DatabaseService.StatType.KILLED);
                     handleEnemyDeathRewards(en);
                 }
@@ -434,7 +425,6 @@ public class GameController implements ViewLifecycle {
         enemies.add(enemy);
         gameLoop.addEntity(enemy);
 
-        // STATS: Enemigo Visto
         db.incrementEnemyStatAsync(AppContext.getProfileId(), type.name(), DatabaseService.StatType.SEEN);
     }
 
@@ -450,14 +440,16 @@ public class GameController implements ViewLifecycle {
         double by = gameArea.getHeight()/2 - 100;
         double bossHp = 400 + (currentFloor * 250);
 
+        String bossId = "BOSS_FLOOR_" + currentFloor;
+
         activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter,
-            (deadBoss) -> handleBossDeath(),
-            (proj) -> gameLoop.addEntity(proj)
+            (deadBoss) -> handleBossDeath(bossId),
+            (proj) -> gameLoop.addEntity(proj),
+            bossId // Pasar ID
         );
         gameLoop.addEntity(activeBoss);
 
-        // STATS: Boss visto
-        db.incrementEnemyStatAsync(AppContext.getProfileId(), "BOSS_FLOOR_" + currentFloor, DatabaseService.StatType.SEEN);
+        db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.SEEN);
 
         if (bossHealthBox != null) {
             bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
@@ -466,12 +458,11 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    private void handleBossDeath() {
+    private void handleBossDeath(String bossId) {
         if (activeBoss != null) {
             gameLoop.removeEntity(activeBoss);
             activeBoss = null;
-            // STATS: Boss matado
-            db.incrementEnemyStatAsync(AppContext.getProfileId(), "BOSS_FLOOR_" + currentFloor, DatabaseService.StatType.KILLED);
+            db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.KILLED);
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
@@ -484,17 +475,20 @@ public class GameController implements ViewLifecycle {
     }
 
     private EnemyType pickEnemyTypeForWave() {
-        if (currentFloor == 1) return enemyRng.nextInt(100) < 80 ? EnemyType.SHOOTER : EnemyType.MELEE;
-        if (currentFloor == 2) return enemyRng.nextBoolean() ? EnemyType.MELEE : EnemyType.TANK;
-
+        // [FIX 2] Incluir TURRET en el spawn
         int roll = enemyRng.nextInt(100);
-        if (roll < 30) return EnemyType.SHOOTER;
-        if (roll < 60) return EnemyType.MELEE;
-        if (roll < 85) return EnemyType.TANK;
+        if (currentFloor == 1) {
+            if (roll < 70) return EnemyType.SHOOTER;
+            if (roll < 90) return EnemyType.MELEE;
+            return EnemyType.TURRET; // Pequeña chance en piso 1
+        }
+
+        if (roll < 25) return EnemyType.SHOOTER;
+        if (roll < 50) return EnemyType.MELEE;
+        if (roll < 75) return EnemyType.TANK;
+        if (roll < 90) return EnemyType.TURRET; // Más chance
         return EnemyType.KAMIKAZE;
     }
-
-    // ==================== RESTO DE LÓGICA ====================
 
     private void maybeSpawnPlayer() {
         if (!startGateOpen) return;
@@ -541,11 +535,9 @@ public class GameController implements ViewLifecycle {
                     if (activeBoss != null) {
                         activeBoss.update(dt);
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
+                            // Registrar contacto con el jefe como fuente de daño
+                            player.setLastHitSource("BOSS_FLOOR_" + currentFloor);
                             player.takeDamage(1.0);
-                            // STATS: Muerto por Boss (si muere ahora)
-                            if (player.isDead()) {
-                                db.incrementEnemyStatAsync(AppContext.getProfileId(), "BOSS_FLOOR_" + currentFloor, DatabaseService.StatType.KILLED_BY);
-                            }
                         }
                     }
                 }
@@ -720,10 +712,8 @@ public class GameController implements ViewLifecycle {
         gameOverShown = true;
         if (gameLoop != null) gameLoop.stop();
 
-        // STATS: Victoria
         db.recordRunEndAsync(AppContext.getProfileId(), true, score + (coins * 2), currentFloor);
 
-        // Reusamos el GameOverController, pero cambiamos el texto
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
                 goc.setTitle("VICTORY!");
@@ -742,6 +732,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void changeFloorVisuals() {
+        // ... (código existente igual)
         if (gameArea.getParent() instanceof AnchorPane parent) {
             gameArea.setStyle("-fx-background-color: transparent;");
 
@@ -781,6 +772,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void resetPlainGameArea() {
+        // ... (código existente igual)
         if (gameArea == null || root == null) return;
         gameArea.setScaleX(1.0); gameArea.setScaleY(1.0);
         gameArea.setManaged(true); gameArea.setClip(null);
@@ -802,6 +794,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void applyEnemySeparation(double dt) {
+        // ... (código existente igual)
         if (gameArea == null || enemies.isEmpty()) return;
         double areaW = gameArea.getWidth();
         double areaH = gameArea.getHeight();
@@ -839,15 +832,18 @@ public class GameController implements ViewLifecycle {
         sound.play("player_death");
         if (gameLoop != null) gameLoop.stop();
 
-        // STATS: Derrota (actualizar perfil)
+        // STATS: Derrota
         db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
 
-        // Si fue una muerte por enemigo "genérico" que no fuera el boss,
-        // no tenemos la referencia exacta aquí (necesitaríamos que Player pasara el causante).
-        // Pero hemos cubierto Boss y Proyectiles/Enemies normales en sus collision handlers.
+        // [FIX 1] Registrar la estadística de KILLED_BY si hay fuente
+        String killer = player.getLastHitSource();
+        if (killer != null) {
+            db.incrementEnemyStatAsync(AppContext.getProfileId(), killer, DatabaseService.StatType.KILLED_BY);
+        }
 
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
+                goc.setTitle("GAME OVER\nScore: " + score);
                 goc.setOnRetry(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
                     gameOverOverlay = null;
@@ -863,6 +859,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void restartGame() {
+        // ... (código existente igual)
         if (pauseOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, pauseOverlay); pauseOverlay = null; }
         if (shopOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, shopOverlay); shopOverlay = null; }
         paused = false;
