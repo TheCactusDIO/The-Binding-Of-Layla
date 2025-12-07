@@ -9,7 +9,7 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.layla.db.DatabaseService; // Import nuevo
+import com.layla.db.DatabaseService;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.services.StatsService;

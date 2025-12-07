@@ -19,6 +19,7 @@ com\layla\ui\IntroVideoController.class
 com\layla\AppContext$GameBalance$BalanceDTO.class
 com\layla\AppContext$1.class
 com\layla\ui\GameController$2.class
+com\layla\db\DatabaseService$EnemyStatEntry.class
 com\layla\services\ShootingService.class
 com\layla\services\StatsService.class
 com\layla\AppContext.class
@@ -32,6 +33,7 @@ com\layla\model\Enemy$1.class
 com\layla\ui\OverlayRouter.class
 com\layla\ui\ExitConfirmController.class
 com\layla\services\SoundService.class
+com\layla\ui\BestiaryController$1.class
 com\layla\ui\ShopOverlayController$ShopOffer.class
 com\layla\AppContext$GameBalance.class
 com\layla\core\AssetsManager$1.class
@@ -49,6 +51,7 @@ com\layla\ui\FloatingTextEntity.class
 com\layla\items\ItemRegistry.class
 com\layla\entities\Boss.class
 com\layla\db\DatabaseService.class
+com\layla\ui\BestiaryController.class
 com\layla\ui\GameOverController.class
 com\layla\ui\ShopOverlayController.class
 com\layla\db\DatabaseService$StatType.class

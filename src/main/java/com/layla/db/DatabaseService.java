@@ -6,6 +6,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class DatabaseService {
@@ -26,10 +28,8 @@ public class DatabaseService {
             try (Connection conn = DriverManager.getConnection(CONNECTION_STRING);
                  Statement stmt = conn.createStatement()) {
 
-                // Habilitar Foreign Keys
                 stmt.execute("PRAGMA foreign_keys = ON");
 
-                // 1. Tabla de Perfiles (Añadido 'name')
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS profiles (
                         id INTEGER PRIMARY KEY,
@@ -43,7 +43,6 @@ public class DatabaseService {
                     )
                 """);
 
-                // 2. Tabla de Estadísticas de Enemigos
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS enemy_stats (
                         profile_id INTEGER,
@@ -56,7 +55,6 @@ public class DatabaseService {
                     )
                 """);
 
-                // 3. Tabla de Puntuaciones (Historial)
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS run_history (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,7 +67,6 @@ public class DatabaseService {
                     )
                 """);
 
-                // Inicializar los 3 perfiles si no existen
                 for (int i = 1; i <= 3; i++) {
                     stmt.execute("INSERT OR IGNORE INTO profiles (id) VALUES (" + i + ")");
                 }
@@ -115,12 +112,10 @@ public class DatabaseService {
         }
     }
 
-    // "Borrar" un perfil significa resetear sus estadísticas y borrar sus datos relacionados
     public void resetProfile(int profileId) {
         try (Connection conn = DriverManager.getConnection(CONNECTION_STRING)) {
             conn.setAutoCommit(false);
 
-            // 1. Borrar historial y stats de enemigos
             try (PreparedStatement p1 = conn.prepareStatement("DELETE FROM run_history WHERE profile_id = ?");
                  PreparedStatement p2 = conn.prepareStatement("DELETE FROM enemy_stats WHERE profile_id = ?")) {
                 p1.setInt(1, profileId);
@@ -129,7 +124,6 @@ public class DatabaseService {
                 p2.executeUpdate();
             }
 
-            // 2. Resetear fila del perfil (sin borrar el ID)
             String resetSql = """
                 UPDATE profiles SET
                 name = NULL, run_count = 0, win_count = 0, death_count = 0,
@@ -148,7 +142,7 @@ public class DatabaseService {
         }
     }
 
-    // --- MÉTODOS DE ACTUALIZACIÓN DE ESTADÍSTICAS ---
+    // --- MÉTODOS DE ESTADÍSTICAS ---
 
     public void recordRunEndAsync(int profileId, boolean isWin, int score, int floor) {
         CompletableFuture.runAsync(() -> {
@@ -205,8 +199,33 @@ public class DatabaseService {
         });
     }
 
-    public enum StatType { SEEN, KILLED, KILLED_BY }
+    // --- BESTIARY (NUEVO) ---
 
-    // DTO Actualizado con 'name'
+    public Map<String, EnemyStatEntry> getAllEnemyStats(int profileId) {
+        Map<String, EnemyStatEntry> map = new HashMap<>();
+        String sql = "SELECT enemy_type, seen, killed, killed_by FROM enemy_stats WHERE profile_id = ?";
+
+        try (Connection conn = DriverManager.getConnection(CONNECTION_STRING);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, profileId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                String type = rs.getString("enemy_type");
+                map.put(type, new EnemyStatEntry(
+                    rs.getInt("seen"),
+                    rs.getInt("killed"),
+                    rs.getInt("killed_by")
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return map;
+    }
+
+    public enum StatType { SEEN, KILLED, KILLED_BY }
     public record ProfileSummary(String name, int runs, int wins, int deaths, int streak, int bestStreak) {}
+    public record EnemyStatEntry(int seen, int killed, int killedBy) {}
 }

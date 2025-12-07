@@ -27,7 +27,7 @@ public class MainMenuController {
     @FXML private StackPane root;
     @FXML private VBox menuBox;
     @FXML private Label titleLabel;
-    @FXML private Button playBtn, profilesBtn, optionsBtn, exitBtn; // profilesBtn añadido aquí
+    @FXML private Button playBtn, profilesBtn, bestiaryBtn, optionsBtn, exitBtn; // bestiaryBtn añadido
     @FXML private MediaView backgroundVideo;
 
     private MediaPlayer videoPlayer;
@@ -40,14 +40,12 @@ public class MainMenuController {
     private void initialize() {
         System.out.println("[MainMenu] initialize()");
 
-        // Fuente
         try {
             Font.loadFont(getClass().getResourceAsStream("/assets/fonts/main_font.ttf"), 16);
         } catch (Exception e) {
             System.err.println("[MainMenu] Font not found: " + e.getMessage());
         }
 
-        // Vídeo (omitido en tests/headless)
         if (TestEnv.disableMedia()) {
             if (backgroundVideo != null) {
                 backgroundVideo.setVisible(false);
@@ -67,7 +65,6 @@ public class MainMenuController {
             });
         }
 
-        // Layout responsive
         menuBox.prefWidthProperty().unbind();
         menuBox.setMinWidth(300);
         menuBox.setMaxWidth(640);
@@ -75,8 +72,9 @@ public class MainMenuController {
         menuBox.setFillWidth(false);
 
         var btnWidthBinding = min(360.0, max(220.0, menuBox.widthProperty().multiply(0.55)));
-        // Actualizar el array de botones para incluir profilesBtn
-        for (var b : new Button[]{playBtn, profilesBtn, optionsBtn, exitBtn}) {
+
+        // Actualizar array de botones para incluir bestiaryBtn
+        for (var b : new Button[]{playBtn, profilesBtn, bestiaryBtn, optionsBtn, exitBtn}) {
             b.setMaxWidth(Region.USE_PREF_SIZE);
             b.prefWidthProperty().bind(btnWidthBinding);
         }
@@ -84,13 +82,10 @@ public class MainMenuController {
         titleLabel.setWrapText(true);
         titleLabel.maxWidthProperty().bind(menuBox.widthProperty());
 
-        // Música del menú
         AssetsManager.playMusic("menu.mp3", true);
         root.opacityProperty().set(1.0);
     }
 
-    // ===================== VÍDEO FONDO =====================
-    // ... (Métodos de vídeo startBackgroundVideoSafely y retryVideoPlayerOnce sin cambios)
     private void startBackgroundVideoSafely() {
         try {
             backgroundVideo.setMediaPlayer(null);
@@ -147,14 +142,12 @@ public class MainMenuController {
         wait.play();
     }
 
-    // ====================== BOTONES ======================
     @FXML
     private void onPlayClicked() {
         System.out.println("[MainMenu] Play clicked");
         cleanupMedia();
         SceneRouter.goWithFadeKeepSize("ui/game.fxml");
 
-        // Intro rápida + arranque música de piso
         SceneRouter.whenControllerIs(GameController.class, gc -> {
             var overlayLayer = gc.getOverlayLayer();
             if (overlayLayer == null) {
@@ -205,7 +198,6 @@ public class MainMenuController {
         });
     }
 
-    /** Nuevo método para navegar al selector de perfiles. */
     @FXML
     private void onProfilesClicked() {
         System.out.println("[MainMenu] Profiles clicked");
@@ -214,12 +206,19 @@ public class MainMenuController {
     }
 
     @FXML
+    private void onBestiaryClicked() {
+        System.out.println("[MainMenu] Bestiary clicked");
+        cleanupMedia();
+        SceneRouter.goWithFadeKeepSize("ui/bestiary.fxml");
+    }
+
+    @FXML
     private void onOptionsClicked() {
-        if (settingsOverlay != null) return; // ya abierto
+        if (settingsOverlay != null) return;
         settingsOverlay = OverlayRouter.showOverlay(root, "ui/settings.fxml", controller -> {
             if (controller instanceof SettingsController sc) {
                 sc.setStatsService(com.layla.AppContext.stats());
-                sc.setOverlayHost(root); // <<<<< IMPORTANTE: host donde abrirá el Stats Panel
+                sc.setOverlayHost(root);
                 sc.setOnClose(() -> {
                     OverlayRouter.closeOverlay(root, settingsOverlay);
                     settingsOverlay = null;
@@ -256,7 +255,6 @@ public class MainMenuController {
         });
     }
 
-    /** Vuelve al menú principal conservando tamaño. */
     public void backToMenu() {
         SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml");
     }

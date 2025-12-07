@@ -14,8 +14,7 @@
     <children>
         <MediaView fx:id="backgroundVideo" StackPane.alignment="CENTER"/>
 
-        <VBox
-        fx:id="menuBox"
+        <VBox fx:id="menuBox"
               StackPane.alignment="CENTER"
               spacing="18"
               fillWidth="false"
@@ -36,6 +35,11 @@
                 <Button fx:id="profilesBtn"
                         text="Profiles"
                         onAction="#onProfilesClicked"
+                        styleClass="menu-button"/>
+
+                <Button fx:id="bestiaryBtn"
+                        text="Bestiary"
+                        onAction="#onBestiaryClicked"
                         styleClass="menu-button"/>
 
                 <Button fx:id="optionsBtn"
