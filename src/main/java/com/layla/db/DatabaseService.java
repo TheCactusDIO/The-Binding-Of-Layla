@@ -1,8 +1,15 @@
 package com.layla.db;
 
 import java.io.File;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,13 +47,9 @@ public class DatabaseService {
                     )
                 """);
 
-                // MIGRACIÓN: Asegurar que existe la columna 'name' (para bases de datos antiguas)
                 try {
                     stmt.execute("ALTER TABLE profiles ADD COLUMN name TEXT");
-                    System.out.println("[DatabaseService] Migrated: Added 'name' to profiles.");
-                } catch (SQLException ignored) {
-                    // La columna ya existe, todo correcto.
-                }
+                } catch (SQLException ignored) {}
 
                 // 2. Estadísticas de Enemigos
                 stmt.execute("""
@@ -74,7 +77,7 @@ public class DatabaseService {
                     )
                 """);
 
-                // 4. Logros (NUEVO)
+                // 4. Logros
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS achievements (
                         profile_id INTEGER NOT NULL,
@@ -86,7 +89,6 @@ public class DatabaseService {
                     )
                 """);
 
-                // Inicializar los 3 perfiles si no existen
                 for (int i = 1; i <= 3; i++) {
                     stmt.execute("INSERT OR IGNORE INTO profiles (id) VALUES (" + i + ")");
                 }
@@ -118,7 +120,6 @@ public class DatabaseService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        // Retornar vacío si falla o no existe
         return new ProfileSummary(null, 0,0,0,0,0);
     }
 
@@ -129,7 +130,6 @@ public class DatabaseService {
             pstmt.setString(1, name);
             pstmt.setInt(2, profileId);
             pstmt.executeUpdate();
-            System.out.println("[DatabaseService] Profile " + profileId + " named: " + name);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -159,13 +159,12 @@ public class DatabaseService {
             }
 
             conn.commit();
-            System.out.println("[Database] Profile " + profileId + " reset.");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // --- MÉTODOS DE ESTADÍSTICAS ---
+    // --- MÉTODOS DE ESTADÍSTICAS Y RANKING ---
 
     public void recordRunEndAsync(int profileId, boolean isWin, int score, int floor) {
         CompletableFuture.runAsync(() -> {
@@ -200,8 +199,44 @@ public class DatabaseService {
         });
     }
 
+    /** Recupera el Top N de mejores puntuaciones de todos los perfiles. */
+    public List<LeaderboardEntry> getLeaderboard(int limit) {
+        List<LeaderboardEntry> list = new ArrayList<>();
+        String sql = """
+            SELECT p.name, r.score, r.floor, r.is_win, r.created_at
+            FROM run_history r
+            JOIN profiles p ON r.profile_id = p.id
+            ORDER BY r.score DESC
+            LIMIT ?
+        """;
+
+        try (Connection conn = DriverManager.getConnection(CONNECTION_STRING);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, limit);
+            ResultSet rs = pstmt.executeQuery();
+
+            int rank = 1;
+            while (rs.next()) {
+                String pName = rs.getString("name");
+                if (pName == null) pName = "Unknown";
+
+                list.add(new LeaderboardEntry(
+                    rank++,
+                    pName,
+                    rs.getInt("score"),
+                    rs.getInt("floor"),
+                    rs.getBoolean("is_win"),
+                    rs.getString("created_at")
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
     public long incrementEnemyStatAsync(int profileId, String enemyType, StatType type) {
-        // Ejecutar en segundo plano
         CompletableFuture.runAsync(() -> {
             String column = switch(type) {
                 case SEEN -> "seen";
@@ -221,10 +256,9 @@ public class DatabaseService {
                 e.printStackTrace();
             }
         });
-        return 0; // El valor real se consultaría aparte si fuera crítico
+        return 0;
     }
 
-    // Método auxiliar para consultar totales (para Logros)
     public long getStatTotal(int profileId, String statType) {
         String sql = "";
         if ("TOTAL_KILLS".equals(statType)) {
@@ -284,7 +318,6 @@ public class DatabaseService {
             pstmt.setInt(1, profileId);
             pstmt.setString(2, achievementId);
             pstmt.executeUpdate();
-            System.out.println("[Database] Achievement unlocked: " + achievementId);
         } catch (Exception e) {
             System.err.println("Error unlocking achievement: " + achievementId + " - " + e.getMessage());
         }
@@ -313,4 +346,6 @@ public class DatabaseService {
     public record ProfileSummary(String name, int runs, int wins, int deaths, int streak, int bestStreak) {}
     public record EnemyStatEntry(int seen, int killed, int killedBy) {}
     public record AchievementStatus(boolean unlocked, String unlockDate) {}
+    // NUEVO RECORD PARA EL RANKING
+    public record LeaderboardEntry(int rank, String playerName, int score, int floor, boolean isWin, String date) {}
 }

@@ -20,7 +20,8 @@
                     style="-fx-font-size: 14px; -fx-padding: 8 20;"/>
 
             <Label text="COLLECTION" maxWidth="Infinity" HBox.hgrow="ALWAYS" alignment="CENTER"
-                   style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 32px; -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);"/>
+                   style="-fx-text-fill: white;
+                   -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 32px; -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);"/>
 
              <Label text="       " style="-fx-min-width: 80;"/>
         </HBox>
@@ -28,15 +29,16 @@
         <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE"
                  style="-fx-background-color: transparent;">
              <stylesheets>
-                <java.net.URL value="@styles/collection.css"/>
+                 <java.net.URL value="@styles/collection.css"/>
              </stylesheets>
 
             <tabs>
                 <Tab fx:id="tabBestiary" text="BESTIARY" />
                 <Tab fx:id="tabItems" text="ITEMS" />
                 <Tab fx:id="tabAchievements" text="ACHIEVEMENTS" />
+                <Tab fx:id="tabRanking" text="RANKING" />
             </tabs>
-        </TabPane>
+         </TabPane>
 
     </VBox>
 </StackPane>

@@ -1,12 +1,12 @@
 package com.layla.ui;
 
+import java.io.IOException;
+
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-
-import java.io.IOException;
 
 public class CollectionController implements ViewLifecycle {
 
@@ -14,11 +14,13 @@ public class CollectionController implements ViewLifecycle {
     @FXML private Tab tabBestiary;
     @FXML private Tab tabItems;
     @FXML private Tab tabAchievements;
+    @FXML private Tab tabRanking; // NUEVO
 
     // Controladores hijos para llamar a sus onEnter si es necesario
     private BestiaryController bestiaryController;
     private ItemsController itemsController;
     private AchievementsController achievementsController;
+    private RankingController rankingController; // NUEVO
 
     @FXML
     private void initialize() {
@@ -33,6 +35,11 @@ public class CollectionController implements ViewLifecycle {
 
         loadTabContent(tabAchievements, "ui/achievements.fxml", c -> {
             if (c instanceof AchievementsController ac) achievementsController = ac;
+        });
+
+        // NUEVO: Carga del Ranking
+        loadTabContent(tabRanking, "ui/ranking.fxml", c -> {
+            if (c instanceof RankingController rc) rankingController = rc;
         });
 
         // Listener para refrescar datos al cambiar de pestaña
@@ -63,6 +70,7 @@ public class CollectionController implements ViewLifecycle {
         if (tab == tabBestiary && bestiaryController != null) bestiaryController.onEnter();
         else if (tab == tabItems && itemsController != null) itemsController.onEnter();
         else if (tab == tabAchievements && achievementsController != null) achievementsController.onEnter();
+        else if (tab == tabRanking && rankingController != null) rankingController.onEnter(); // NUEVO
     }
 
     @FXML
