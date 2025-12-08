@@ -47,7 +47,10 @@ public class SettingsController {
     @FXML private Spinner<Integer> coinsSpinner;
     @FXML private CheckBox persistCheck;
     @FXML private ComboBox<EnemyType> enemyTypeCombo;
-    @FXML private TextField profileHpField, profileSpeedField, profileContactField;
+
+    // CAMBIO 2: Añadido profileProjDmgField
+    @FXML private TextField profileHpField, profileSpeedField, profileContactField, profileProjDmgField;
+
     @FXML private CheckBox stationaryCheck;
     @FXML private Button saveBtn;
 
@@ -57,11 +60,9 @@ public class SettingsController {
     private Runnable onClose = () -> {};
     private Runnable onStatsChanged = () -> {};
     private StatsService stats = AppContext.stats();
-    private final ConfigService config = AppContext.config(); // Servicio de configuración
+    private final ConfigService config = AppContext.config();
 
-    // Campo de compatibilidad (para que no falle la compilación en GameController/MainMenuController)
     private StackPane overlayHost;
-
     private final Map<TextField, ChangeListener<String>> profileBindings = new HashMap<>();
     private ChangeListener<Boolean> stationaryBinding;
     private final Path enemyBalancePath = Path.of(System.getProperty("user.home"), ".layla", "enemy_balance.json");
@@ -71,7 +72,6 @@ public class SettingsController {
     public void setOnStatsChanged(Runnable r)   { this.onStatsChanged = (r != null) ? r : () -> {}; }
     public void setStatsService(StatsService s) { if (s != null) this.stats = s; }
 
-    // Método re-añadido para compatibilidad con llamadas existentes
     public void setOverlayHost(StackPane host) {
         this.overlayHost = host;
     }
@@ -93,7 +93,6 @@ public class SettingsController {
         if (musicSlider != null) {
             musicSlider.setValue(config.getMusicVolume());
             musicSlider.valueProperty().addListener((obs, oldV, newV) -> {
-                // Aplicar en tiempo real (preview)
                 AssetsManager.setMusicVolume(newV.doubleValue());
             });
         }
@@ -120,9 +119,8 @@ public class SettingsController {
 
     public void onShow() {
         var bal = AppContext.balance();
-        loadUserJsonIfExists(); // Cargar stats.json si existe
+        loadUserJsonIfExists();
 
-        // Cargar valores actuales en la UI
         put(maxHpField, bal.maxHp);
         var baseStats = stats.getBaseStats();
         put(moveSpeedField, baseStats.getBase(PlayerStatId.MOVE_SPEED));
@@ -140,19 +138,16 @@ public class SettingsController {
 
     @FXML
     private void onApply() {
-        // 1. Guardar Configuración de Usuario (Audio/Video)
         config.setMusicVolume(musicSlider.getValue());
         config.setSfxVolume(sfxSlider.getValue());
         config.setFullscreen(fullscreenCheck.isSelected());
-        config.save(); // Persistir a disco
+        config.save();
 
-        // Aplicar fullscreen inmediatamente si cambió
         Stage stage = SceneRouter.getStage();
         if (stage != null && stage.isFullScreen() != config.isFullscreen()) {
             stage.setFullScreen(config.isFullscreen());
         }
 
-        // 2. Aplicar Stats de Debug (si se tocaron)
         var bal = AppContext.balance();
         double hp = get(maxHpField, bal.maxHp);
         bal.maxHp = hp;
@@ -182,18 +177,16 @@ public class SettingsController {
         AppContext.balance().resetDefaults();
         AppContext.balance().startHp = AppContext.balance().maxHp;
 
-        // Reset audio defaults
         musicSlider.setValue(0.5);
         sfxSlider.setValue(0.8);
         fullscreenCheck.setSelected(false);
 
-        onShow(); // Refrescar UI
+        onShow();
         onStatsChanged.run();
     }
 
     @FXML
     private void onCancel() {
-        // Revertir volumen si se cambió sin aplicar
         AssetsManager.setMusicVolume(config.getMusicVolume());
         AssetsManager.setSfxVolume(config.getSfxVolume());
         onClose.run();
@@ -202,7 +195,6 @@ public class SettingsController {
     // --- HELPERS Y DEBUG LOGIC ---
 
     private void setupDebugBindings() {
-        // Focus listeners para seleccionar texto al hacer clic
         Consumer<TextField> selectAll = tf -> tf.focusedProperty().addListener((o, old, newVal) -> {
             if (Boolean.TRUE.equals(newVal)) tf.selectAll();
         });
@@ -211,9 +203,12 @@ public class SettingsController {
         if(fireRateField != null) selectAll.accept(fireRateField);
         if(projSpeedField != null) selectAll.accept(projSpeedField);
         if(projDamageField != null) selectAll.accept(projDamageField);
+
         if(profileHpField != null) selectAll.accept(profileHpField);
         if(profileSpeedField != null) selectAll.accept(profileSpeedField);
         if(profileContactField != null) selectAll.accept(profileContactField);
+        // CAMBIO 2: Setup focus para nuevo campo
+        if(profileProjDmgField != null) selectAll.accept(profileProjDmgField);
     }
 
     private void setupEnemyProfilesPanel() {
@@ -235,6 +230,8 @@ public class SettingsController {
         bindNumberField(profileHpField, () -> profile.baseHp, v -> profile.baseHp = v);
         bindNumberField(profileSpeedField, () -> profile.speed, v -> profile.speed = v);
         bindNumberField(profileContactField, () -> profile.contactDmg, v -> profile.contactDmg = v);
+        // CAMBIO 2: Binding para el nuevo campo de Proyectil Damage
+        bindNumberField(profileProjDmgField, () -> profile.projDamage, v -> profile.projDamage = v);
 
         if (stationaryCheck != null) {
             if (stationaryBinding != null) stationaryCheck.selectedProperty().removeListener(stationaryBinding);
@@ -279,12 +276,9 @@ public class SettingsController {
     private void loadUserJsonIfExists() {
         try {
             if (Files.exists(cfgPath())) {
-                // Simplificación: solo si existe intentamos leerlo, la lógica real iría aquí si fuera necesaria
-                // Pero ahora confiamos más en config.json para lo importante
+                // Lógica de carga manual simplificada
             }
         } catch (Exception ignored) {}
     }
-    private void saveUserJson() {
-        // Lógica legacy para stats.json si se desea mantener
-    }
+    private void saveUserJson() { }
 }

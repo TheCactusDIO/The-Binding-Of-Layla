@@ -64,7 +64,7 @@
                                             <ColumnConstraints percentWidth="60"/>
                                         </columnConstraints>
                                         <children>
-                                            <Label text="Max HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
                                             <TextField fx:id="maxHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
                                             <Label text="Move Speed" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
@@ -111,6 +111,9 @@
 
                                                 <Label text="Contact Dmg" GridPane.rowIndex="2" style="-fx-text-fill: white;"/>
                                                 <TextField fx:id="profileContactField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                                                <Label text="Proj Dmg" GridPane.rowIndex="3" style="-fx-text-fill: white;"/>
+                                                <TextField fx:id="profileProjDmgField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
                                             </children>
                                         </GridPane>
                                     </VBox>
