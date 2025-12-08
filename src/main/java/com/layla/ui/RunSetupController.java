@@ -7,11 +7,10 @@ import com.layla.services.AchievementService;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
@@ -23,30 +22,15 @@ public class RunSetupController implements ViewLifecycle {
     @FXML private Button playButton;
     @FXML private Label fragileLockLabel;
 
-    // NUEVO: Spinners para custom modifiers
-    @FXML private Spinner<Double> spinHp;
-    @FXML private Spinner<Double> spinDmg;
-    @FXML private Spinner<Double> spinCount;
-    @FXML private Spinner<Integer> spinWaves;
+    // Referencia al root para montar el overlay
+    @FXML private javafx.scene.layout.StackPane root;
 
     private CharacterType selected = CharacterType.LAYLA;
     private final AchievementService achievements = AppContext.achievements();
+    private Node settingsOverlay;
 
     @FXML
     private void initialize() {
-        // Inicializar Spinners
-        if (spinHp != null) {
-            spinHp.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.1, 10.0, 1.0, 0.1));
-        }
-        if (spinDmg != null) {
-            spinDmg.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.1, 10.0, 1.0, 0.1));
-        }
-        if (spinCount != null) {
-            spinCount.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.1, 5.0, 1.0, 0.1));
-        }
-        if (spinWaves != null) {
-            spinWaves.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 5));
-        }
     }
 
     @Override
@@ -54,7 +38,6 @@ public class RunSetupController implements ViewLifecycle {
         boolean fragileUnlocked = achievements.isUnlocked("ACH_SURVIVOR");
         boolean hardModeUnlocked = achievements.isUnlocked("ACH_FLOOR_MASTER_1");
 
-        // Configurar estado de The Fragile
         if (!fragileUnlocked) {
             charBoxFragile.setDisable(true);
             charBoxFragile.setOpacity(0.4);
@@ -68,7 +51,6 @@ public class RunSetupController implements ViewLifecycle {
             if (fragileLockLabel != null) fragileLockLabel.setVisible(false);
         }
 
-        // Configurar Hard Mode
         if (!hardModeUnlocked) {
             hardModeCheck.setDisable(true);
             hardModeCheck.setText("Hard Mode (Locked - Beat Basement 1)");
@@ -76,12 +58,6 @@ public class RunSetupController implements ViewLifecycle {
             hardModeCheck.setDisable(false);
             hardModeCheck.setText("Hard Mode");
         }
-
-        // Reset modifiers UI
-        if(spinHp!=null) spinHp.getValueFactory().setValue(1.0);
-        if(spinDmg!=null) spinDmg.getValueFactory().setValue(1.0);
-        if(spinCount!=null) spinCount.getValueFactory().setValue(1.0);
-        if(spinWaves!=null) spinWaves.getValueFactory().setValue(5);
 
         selectCharacter(CharacterType.LAYLA);
     }
@@ -101,7 +77,6 @@ public class RunSetupController implements ViewLifecycle {
     private void selectCharacter(CharacterType type) {
         this.selected = type;
 
-        // Estilos visuales de selección (borde dorado para seleccionado)
         String selectedStyle = "-fx-background-color: #444; -fx-border-color: #ffd54f; -fx-border-width: 2; -fx-background-radius: 8; -fx-border-radius: 8;";
         String unselectedStyle = "-fx-background-color: #222; -fx-border-color: #444; -fx-border-width: 2; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;";
 
@@ -114,23 +89,35 @@ public class RunSetupController implements ViewLifecycle {
         }
     }
 
+    // NUEVO: Abrir Developer Tools
+    @FXML
+    private void onCustomMode() {
+        if (settingsOverlay != null) return;
+        settingsOverlay = OverlayRouter.showOverlay(root, "ui/settings.fxml", 0.90, controller -> {
+            if (controller instanceof SettingsController sc) {
+                sc.setStatsService(AppContext.stats());
+                sc.setOverlayHost(root);
+
+                // Forzar apertura de la sección avanzada
+                sc.setExpandDeveloperTools(true);
+
+                sc.setOnClose(() -> {
+                    OverlayRouter.closeOverlay(root, settingsOverlay);
+                    settingsOverlay = null;
+                });
+
+                sc.onShow();
+            }
+        });
+    }
+
     @FXML
     private void onPlay() {
-        // Guardar configuración en AppContext
         AppContext.setSelectedCharacter(selected);
         AppContext.setHardMode(hardModeCheck.isSelected());
 
-        // NUEVO: Guardar modificadores custom
-        var mods = AppContext.getRunModifiers();
-        mods.enemyHpMult = spinHp.getValue();
-        mods.enemyDmgMult = spinDmg.getValue();
-        mods.spawnRateMult = spinCount.getValue();
-        mods.wavesPerFloor = spinWaves.getValue();
+        System.out.println("[RunSetup] Starting run: " + selected + ", HardMode=" + hardModeCheck.isSelected());
 
-        System.out.println("[RunSetup] Starting run: " + selected + ", HardMode=" + hardModeCheck.isSelected() +
-                           ", Mods=[HP:x" + mods.enemyHpMult + ", Dmg:x" + mods.enemyDmgMult + "]");
-
-        // Iniciar juego (lógica copiada y adaptada de MainMenuController para la intro)
         com.layla.core.AssetsManager.stopMusic();
         SceneRouter.goWithFadeKeepSize("ui/game.fxml");
 
@@ -144,7 +131,6 @@ public class RunSetupController implements ViewLifecycle {
             overlay.setStyle("-fx-background-color: black;");
             overlay.setOpacity(1.0);
 
-            // Binding seguro
             var rootPane = overlayLayer.getScene().getRoot();
             if (rootPane instanceof javafx.scene.layout.Region r) {
                 overlay.prefWidthProperty().bind(r.widthProperty());

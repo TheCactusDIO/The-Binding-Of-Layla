@@ -54,9 +54,33 @@
 
                             <Separator/>
 
-                            <TitledPane text="DEVELOPER TOOLS" expanded="false" style="-fx-text-fill: white;">
-                                <VBox spacing="10">
-                                    <Label text="DEBUG STATS" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
+                            <TitledPane fx:id="devToolsPane" text="CUSTOM RUN / DEVELOPER TOOLS" expanded="false" style="-fx-text-fill: white;">
+                                <VBox spacing="15">
+
+                                    <VBox spacing="8" style="-fx-background-color: #333; -fx-padding: 10; -fx-background-radius: 6;">
+                                        <Label text="GAME RULES" style="-fx-text-fill: #ffd54f; -fx-font-weight: bold;"/>
+                                        <GridPane hgap="10" vgap="8">
+                                            <columnConstraints>
+                                                <ColumnConstraints percentWidth="50"/>
+                                                <ColumnConstraints percentWidth="50"/>
+                                            </columnConstraints>
+                                            <children>
+                                                <Label text="Spawn Rate Multiplier (x)" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Spinner fx:id="spawnRateSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                                                <Label text="Waves per Floor" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Spinner fx:id="wavesSpinner" editable="true" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                                                <Label text="Global Enemy HP (x)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Spinner fx:id="globalHpMultSpinner" editable="true" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                                                <Label text="Global Enemy Dmg (x)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Spinner fx:id="globalDmgMultSpinner" editable="true" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                                            </children>
+                                        </GridPane>
+                                    </VBox>
+
+                                    <Label text="DEBUG PLAYER STATS" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
 
                                     <GridPane hgap="10" vgap="8">
                                         <columnConstraints>
@@ -89,7 +113,7 @@
                                     <Separator/>
 
                                     <VBox spacing="10">
-                                        <Label text="Enemy Profiles" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
+                                        <Label text="ENEMY PROFILES (Individual)" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
                                         <HBox spacing="10" alignment="CENTER_LEFT">
                                             <ComboBox fx:id="enemyTypeCombo" prefWidth="180"/>
                                             <CheckBox fx:id="stationaryCheck" text="Static" style="-fx-text-fill: white;"/>

@@ -28,6 +28,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
@@ -37,7 +38,13 @@ public class SettingsController {
     @FXML private Slider sfxSlider;
     @FXML private CheckBox fullscreenCheck;
 
-    // --- Debug / Stats Fields ---
+    // --- Dev / Custom Run Fields ---
+    @FXML private TitledPane devToolsPane; // Para poder expandirlo por código
+    @FXML private Spinner<Double> spawnRateSpinner;
+    @FXML private Spinner<Integer> wavesSpinner;
+    @FXML private Spinner<Double> globalHpMultSpinner;
+    @FXML private Spinner<Double> globalDmgMultSpinner;
+
     @FXML private TextField maxHpField;
     @FXML private TextField moveSpeedField;
     @FXML private TextField fireRateField;
@@ -47,10 +54,7 @@ public class SettingsController {
     @FXML private Spinner<Integer> coinsSpinner;
     @FXML private CheckBox persistCheck;
     @FXML private ComboBox<EnemyType> enemyTypeCombo;
-
-    // CAMBIO 2: Añadido profileProjDmgField
     @FXML private TextField profileHpField, profileSpeedField, profileContactField, profileProjDmgField;
-
     @FXML private CheckBox stationaryCheck;
     @FXML private Button saveBtn;
 
@@ -87,38 +91,40 @@ public class SettingsController {
         this.onCoinsChanged = onCoinsChanged;
     }
 
+    // NUEVO: Permite abrir el panel de opciones avanzadas directamente
+    public void setExpandDeveloperTools(boolean expand) {
+        if (devToolsPane != null) devToolsPane.setExpanded(expand);
+    }
+
     @FXML
     private void initialize() {
         // --- AUDIO BINDINGS ---
         if (musicSlider != null) {
             musicSlider.setValue(config.getMusicVolume());
-            musicSlider.valueProperty().addListener((obs, oldV, newV) -> {
-                AssetsManager.setMusicVolume(newV.doubleValue());
-            });
+            musicSlider.valueProperty().addListener((obs, oldV, newV) -> AssetsManager.setMusicVolume(newV.doubleValue()));
         }
         if (sfxSlider != null) {
             sfxSlider.setValue(config.getSfxVolume());
-            sfxSlider.valueProperty().addListener((obs, oldV, newV) -> {
-                AssetsManager.setSfxVolume(newV.doubleValue());
-            });
+            sfxSlider.valueProperty().addListener((obs, oldV, newV) -> AssetsManager.setSfxVolume(newV.doubleValue()));
         }
-        if (fullscreenCheck != null) {
-            fullscreenCheck.setSelected(config.isFullscreen());
-        }
+        if (fullscreenCheck != null) fullscreenCheck.setSelected(config.isFullscreen());
+
+        // --- SPINNERS SETUP ---
+        setupSpinner(coinsSpinner, 0, 9999, 0, 1);
+        setupSpinner(wavesSpinner, 1, 50, 5, 1);
+        setupDoubleSpinner(spawnRateSpinner, 0.1, 10.0, 1.0, 0.1);
+        setupDoubleSpinner(globalHpMultSpinner, 0.1, 10.0, 1.0, 0.1);
+        setupDoubleSpinner(globalDmgMultSpinner, 0.1, 10.0, 1.0, 0.1);
 
         // --- DEBUG SETUP ---
         setupDebugBindings();
         setupEnemyProfilesPanel();
-
-        if (coinsSpinner != null) {
-            SpinnerValueFactory<Integer> vf = new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 9999, 0);
-            coinsSpinner.setValueFactory(vf);
-            coinsSpinner.setEditable(true);
-        }
     }
 
     public void onShow() {
         var bal = AppContext.balance();
+        var mods = AppContext.getRunModifiers(); // Cargar modificadores de partida
+
         loadUserJsonIfExists();
 
         put(maxHpField, bal.maxHp);
@@ -128,10 +134,16 @@ public class SettingsController {
         put(projSpeedField, baseStats.getBase(PlayerStatId.PROJECTILE_SPEED));
         put(projDamageField,baseStats.getBase(PlayerStatId.PROJECTILE_DAMAGE));
 
-        if (coinsSpinner != null && coinsSpinner.getValueFactory() != null) {
+        if (coinsSpinner != null) {
             int coinsToShow = (initialCoins != null) ? initialCoins : Math.max(0, bal.startCoins);
             coinsSpinner.getValueFactory().setValue(coinsToShow);
         }
+
+        // Cargar valores de Custom Run
+        if (spawnRateSpinner != null) spawnRateSpinner.getValueFactory().setValue(mods.spawnRateMult);
+        if (wavesSpinner != null) wavesSpinner.getValueFactory().setValue(mods.wavesPerFloor);
+        if (globalHpMultSpinner != null) globalHpMultSpinner.getValueFactory().setValue(mods.enemyHpMult);
+        if (globalDmgMultSpinner != null) globalDmgMultSpinner.getValueFactory().setValue(mods.enemyDmgMult);
 
         refreshSelectedProfile();
     }
@@ -165,6 +177,13 @@ public class SettingsController {
             if (onCoinsChanged != null) onCoinsChanged.accept(coins);
         }
 
+        // Guardar modificadores Custom Run
+        var mods = AppContext.getRunModifiers();
+        if (spawnRateSpinner != null) mods.spawnRateMult = spawnRateSpinner.getValue();
+        if (wavesSpinner != null) mods.wavesPerFloor = wavesSpinner.getValue();
+        if (globalHpMultSpinner != null) mods.enemyHpMult = globalHpMultSpinner.getValue();
+        if (globalDmgMultSpinner != null) mods.enemyDmgMult = globalDmgMultSpinner.getValue();
+
         if (persistCheck != null && persistCheck.isSelected()) saveUserJson();
 
         onStatsChanged.run();
@@ -176,6 +195,7 @@ public class SettingsController {
         stats.getBaseStats().resetDefaults();
         AppContext.balance().resetDefaults();
         AppContext.balance().startHp = AppContext.balance().maxHp;
+        AppContext.getRunModifiers().reset(); // Resetear también modificadores
 
         musicSlider.setValue(0.5);
         sfxSlider.setValue(0.8);
@@ -192,7 +212,19 @@ public class SettingsController {
         onClose.run();
     }
 
-    // --- HELPERS Y DEBUG LOGIC ---
+    // --- HELPERS ---
+
+    private void setupSpinner(Spinner<Integer> s, int min, int max, int init, int step) {
+        if (s == null) return;
+        s.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, init, step));
+        s.setEditable(true);
+    }
+
+    private void setupDoubleSpinner(Spinner<Double> s, double min, double max, double init, double step) {
+        if (s == null) return;
+        s.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(min, max, init, step));
+        s.setEditable(true);
+    }
 
     private void setupDebugBindings() {
         Consumer<TextField> selectAll = tf -> tf.focusedProperty().addListener((o, old, newVal) -> {
@@ -207,7 +239,6 @@ public class SettingsController {
         if(profileHpField != null) selectAll.accept(profileHpField);
         if(profileSpeedField != null) selectAll.accept(profileSpeedField);
         if(profileContactField != null) selectAll.accept(profileContactField);
-        // CAMBIO 2: Setup focus para nuevo campo
         if(profileProjDmgField != null) selectAll.accept(profileProjDmgField);
     }
 
@@ -230,7 +261,6 @@ public class SettingsController {
         bindNumberField(profileHpField, () -> profile.baseHp, v -> profile.baseHp = v);
         bindNumberField(profileSpeedField, () -> profile.speed, v -> profile.speed = v);
         bindNumberField(profileContactField, () -> profile.contactDmg, v -> profile.contactDmg = v);
-        // CAMBIO 2: Binding para el nuevo campo de Proyectil Damage
         bindNumberField(profileProjDmgField, () -> profile.projDamage, v -> profile.projDamage = v);
 
         if (stationaryCheck != null) {
@@ -274,11 +304,7 @@ public class SettingsController {
 
     private Path cfgPath() { return Path.of(System.getProperty("user.home"), ".layla", "stats.json"); }
     private void loadUserJsonIfExists() {
-        try {
-            if (Files.exists(cfgPath())) {
-                // Lógica de carga manual simplificada
-            }
-        } catch (Exception ignored) {}
+        try { if (Files.exists(cfgPath())) { /* Legacy load logic */ } } catch (Exception ignored) {}
     }
-    private void saveUserJson() { }
+    private void saveUserJson() { /* Legacy save logic */ }
 }
