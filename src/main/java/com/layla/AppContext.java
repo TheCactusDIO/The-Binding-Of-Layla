@@ -14,6 +14,7 @@ import com.layla.model.CharacterType;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.services.AchievementService;
+import com.layla.services.ConfigService; // NUEVO IMPORT
 import com.layla.services.StatsService;
 import com.layla.ui.NotificationService;
 
@@ -21,13 +22,13 @@ public final class AppContext {
     private static final StatsService STATS = new StatsService();
     private static final GameBalance BALANCE = new GameBalance();
     private static final DatabaseService DB = new DatabaseService();
+    private static final ConfigService CONFIG = new ConfigService(); // NUEVO SERVICIO
 
     private static AchievementService achievementInstance;
     private static NotificationService notificationInstance;
 
     private static int currentProfileId = 1;
 
-    // NUEVO: Configuración de la partida actual
     private static CharacterType selectedCharacter = CharacterType.LAYLA;
     private static boolean hardMode = false;
 
@@ -36,6 +37,7 @@ public final class AppContext {
     public static StatsService stats()   { return STATS; }
     public static GameBalance balance()  { return BALANCE; }
     public static DatabaseService db()   { return DB; }
+    public static ConfigService config() { return CONFIG; } // NUEVO GETTER
 
     public static NotificationService notifications() {
         if (notificationInstance == null) {
@@ -56,7 +58,6 @@ public final class AppContext {
         currentProfileId = id;
     }
 
-    // NUEVO: Getters y Setters para configuración de run
     public static CharacterType getSelectedCharacter() { return selectedCharacter; }
     public static void setSelectedCharacter(CharacterType c) { selectedCharacter = c; }
 
@@ -67,17 +68,14 @@ public final class AppContext {
     public static final class GameBalance {
         private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-        // Player
         public double startHp = 6.0;
         public double maxHp   = 6.0;
         public int startCoins = 0;
 
-        // Enemy defaults
         public double enemyBaseHp   = 6.0;
         public double enemySpeedAvg = 130.0;
         public double enemyScoreK   = 5.0;
 
-        // Enemy projectile stats
         public double enemyProjSpeed  = 180.0;
         public double enemyProjRange  = 2.2;
         public double enemyProjDamage = 1.0;
