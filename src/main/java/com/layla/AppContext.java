@@ -14,7 +14,7 @@ import com.layla.model.CharacterType;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.services.AchievementService;
-import com.layla.services.ConfigService; // NUEVO IMPORT
+import com.layla.services.ConfigService;
 import com.layla.services.StatsService;
 import com.layla.ui.NotificationService;
 
@@ -22,7 +22,7 @@ public final class AppContext {
     private static final StatsService STATS = new StatsService();
     private static final GameBalance BALANCE = new GameBalance();
     private static final DatabaseService DB = new DatabaseService();
-    private static final ConfigService CONFIG = new ConfigService(); // NUEVO SERVICIO
+    private static final ConfigService CONFIG = new ConfigService();
 
     private static AchievementService achievementInstance;
     private static NotificationService notificationInstance;
@@ -32,12 +32,15 @@ public final class AppContext {
     private static CharacterType selectedCharacter = CharacterType.LAYLA;
     private static boolean hardMode = false;
 
+    // NUEVO: Modificadores de la partida actual (Custom Run)
+    private static final RunModifiers RUN_MODIFIERS = new RunModifiers();
+
     private AppContext() {}
 
     public static StatsService stats()   { return STATS; }
     public static GameBalance balance()  { return BALANCE; }
     public static DatabaseService db()   { return DB; }
-    public static ConfigService config() { return CONFIG; } // NUEVO GETTER
+    public static ConfigService config() { return CONFIG; }
 
     public static NotificationService notifications() {
         if (notificationInstance == null) {
@@ -63,6 +66,24 @@ public final class AppContext {
 
     public static boolean isHardMode() { return hardMode; }
     public static void setHardMode(boolean hm) { hardMode = hm; }
+
+    // NUEVO: Getter para los modificadores
+    public static RunModifiers getRunModifiers() { return RUN_MODIFIERS; }
+
+    // Clase simple para guardar los ajustes numéricos
+    public static class RunModifiers {
+        public double enemyHpMult = 1.0;
+        public double enemyDmgMult = 1.0;
+        public double spawnRateMult = 1.0; // Multiplicador de cantidad de enemigos
+        public int wavesPerFloor = 5;
+
+        public void reset() {
+            enemyHpMult = 1.0;
+            enemyDmgMult = 1.0;
+            spawnRateMult = 1.0;
+            wavesPerFloor = 5;
+        }
+    }
 
     // ==== Global balance ====
     public static final class GameBalance {

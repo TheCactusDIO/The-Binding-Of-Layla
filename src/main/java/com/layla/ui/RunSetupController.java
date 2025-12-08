@@ -10,6 +10,8 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
@@ -21,8 +23,31 @@ public class RunSetupController implements ViewLifecycle {
     @FXML private Button playButton;
     @FXML private Label fragileLockLabel;
 
+    // NUEVO: Spinners para custom modifiers
+    @FXML private Spinner<Double> spinHp;
+    @FXML private Spinner<Double> spinDmg;
+    @FXML private Spinner<Double> spinCount;
+    @FXML private Spinner<Integer> spinWaves;
+
     private CharacterType selected = CharacterType.LAYLA;
     private final AchievementService achievements = AppContext.achievements();
+
+    @FXML
+    private void initialize() {
+        // Inicializar Spinners
+        if (spinHp != null) {
+            spinHp.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.1, 10.0, 1.0, 0.1));
+        }
+        if (spinDmg != null) {
+            spinDmg.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.1, 10.0, 1.0, 0.1));
+        }
+        if (spinCount != null) {
+            spinCount.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.1, 5.0, 1.0, 0.1));
+        }
+        if (spinWaves != null) {
+            spinWaves.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 5));
+        }
+    }
 
     @Override
     public void onEnter() {
@@ -51,6 +76,12 @@ public class RunSetupController implements ViewLifecycle {
             hardModeCheck.setDisable(false);
             hardModeCheck.setText("Hard Mode");
         }
+
+        // Reset modifiers UI
+        if(spinHp!=null) spinHp.getValueFactory().setValue(1.0);
+        if(spinDmg!=null) spinDmg.getValueFactory().setValue(1.0);
+        if(spinCount!=null) spinCount.getValueFactory().setValue(1.0);
+        if(spinWaves!=null) spinWaves.getValueFactory().setValue(5);
 
         selectCharacter(CharacterType.LAYLA);
     }
@@ -89,7 +120,15 @@ public class RunSetupController implements ViewLifecycle {
         AppContext.setSelectedCharacter(selected);
         AppContext.setHardMode(hardModeCheck.isSelected());
 
-        System.out.println("[RunSetup] Starting run: " + selected + ", HardMode=" + hardModeCheck.isSelected());
+        // NUEVO: Guardar modificadores custom
+        var mods = AppContext.getRunModifiers();
+        mods.enemyHpMult = spinHp.getValue();
+        mods.enemyDmgMult = spinDmg.getValue();
+        mods.spawnRateMult = spinCount.getValue();
+        mods.wavesPerFloor = spinWaves.getValue();
+
+        System.out.println("[RunSetup] Starting run: " + selected + ", HardMode=" + hardModeCheck.isSelected() +
+                           ", Mods=[HP:x" + mods.enemyHpMult + ", Dmg:x" + mods.enemyDmgMult + "]");
 
         // Iniciar juego (lógica copiada y adaptada de MainMenuController para la intro)
         com.layla.core.AssetsManager.stopMusic();

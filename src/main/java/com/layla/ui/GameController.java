@@ -75,7 +75,8 @@ public class GameController implements ViewLifecycle {
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
-    private static final int WAVES_PER_FLOOR = 5;
+    // NUEVO: Ya no es static final, se lee de AppContext
+    private int wavesPerFloor = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
     private int currentWave = 1;
@@ -121,12 +122,11 @@ public class GameController implements ViewLifecycle {
     private static final int SCORE_PENALTY_ON_DAMAGE = 20;
     private static final int SCORE_PENALTY_ON_BUY = 30;
 
-    // --- NUEVO: Mecánica de Combos ---
+    // Mecánica de Combos
     private int comboCount = 0;
     private double comboMultiplier = 1.0;
     private double comboTimer = 0.0;
-    private static final double COMBO_MAX_TIME = 3.5; // Segundos para mantener el combo
-    // ---------------------------------
+    private static final double COMBO_MAX_TIME = 3.5;
 
     private double scoreTimer = 0.0;
     private double lastPlayerHealth = -1.0;
@@ -192,10 +192,8 @@ public class GameController implements ViewLifecycle {
     }
 
     private void updateHudLabels() {
-        // Mejorado para mostrar el multiplicador de combo si es > 1
         String multiplierText = comboMultiplier > 1.0 ? String.format(" (x%.1f)", comboMultiplier) : "";
         if (scoreLabel != null) scoreLabel.setText("Score: " + score + multiplierText);
-
         if (coinLabel  != null) coinLabel.setText("Coins: " + coins);
 
         String floorName = switch(currentFloor) {
@@ -205,7 +203,7 @@ public class GameController implements ViewLifecycle {
             case 4 -> "Womb";
             default -> "Sheol";
         };
-        if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + currentWave + "/" + WAVES_PER_FLOOR);
+        if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + currentWave + "/" + wavesPerFloor);
 
         if (timeLabel != null) {
             if (activeBoss != null) {
@@ -283,6 +281,9 @@ public class GameController implements ViewLifecycle {
 
     @Override
     public void onEnter() {
+        // NUEVO: Leer configuración de oleadas al entrar
+        this.wavesPerFloor = AppContext.getRunModifiers().wavesPerFloor;
+
         resetPlainGameArea();
         if (hudBar != null) {
             hudBar.setOpacity(1.0);
@@ -364,7 +365,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void startWave(int wave) {
-        if (wave == WAVES_PER_FLOOR) {
+        if (wave == wavesPerFloor) { // NUEVO: Usar variable dinámica
             spawnBoss();
             return;
         }
@@ -373,9 +374,10 @@ public class GameController implements ViewLifecycle {
         nextWaveTimer = 10.0 + (wave * 2.0);
 
         double difficulty = currentFloor * 1.5 + wave * 0.5;
-        int enemyCount = 4 + (int)(difficulty * 1.3);
+        // NUEVO: Multiplicar por factor de spawn personalizado
+        int enemyCount = (int)((4 + (difficulty * 1.3)) * AppContext.getRunModifiers().spawnRateMult);
 
-        spawnWaveEnemies(enemyCount);
+        spawnWaveEnemies(Math.max(1, enemyCount));
 
         constantSpawnInterval = Math.max(0.25, 2.0 - (difficulty * 0.15));
         timeUntilNextSpawn = 1.0;
@@ -404,7 +406,7 @@ public class GameController implements ViewLifecycle {
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
         if (timeUp || allDead) {
-            if (currentWave < WAVES_PER_FLOOR) {
+            if (currentWave < wavesPerFloor) { // NUEVO: Usar variable dinámica
                 currentWave++;
                 startWave(currentWave);
             }
@@ -455,6 +457,11 @@ public class GameController implements ViewLifecycle {
         double speedMul = 1.0 + difficulty * 0.05;
         double dmgMul = 1.0 + difficulty * 0.1;
 
+        // NUEVO: Aplicar multiplicadores personalizados
+        var mods = AppContext.getRunModifiers();
+        hpMul *= mods.enemyHpMult;
+        dmgMul *= mods.enemyDmgMult;
+
         Enemy enemy = new Enemy(
             type, gameArea, this::getPlayerCenter,
             e -> {
@@ -488,7 +495,7 @@ public class GameController implements ViewLifecycle {
 
         double bx = gameArea.getWidth()/2 - 40;
         double by = gameArea.getHeight()/2 - 100;
-        double bossHp = 400 + (currentFloor * 250);
+        double bossHp = (400 + (currentFloor * 250)) * AppContext.getRunModifiers().enemyHpMult; // NUEVO: HP del jefe también escala
 
         String bossId = "BOSS_FLOOR_" + currentFloor;
 
@@ -517,7 +524,6 @@ public class GameController implements ViewLifecycle {
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
-        // Bonificación por Boss multiplicada por combo actual
         int bossScore = (int)(1000 * currentFloor * comboMultiplier);
         this.score += bossScore;
 
@@ -590,7 +596,6 @@ public class GameController implements ViewLifecycle {
                 if (!paused && !gameOverShown) {
                     updateGreedLogic(dt);
 
-                    // Lógica de Score Timer (penalización tiempo)
                     scoreTimer += dt;
                     if (scoreTimer >= 1.0) {
                         score = Math.max(0, score - SCORE_PENALTY_PER_SECOND);
@@ -598,7 +603,6 @@ public class GameController implements ViewLifecycle {
                         updateHudLabels();
                     }
 
-                    // --- Lógica Combo Timer (reseteo si no matas) ---
                     if (comboTimer > 0.0) {
                         comboTimer -= dt;
                         if (comboTimer <= 0.0) {
@@ -607,7 +611,6 @@ public class GameController implements ViewLifecycle {
                             updateHudLabels();
                         }
                     }
-                    // ------------------------------------------------
 
                     if (activeBoss != null) {
                         activeBoss.update(dt);
@@ -621,16 +624,13 @@ public class GameController implements ViewLifecycle {
                 if (shootingService != null && input != null) shootingService.update(dt, input.getMoveVector());
                 if (shootingArmed && !paused && player != null && !player.isDead()) tryShootNow();
 
-                // Detectar daño recibido (penaliza puntos y resetea combo)
                 if (player != null) {
                     double currentHp = player.getHealth();
                     if (lastPlayerHealth > 0 && currentHp < lastPlayerHealth) {
                         score = Math.max(0, score - SCORE_PENALTY_ON_DAMAGE);
-                        // --- BUG FIX: Recibir daño resetea el combo ---
                         comboCount = 0;
                         comboMultiplier = 1.0;
                         comboTimer = 0.0;
-                        // ----------------------------------------------
                         updateHudLabels();
                     }
                     lastPlayerHealth = currentHp;
@@ -667,19 +667,14 @@ public class GameController implements ViewLifecycle {
     private void handleEnemyDeathRewards(Enemy en) {
         spawnRewardCoins(en.getCenterX(), en.getCenterY(), 5);
 
-        // --- Lógica Multiplicador Combo ---
         comboCount++;
-        comboTimer = COMBO_MAX_TIME; // Reinicia el tiempo disponible
-        // Multiplicador sube 0.1 por cada baja, hasta un máximo (ej: x5.0)
+        comboTimer = COMBO_MAX_TIME;
         comboMultiplier = Math.min(5.0, 1.0 + (comboCount * 0.1));
-        // ----------------------------------
 
         EnemyProfile profile = com.layla.AppContext.balance().profile(en.getType());
         int basePoints = (profile != null) ? profile.score : 10;
 
-        // --- BUG FIX: Sumar puntos escalados por combo ---
         this.score += (int)(basePoints * comboMultiplier);
-        // --------------------------------------------------
 
         updateHudLabels();
     }
@@ -819,7 +814,8 @@ public class GameController implements ViewLifecycle {
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
         currentWave++;
-        if (currentWave > WAVES_PER_FLOOR) {
+        // NUEVO: Usar variable dinámica
+        if (currentWave > wavesPerFloor) {
             currentFloor++;
             if (currentFloor > MAX_FLOORS) {
                 showVictoryOverlay();
