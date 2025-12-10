@@ -1,5 +1,6 @@
 package com.layla.model;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
@@ -10,17 +11,20 @@ import com.layla.core.GameEntity;
 import com.layla.entities.Player;
 import com.layla.entities.Projectile;
 
-import javafx.animation.FadeTransition;
-import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
-import javafx.animation.ScaleTransition;
 import javafx.geometry.Bounds;
+import javafx.geometry.BoundingBox;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
+
+// Imports de animaciones necesarios para spawnDeathFx
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.ScaleTransition;
 
 public final class Enemy implements GameEntity {
 
@@ -32,6 +36,7 @@ public final class Enemy implements GameEntity {
     private final Rectangle view = new Rectangle(WIDTH, HEIGHT, Color.DARKRED);
     private final Pane boundsPane;
     private final Supplier<double[]> playerCenterSupplier;
+    private final Supplier<List<GameEntity>> obstaclesSupplier;
     private final Consumer<GameEntity> onRemove;
     private final Consumer<GameEntity> onSpawn;
     private final Consumer<String> playSfx;
@@ -57,6 +62,7 @@ public final class Enemy implements GameEntity {
     public Enemy(EnemyType type,
                  Pane boundsPane,
                  Supplier<double[]> playerCenterSupplier,
+                 Supplier<List<GameEntity>> obstaclesSupplier,
                  Consumer<GameEntity> onRemove,
                  Consumer<GameEntity> onSpawn,
                  Consumer<String> playSfx,
@@ -67,6 +73,7 @@ public final class Enemy implements GameEntity {
         this.type = Objects.requireNonNull(type, "type");
         this.boundsPane = Objects.requireNonNull(boundsPane, "boundsPane");
         this.playerCenterSupplier = Objects.requireNonNull(playerCenterSupplier, "playerCenterSupplier");
+        this.obstaclesSupplier = obstaclesSupplier;
         this.onRemove = Objects.requireNonNull(onRemove, "onRemove");
         this.onSpawn = Objects.requireNonNull(onSpawn, "onSpawn");
         this.playSfx = (playSfx != null ? playSfx : k -> {});
@@ -111,7 +118,9 @@ public final class Enemy implements GameEntity {
     // --- MOVIMIENTO ---
 
     private void handleMovement(EnemyProfile profile, double[] playerCenter, double dt) {
-        if (type == EnemyType.TURRET || profile.stationary || !hasValidTarget(playerCenter)) return;
+        boolean isStat = profile.stationary && type != EnemyType.SHOOTER;
+
+        if (type == EnemyType.TURRET || isStat || !hasValidTarget(playerCenter)) return;
 
         switch (type) {
             case MELEE    -> moveMeleeZigZag(profile, playerCenter, dt);
@@ -125,8 +134,11 @@ public final class Enemy implements GameEntity {
     private void moveChasingPlayer(EnemyProfile profile, double[] playerCenter, double dt) {
         double[] dir = directionTo(playerCenter);
         if (dir == null) return;
+
         applyJitter(dir, profile.jitter);
-        move(dir, profile.speed * speedMultiplier * dt);
+
+        // Usamos moveWithSlide en lugar de move simple
+        moveWithSlide(dir, profile.speed * speedMultiplier * dt);
     }
 
     private void moveMeleeZigZag(EnemyProfile profile, double[] playerCenter, double dt) {
@@ -146,7 +158,7 @@ public final class Enemy implements GameEntity {
         dir[0] = dx / len; dir[1] = dy / len;
 
         applyJitter(dir, profile.jitter * 0.5);
-        move(dir, profile.speed * speedMultiplier * dt);
+        moveWithSlide(dir, profile.speed * speedMultiplier * dt);
     }
 
     private void moveShooterKiting(EnemyProfile profile, double[] playerCenter, double dt) {
@@ -161,7 +173,8 @@ public final class Enemy implements GameEntity {
         double minRange = 150.0;
         double maxRange = 250.0;
 
-        double speed = profile.speed * speedMultiplier;
+        double baseSpeed = (profile.speed < 10.0) ? 100.0 : profile.speed;
+        double speed = baseSpeed * speedMultiplier;
 
         if (dist < minRange) {
             tmpDir[0] = -dirX;
@@ -174,12 +187,12 @@ public final class Enemy implements GameEntity {
             tmpDir[1] = dirX;
             speed *= 0.6;
             applyJitter(tmpDir, profile.jitter * 0.25);
-            move(tmpDir, speed * dt);
+            moveWithSlide(tmpDir, speed * dt);
             return;
         }
 
         applyJitter(tmpDir, profile.jitter);
-        move(tmpDir, speed * dt);
+        moveWithSlide(tmpDir, speed * dt);
     }
 
     private void moveTank(EnemyProfile profile, double[] playerCenter, double dt) {
@@ -192,7 +205,7 @@ public final class Enemy implements GameEntity {
         if (hpRatio <= 0.5) speed *= 1.4;
 
         applyJitter(dir, profile.jitter);
-        move(dir, speed * dt);
+        moveWithSlide(dir, speed * dt);
     }
 
     private void moveKamikaze(EnemyProfile profile, double[] playerCenter, double dt) {
@@ -219,28 +232,69 @@ public final class Enemy implements GameEntity {
         tmpDir[0] = dirX; tmpDir[1] = dirY;
 
         applyJitter(tmpDir, profile.jitter);
-        move(tmpDir, speed * dt);
+        moveWithSlide(tmpDir, speed * dt);
     }
 
-    private void move(double[] dir, double distance) {
+    // --- NUEVO: Movimiento con Deslizamiento (Axis-Sliding) ---
+    // Esta es la solución definitiva para evitar atascos en esquinas.
+    // Intenta mover en X. Si choca, cancela X. Luego intenta mover en Y. Si choca, cancela Y.
+    private void moveWithSlide(double[] dir, double distance) {
         if (distance <= 0.0) return;
-        double nextX = view.getLayoutX() + dir[0] * distance;
-        double nextY = view.getLayoutY() + dir[1] * distance;
 
+        double deltaX = dir[0] * distance;
+        double deltaY = dir[1] * distance;
+
+        double currX = view.getLayoutX();
+        double currY = view.getLayoutY();
+
+        // 1. Intentar movimiento en X
+        if (!checkCollision(currX + deltaX, currY)) {
+            currX += deltaX;
+        }
+
+        // 2. Intentar movimiento en Y (independiente del resultado en X)
+        if (!checkCollision(currX, currY + deltaY)) {
+            currY += deltaY;
+        }
+
+        // Clamp final dentro del mapa
         double maxX = Math.max(0.0, boundsPane.getWidth() - WIDTH);
         double maxY = Math.max(0.0, boundsPane.getHeight() - HEIGHT);
 
-        view.setLayoutX(clamp(nextX, 0.0, maxX));
-        view.setLayoutY(clamp(nextY, 0.0, maxY));
+        view.setLayoutX(clamp(currX, 0.0, maxX));
+        view.setLayoutY(clamp(currY, 0.0, maxY));
     }
 
-    // --- DISPARO ---
+    // Comprueba si en la posición (x, y) chocaríamos con alguna roca
+    private boolean checkCollision(double x, double y) {
+        if (obstaclesSupplier == null) return false;
+        List<GameEntity> obstacles = obstaclesSupplier.get();
+        if (obstacles == null || obstacles.isEmpty()) return false;
+
+        // Bounding box hipotético del enemigo en la nueva posición
+        BoundingBox myBounds = new BoundingBox(x, y, WIDTH, HEIGHT);
+
+        // Pequeño margen para no quedarse pegado al pixel exacto
+        double margin = 1.0;
+        BoundingBox checkBounds = new BoundingBox(
+            x + margin, y + margin, WIDTH - margin*2, HEIGHT - margin*2
+        );
+
+        for (GameEntity obs : obstacles) {
+            // Usamos intersects de JavaFX que es muy rápido para AABB
+            if (obs.getBounds().intersects(checkBounds)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // --- DISPARO Y UTILIDADES ---
 
     private void handleDefaultShooting(EnemyProfile profile, double[] playerCenter, double dt) {
         if (profile.fireRate > 0.0 && profile.projSpeed > 0.0 && profile.projRange > 0.0) {
             timeSinceShot += dt;
             double interval = (profile.fireRate > 0.0) ? (1.0 / profile.fireRate) : Double.POSITIVE_INFINITY;
-
             if (timeSinceShot >= interval) {
                 if (hasValidTarget(playerCenter)) {
                     timeSinceShot = 0.0;
@@ -291,32 +345,19 @@ public final class Enemy implements GameEntity {
     private void shootTowards(double[] target, EnemyProfile profile) {
         double[] dir = directionTo(target);
         if (dir == null) return;
-
         double projSpeed = Math.max(0.0, profile.projSpeed);
         double projRange = Math.max(0.0, profile.projRange);
         double projDamage = Math.max(0.0, profile.projDamage * damageMultiplier);
         if (projSpeed <= 0.0 || projRange <= 0.0 || projDamage <= 0.0) return;
-
         double lifetime = projRange / projSpeed;
         if (!Double.isFinite(lifetime) || lifetime <= 0.0) return;
 
-        Projectile projectile = new Projectile(
-                dir[0], dir[1],
-                projSpeed,
-                lifetime,
-                projDamage,
-                true,
-                boundsPane,
-                onRemove,
-                this,
-                type.name()
-        );
+        Projectile projectile = new Projectile(dir[0], dir[1], projSpeed, lifetime, projDamage,
+                true, boundsPane, onRemove, this, type.name());
         projectile.getView().setLayoutX(getCenterX() - 4.0);
         projectile.getView().setLayoutY(getCenterY() - 4.0);
         onSpawn.accept(projectile);
     }
-
-    // --- UTILIDADES ---
 
     private void syncHealthWithProfile(EnemyProfile profile) {
         double desiredMax = Math.max(0.0, profile.baseHp * hpMultiplier);
@@ -365,7 +406,6 @@ public final class Enemy implements GameEntity {
         }
         view.setArcWidth(6);
         view.setArcHeight(6);
-
         EnemyProfile p = AppContext.balance().profile(type);
         view.setStrokeWidth(1.5);
         view.getStrokeDashArray().clear();
@@ -380,7 +420,6 @@ public final class Enemy implements GameEntity {
     @Override
     public void onCollision(GameEntity other) {
         if (dead) return;
-
         if (other instanceof Player player) {
             EnemyProfile profile = AppContext.balance().profile(type);
             double dmg = (profile != null ? profile.contactDmg : AppContext.balance().enemyContactDamage);
@@ -393,7 +432,6 @@ public final class Enemy implements GameEntity {
         }
     }
 
-    // Getters y setters básicos
     public double getWidth() { return WIDTH; }
     public double getHeight() { return HEIGHT; }
     public double getHealth() { return hp; }

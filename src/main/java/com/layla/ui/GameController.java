@@ -14,6 +14,7 @@ import com.layla.entities.Boss;
 import com.layla.entities.Coin;
 import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
+import com.layla.entities.Rock;
 import com.layla.entities.SpawnIndicator;
 import com.layla.items.ItemDefinition;
 import com.layla.items.ItemId;
@@ -110,6 +111,7 @@ public class GameController implements ViewLifecycle {
     private GameEntity ticker;
 
     private final List<Enemy> enemies = new ArrayList<>();
+    private final List<GameEntity> obstacles = new ArrayList<>();
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
     private static final double SEPARATION_EPS = 1e-5;
     private static final double MAX_SEPARATION_STEP = 6.0;
@@ -467,6 +469,8 @@ public class GameController implements ViewLifecycle {
 
         Enemy enemy = new Enemy(
             type, gameArea, this::getPlayerCenter,
+            // NUEVO: Pasamos la lista de obstáculos
+            () -> obstacles,
             e -> {
                 gameLoop.removeEntity(e);
                 if (e instanceof Enemy en) {
@@ -496,23 +500,44 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         pendingSpawns = 0;
 
-        double bossHp = (400 + (currentFloor * 250)) * Math.max(0.1, AppContext.getRunModifiers().enemyHpMult);
+        // Stats base (con modificadores)
+        double hpMult = Math.max(0.1, AppContext.getRunModifiers().enemyHpMult);
+        double bossHp = (400 + (currentFloor * 250)) * hpMult;
+
         double bx = gameArea.getWidth()/2 - 40;
         double by = gameArea.getHeight()/2 - 100;
-
         String bossId = "BOSS_FLOOR_" + currentFloor;
 
-        activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter,
-            (deadBoss) -> handleBossDeath(bossId),
-            (proj) -> gameLoop.addEntity(proj),
-            bossId
-        );
-        gameLoop.addEntity(activeBoss);
+        // ELECCIÓN DE JEFE
+        if (currentFloor == 5) {
+            // Super Jefe Final (más vida)
+            bossHp *= 2.0;
+            bossNameLabel.setText("THE HARVESTER (FINAL BOSS)");
+            bossNameLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-size: 24px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 4, 1, 0, 0);");
 
+            activeBoss = new com.layla.entities.FinalBoss(
+                bx, by, bossHp, gameArea, this::getPlayerCenter,
+                (deadBoss) -> handleBossDeath(bossId),
+                (proj) -> gameLoop.addEntity(proj),
+                bossId
+            );
+        } else {
+            // Jefe Clásico
+            bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
+            bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
+
+            activeBoss = new Boss(
+                bx, by, bossHp, gameArea, this::getPlayerCenter,
+                (deadBoss) -> handleBossDeath(bossId),
+                (proj) -> gameLoop.addEntity(proj),
+                bossId
+            );
+        }
+
+        gameLoop.addEntity(activeBoss);
         db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.SEEN);
 
         if (bossHealthBox != null) {
-            bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
             bossHealthBox.setVisible(true);
             bossHealthBox.setManaged(true);
         }
@@ -654,13 +679,117 @@ public class GameController implements ViewLifecycle {
                     updateHudLabels();
                     hudRefreshTimer = 0.1;
                 }
+
+                resolveObstacleCollisions(dt);
                 applyEnemySeparation(dt);
+
                 if (!gameOverShown && player != null && player.isDead()) showGameOverOverlay();
             }
             @Override public javafx.scene.Node getView() { return view; }
         };
         gameLoop.addEntity(ticker);
         tickerAdded = true;
+    }
+
+    private void spawnRoomLayout() {
+        for (GameEntity r : obstacles) {
+            if (r instanceof Rock rock) rock.destroy();
+            gameLoop.removeEntity(r);
+        }
+        obstacles.clear();
+
+        int pattern = enemyRng.nextInt(4);
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+
+        if (pattern == 0) {
+        }
+        else if (pattern == 1) {
+            spawnRockRow(cx - 80, cx + 80, cy, true);
+            spawnRockRow(cy - 80, cy + 80, cx, false);
+        }
+        else if (pattern == 2) {
+            spawnRock(cx - 150, cy - 100);
+            spawnRock(cx + 150, cy - 100);
+            spawnRock(cx - 150, cy + 100);
+            spawnRock(cx + 150, cy + 100);
+        }
+        else {
+            for (int i = 0; i < 6; i++) {
+                double rx = enemyRng.nextDouble(100, w - 100);
+                double ry = enemyRng.nextDouble(100, h - 100);
+                if (Math.abs(rx - cx) > 100 || Math.abs(ry - cy) > 100) {
+                    spawnRock(rx, ry);
+                }
+            }
+        }
+    }
+
+    private void spawnRock(double x, double y) {
+        Rock r = new Rock(x, y, gameArea);
+        obstacles.add(r);
+        gameLoop.addEntity(r);
+    }
+
+    private void spawnRockRow(double start, double end, double fixed, boolean horizontal) {
+        double step = Rock.SIZE;
+        for (double p = start; p <= end; p += step) {
+            if (horizontal) spawnRock(p, fixed);
+            else spawnRock(fixed, p);
+        }
+    }
+
+    private void resolveObstacleCollisions(double dt) {
+        if (obstacles.isEmpty()) return;
+
+        if (player != null && !player.isDead()) {
+            checkAndPush(player, 16.0);
+        }
+
+        for (Enemy e : enemies) {
+            if (!e.isDead()) {
+                checkAndPush(e, e.getCollisionRadius());
+            }
+        }
+    }
+
+    private void checkAndPush(GameEntity entity, double radius) {
+        double eX = entity.getBounds().getCenterX();
+        double eY = entity.getBounds().getCenterY();
+
+        for (GameEntity obs : obstacles) {
+            double rx = obs.getBounds().getMinX();
+            double ry = obs.getBounds().getMinY();
+            double rw = obs.getBounds().getWidth();
+            double rh = obs.getBounds().getHeight();
+
+            double closestX = clamp(eX, rx, rx + rw);
+            double closestY = clamp(eY, ry, ry + rh);
+
+            double dx = eX - closestX;
+            double dy = eY - closestY;
+
+            double distSq = dx*dx + dy*dy;
+            if (distSq < radius * radius) {
+                double dist = Math.sqrt(distSq);
+                if (dist < SEPARATION_EPS) {
+                    dx = 1.0; dy = 0.0; dist = 1.0;
+                }
+
+                double nx = dx / dist;
+                double ny = dy / dist;
+
+                double overlap = radius - dist;
+
+                entity.getView().setLayoutX(entity.getView().getLayoutX() + nx * overlap);
+                entity.getView().setLayoutY(entity.getView().getLayoutY() + ny * overlap);
+
+                eX += nx * overlap;
+                eY += ny * overlap;
+            }
+        }
     }
 
     private void tryShootNow() {
@@ -835,6 +964,8 @@ public class GameController implements ViewLifecycle {
             currentWave = 1;
             changeFloorVisuals();
 
+            spawnRoomLayout();
+
             if (currentFloor > 1) {
                 achievements.onGameEnd(false, currentFloor - 1, 0, 0, 0);
             }
@@ -932,11 +1063,9 @@ public class GameController implements ViewLifecycle {
         double areaW = gameArea.getWidth();
         double areaH = gameArea.getHeight();
 
-        // --- NUEVO: Separación Enemigo - Jugador ---
         if (player != null && !player.isDead()) {
             double pCx = player.getView().getLayoutX() + player.getWidth() * 0.5;
             double pCy = player.getView().getLayoutY() + player.getHeight() * 0.5;
-            // Radio de colisión física (algo menor que el visual para permitir acercarse)
             double pRad = Math.min(player.getWidth(), player.getHeight()) * 0.4;
 
             for (Enemy e : enemies) {
@@ -957,7 +1086,6 @@ public class GameController implements ViewLifecycle {
                      double nx = dx / dist;
                      double ny = dy / dist;
 
-                     // Empujar a ambos (70% enemigo, 30% jugador)
                      double pushE = overlap * 0.7;
                      double pushP = overlap * 0.3;
 
@@ -973,7 +1101,6 @@ public class GameController implements ViewLifecycle {
                 }
             }
         }
-        // -------------------------------------------
 
         for (int i = 0; i < enemies.size(); i++) {
             Enemy a = enemies.get(i);
@@ -1079,6 +1206,7 @@ public class GameController implements ViewLifecycle {
         if (gameLoop != null) gameLoop.start();
 
         changeFloorVisuals();
+        spawnRoomLayout();
         startWave(currentWave);
     }
 
@@ -1100,4 +1228,4 @@ public class GameController implements ViewLifecycle {
         double dy = center[1] - enemyCy;
         return Math.hypot(dx, dy) > 250.0;
     }
-} 
+}

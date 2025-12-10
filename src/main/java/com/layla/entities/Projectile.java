@@ -34,16 +34,14 @@ public final class Projectile implements GameEntity {
     private final GameEntity owner;
     private final String sourceName;
 
-    // Propiedades de comportamiento
     private int pierceRemaining;
     private int bounceRemaining;
     private final boolean homing;
-    // FIX: Ahora es GameEntity para incluir al Boss
     private final Supplier<List<GameEntity>> targetSupplier;
     private final Set<GameEntity> hitWhitelist = new HashSet<>();
 
     private double time = 0.0;
-    private static final double HOMING_RANGE = 450.0; // Aumentado ligeramente
+    private static final double HOMING_RANGE = 450.0;
     private static final double HOMING_TURN_SPEED = 5.0;
 
     public Projectile(double dirX, double dirY,
@@ -93,6 +91,7 @@ public final class Projectile implements GameEntity {
         }
     }
 
+    // Constructores de conveniencia
     public Projectile(double dirX, double dirY, double speed, double lifetime, double damage,
                       boolean fromEnemy, Pane pane, Consumer<GameEntity> onRemove,
                       GameEntity owner, String sourceName) {
@@ -160,7 +159,6 @@ public final class Projectile implements GameEntity {
 
         for (GameEntity e : targets) {
             boolean isDead = false;
-            // FIX: Comprobar muerte según tipo
             if (e instanceof Enemy en) isDead = en.isDead();
             else if (e instanceof Boss b) isDead = b.isDead();
 
@@ -204,6 +202,7 @@ public final class Projectile implements GameEntity {
         if (hitWhitelist.contains(other)) return;
 
         boolean hit = false;
+        boolean destroy = false; // Flag para destruir la bala
 
         if (!fromEnemy && other instanceof com.layla.model.Enemy e) {
             if (!e.isDead()) {
@@ -222,10 +221,23 @@ public final class Projectile implements GameEntity {
             p.takeDamage(damage);
             hit = true;
         }
+        // NUEVO: Colisión con Rocas
+        else if (other instanceof Rock) {
+            // Chocar con roca destruye el proyectil siempre (salvo que rebote)
+            hit = true;
+            destroy = true;
+        }
 
         if (hit) {
             hitWhitelist.add(other);
-            if (pierceRemaining > 0) {
+
+            if (destroy) {
+                // Si chocó con roca y tiene rebote, ya lo manejó el update() con los bordes?
+                // NO, update() maneja bordes de pantalla.
+                // Para rebotar en rocas necesitaríamos calcular normales, lo cual es complejo.
+                // Por ahora, las rocas simplemente absorben los disparos (como en Isaac clásico sin items espectrales).
+                onRemove.accept(this);
+            } else if (pierceRemaining > 0) {
                 pierceRemaining--;
             } else {
                 onRemove.accept(this);

@@ -17,26 +17,26 @@ import javafx.util.Duration;
 
 public class Boss implements GameEntity {
 
-    private final Pane parent;
-    private final Circle view;
-    private final Supplier<double[]> playerPos;
-    private final Consumer<Boss> onDeath;
-    private final Consumer<GameEntity> onSpawnProjectile;
-    private final String bossId; // Identificador para stats (ej: BOSS_FLOOR_1)
+    protected final Pane parent;
+    protected final Circle view;
+    protected final Supplier<double[]> playerPos;
+    protected final Consumer<Boss> onDeath;
+    protected final Consumer<GameEntity> onSpawnProjectile;
+    protected final String bossId;
 
-    private double hp;
-    private double maxHp;
-    private double speed = 45.0;
-    private boolean dead = false;
+    protected double hp;
+    protected double maxHp;
+    protected double speed = 45.0;
+    protected boolean dead = false;
 
-    private double attackTimer = 0.0;
-    private int phase = 1;
+    protected double attackTimer = 0.0;
+    protected int phase = 1;
 
     public Boss(double x, double y, double maxHp, Pane parent,
                 Supplier<double[]> playerPos,
                 Consumer<Boss> onDeath,
                 Consumer<GameEntity> onSpawnProjectile,
-                String bossId) { // NUEVO parámetro
+                String bossId) {
 
         this.maxHp = maxHp;
         this.hp = maxHp;
@@ -62,6 +62,7 @@ public class Boss implements GameEntity {
     public void update(double dt) {
         if (dead || hp <= 0) return;
 
+        // IA BÁSICA (Pisos 1-4): Perseguir y disparar
         double[] pPos = playerPos.get();
         double dx = pPos[0] - view.getLayoutX();
         double dy = pPos[1] - view.getLayoutY();
@@ -79,7 +80,7 @@ public class Boss implements GameEntity {
         }
     }
 
-    private void performAttack() {
+    protected void performAttack() {
         if (dead) return;
         int projectiles = 8 + (phase * 2);
         for (int i = 0; i < projectiles; i++) {
@@ -94,7 +95,7 @@ public class Boss implements GameEntity {
                 parent,
                 ent -> parent.getChildren().remove(ent.getView()),
                 this,
-                bossId // NUEVO: Fuente del daño
+                bossId
             );
 
             p.getView().setLayoutX(view.getLayoutX());
@@ -111,20 +112,30 @@ public class Boss implements GameEntity {
         view.setFill(Color.WHITE);
         PauseTransition flash = new PauseTransition(Duration.millis(100));
         flash.setOnFinished(e -> {
-            if (!dead) view.setFill(Color.DARKRED);
+            if (!dead) updateColor(); // Delegado a método para que FinalBoss pueda cambiar color
         });
         flash.play();
 
         if (hp <= 0) {
             die();
-        } else if (hp < maxHp * 0.5 && phase == 1) {
+        } else {
+            checkPhaseChange();
+        }
+    }
+
+    protected void updateColor() {
+        view.setFill(Color.DARKRED);
+    }
+
+    protected void checkPhaseChange() {
+        if (hp < maxHp * 0.5 && phase == 1) {
             phase = 2;
             speed *= 1.5;
             view.setStroke(Color.YELLOW);
         }
     }
 
-    private void die() {
+    protected void die() {
         if (dead) return;
         dead = true;
         parent.getChildren().remove(view);
@@ -140,11 +151,8 @@ public class Boss implements GameEntity {
 
     @Override
     public void onCollision(GameEntity other) {
-        // Si el jugador choca con el boss (daño por contacto)
         if (other instanceof Player p) {
             p.setLastHitSource(bossId);
-            // El daño real se aplica en GameController habitualmente para el boss,
-            // pero si estuviera aquí, también estaría cubierto.
         }
     }
 }
