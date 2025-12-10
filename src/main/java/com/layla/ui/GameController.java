@@ -265,12 +265,11 @@ public class GameController implements ViewLifecycle {
 
         if (charType == CharacterType.THE_FRAGILE) {
             initialMaxHp = 2.0;
-            // FIX: No sobreescribir si ya está personalizado, solo aplicar modificador relativo
+            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.5);
             statsService.setBaseStat(PlayerStatId.MOVE_SPEED, statsService.getBaseStat(PlayerStatId.MOVE_SPEED) * 1.1);
+        } else {
+            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.0);
         }
-
-        // FIX: Eliminada la línea que reseteaba PROJECTILE_DAMAGE a 1.0 para el personaje por defecto.
-        // Ahora respeta lo que venga en StatsService (cargado del JSON o modificado en Settings).
 
         statsService.setBaseStat(PlayerStatId.MAX_HEALTH, initialMaxHp);
         player.setMaxHealth(statsService.getMaxHealth());
@@ -932,6 +931,50 @@ public class GameController implements ViewLifecycle {
         if (gameArea == null || enemies.isEmpty()) return;
         double areaW = gameArea.getWidth();
         double areaH = gameArea.getHeight();
+
+        // --- NUEVO: Separación Enemigo - Jugador ---
+        if (player != null && !player.isDead()) {
+            double pCx = player.getView().getLayoutX() + player.getWidth() * 0.5;
+            double pCy = player.getView().getLayoutY() + player.getHeight() * 0.5;
+            // Radio de colisión física (algo menor que el visual para permitir acercarse)
+            double pRad = Math.min(player.getWidth(), player.getHeight()) * 0.4;
+
+            for (Enemy e : enemies) {
+                if (e.isDead()) continue;
+                double eCx = e.getCenterX();
+                double eCy = e.getCenterY();
+                double eRad = e.getCollisionRadius();
+
+                double dx = eCx - pCx;
+                double dy = eCy - pCy;
+                double distSq = dx*dx + dy*dy;
+                double minDst = pRad + eRad;
+
+                if (distSq < minDst * minDst) {
+                     double dist = Math.sqrt(distSq);
+                     if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
+                     double overlap = minDst - dist;
+                     double nx = dx / dist;
+                     double ny = dy / dist;
+
+                     // Empujar a ambos (70% enemigo, 30% jugador)
+                     double pushE = overlap * 0.7;
+                     double pushP = overlap * 0.3;
+
+                     e.setPosition(
+                        clamp(e.getView().getLayoutX() + nx * pushE, 0, areaW - e.getWidth()),
+                        clamp(e.getView().getLayoutY() + ny * pushE, 0, areaH - e.getHeight())
+                     );
+
+                     player.setPosition(
+                        clamp(player.getView().getLayoutX() - nx * pushP, 0, areaW - player.getWidth()),
+                        clamp(player.getView().getLayoutY() - ny * pushP, 0, areaH - player.getHeight())
+                     );
+                }
+            }
+        }
+        // -------------------------------------------
+
         for (int i = 0; i < enemies.size(); i++) {
             Enemy a = enemies.get(i);
             if (a.isDead()) continue;
@@ -1005,10 +1048,7 @@ public class GameController implements ViewLifecycle {
         currentFloor = 1;
         score = 500;
         coins = Math.max(0, com.layla.AppContext.balance().startCoins);
-
-        // --- FIX CRITICO: Reseteo TOTAL de stats ---
-        statsService.resetDefaults();
-
+        statsService.clearItems();
         gameOverShown = false;
         shootingArmed = false;
         tickerAdded = false;
@@ -1060,4 +1100,4 @@ public class GameController implements ViewLifecycle {
         double dy = center[1] - enemyCy;
         return Math.hypot(dx, dy) > 250.0;
     }
-}
+} 
