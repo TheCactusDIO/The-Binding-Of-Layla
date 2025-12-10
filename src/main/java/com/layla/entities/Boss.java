@@ -22,6 +22,8 @@ public class Boss implements GameEntity {
     protected final Supplier<double[]> playerPos;
     protected final Consumer<Boss> onDeath;
     protected final Consumer<GameEntity> onSpawnProjectile;
+    // NUEVO: Callback para eliminar correctamente los proyectiles del GameLoop
+    protected final Consumer<GameEntity> onRemoveProjectile;
     protected final String bossId;
 
     protected double hp;
@@ -36,6 +38,7 @@ public class Boss implements GameEntity {
                 Supplier<double[]> playerPos,
                 Consumer<Boss> onDeath,
                 Consumer<GameEntity> onSpawnProjectile,
+                Consumer<GameEntity> onRemoveProjectile, // NUEVO parámetro
                 String bossId) {
 
         this.maxHp = maxHp;
@@ -44,6 +47,7 @@ public class Boss implements GameEntity {
         this.playerPos = Objects.requireNonNull(playerPos);
         this.onDeath = Objects.requireNonNull(onDeath);
         this.onSpawnProjectile = Objects.requireNonNull(onSpawnProjectile);
+        this.onRemoveProjectile = Objects.requireNonNull(onRemoveProjectile); // Guardamos la referencia
         this.bossId = bossId;
 
         this.view = new Circle(40.0, Color.DARKRED);
@@ -62,7 +66,6 @@ public class Boss implements GameEntity {
     public void update(double dt) {
         if (dead || hp <= 0) return;
 
-        // IA BÁSICA (Pisos 1-4): Perseguir y disparar
         double[] pPos = playerPos.get();
         double dx = pPos[0] - view.getLayoutX();
         double dy = pPos[1] - view.getLayoutY();
@@ -93,7 +96,7 @@ public class Boss implements GameEntity {
                 200.0, 3.0, 1.0,
                 true,
                 parent,
-                ent -> parent.getChildren().remove(ent.getView()),
+                onRemoveProjectile, // FIX: Usamos el callback correcto
                 this,
                 bossId
             );
@@ -112,7 +115,7 @@ public class Boss implements GameEntity {
         view.setFill(Color.WHITE);
         PauseTransition flash = new PauseTransition(Duration.millis(100));
         flash.setOnFinished(e -> {
-            if (!dead) updateColor(); // Delegado a método para que FinalBoss pueda cambiar color
+            if (!dead) updateColor();
         });
         flash.play();
 

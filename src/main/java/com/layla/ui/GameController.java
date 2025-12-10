@@ -500,7 +500,6 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         pendingSpawns = 0;
 
-        // Stats base (con modificadores)
         double hpMult = Math.max(0.1, AppContext.getRunModifiers().enemyHpMult);
         double bossHp = (400 + (currentFloor * 250)) * hpMult;
 
@@ -508,9 +507,10 @@ public class GameController implements ViewLifecycle {
         double by = gameArea.getHeight()/2 - 100;
         String bossId = "BOSS_FLOOR_" + currentFloor;
 
-        // ELECCIÓN DE JEFE
+        // Callback para limpieza correcta de proyectiles
+        java.util.function.Consumer<GameEntity> projectileRemover = (ent) -> gameLoop.removeEntity(ent);
+
         if (currentFloor == 5) {
-            // Super Jefe Final (más vida)
             bossHp *= 2.0;
             bossNameLabel.setText("THE HARVESTER (FINAL BOSS)");
             bossNameLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-size: 24px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 4, 1, 0, 0);");
@@ -519,10 +519,10 @@ public class GameController implements ViewLifecycle {
                 bx, by, bossHp, gameArea, this::getPlayerCenter,
                 (deadBoss) -> handleBossDeath(bossId),
                 (proj) -> gameLoop.addEntity(proj),
+                projectileRemover, // FIX: Inyectamos el limpiador
                 bossId
             );
         } else {
-            // Jefe Clásico
             bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
             bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
 
@@ -530,6 +530,7 @@ public class GameController implements ViewLifecycle {
                 bx, by, bossHp, gameArea, this::getPlayerCenter,
                 (deadBoss) -> handleBossDeath(bossId),
                 (proj) -> gameLoop.addEntity(proj),
+                projectileRemover, // FIX: Inyectamos el limpiador
                 bossId
             );
         }

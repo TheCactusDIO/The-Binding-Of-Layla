@@ -10,17 +10,16 @@ import javafx.scene.paint.Color;
 public class FinalBoss extends Boss {
 
     private enum State {
-        IDLE,           // Esperando / Recuperando
-        CHASE,          // Persiguiendo al jugador
-        ATTACK_SPIRAL,  // Quieto, disparando en espiral
-        ATTACK_SLAM     // Embestida rápida (Fase 2)
+        IDLE,
+        CHASE,
+        ATTACK_SPIRAL,
+        ATTACK_SLAM
     }
 
     private State state = State.IDLE;
     private double stateTimer = 0.0;
     private double spiralAngle = 0.0;
 
-    // Variables para SLAM
     private double slamTargetX, slamTargetY;
     private boolean slamCharging = false;
 
@@ -28,10 +27,10 @@ public class FinalBoss extends Boss {
                      Supplier<double[]> playerPos,
                      Consumer<Boss> onDeath,
                      Consumer<GameEntity> onSpawnProjectile,
+                     Consumer<GameEntity> onRemoveProjectile, // NUEVO
                      String bossId) {
-        super(x, y, maxHp, parent, playerPos, onDeath, onSpawnProjectile, bossId);
+        super(x, y, maxHp, parent, playerPos, onDeath, onSpawnProjectile, onRemoveProjectile, bossId);
 
-        // El jefe final es más grande y oscuro
         this.view.setRadius(55.0);
         this.view.setFill(Color.BLACK);
         this.view.setStroke(Color.DARKRED);
@@ -47,22 +46,16 @@ public class FinalBoss extends Boss {
 
         switch (state) {
             case IDLE:
-                if (stateTimer <= 0) {
-                    // Elegir siguiente estado aleatorio
-                    pickNextState();
-                }
+                if (stateTimer <= 0) pickNextState();
                 break;
-
             case CHASE:
                 moveTowardsPlayer(dt);
                 if (stateTimer <= 0) pickNextState();
                 break;
-
             case ATTACK_SPIRAL:
                 fireSpiral(dt);
                 if (stateTimer <= 0) pickNextState();
                 break;
-
             case ATTACK_SLAM:
                 handleSlam(dt);
                 break;
@@ -71,14 +64,11 @@ public class FinalBoss extends Boss {
 
     private void pickNextState() {
         double rnd = Math.random();
-
-        // Fase 2 es más agresiva
         if (phase == 2) {
             if (rnd < 0.4) enterState(State.CHASE, 2.0);
             else if (rnd < 0.7) enterState(State.ATTACK_SPIRAL, 3.0);
             else enterState(State.ATTACK_SLAM, 1.5);
         } else {
-            // Fase 1: Más tranquilo
             if (rnd < 0.5) enterState(State.CHASE, 3.0);
             else if (rnd < 0.8) enterState(State.ATTACK_SPIRAL, 2.5);
             else enterState(State.IDLE, 1.0);
@@ -92,10 +82,9 @@ public class FinalBoss extends Boss {
         if (newState == State.ATTACK_SLAM) {
             prepareSlam();
         } else if (newState == State.ATTACK_SPIRAL) {
-            // Efecto visual: Brillo
             view.setStroke(Color.MAGENTA);
         } else {
-            updateColor(); // Reset color
+            updateColor();
         }
     }
 
@@ -114,20 +103,16 @@ public class FinalBoss extends Boss {
     }
 
     private void fireSpiral(double dt) {
-        // Disparar muy rápido (cada frame o casi)
-        spiralAngle += 5.0 * dt * (phase == 2 ? 2.0 : 1.0); // Gira más rápido en fase 2
+        spiralAngle += 5.0 * dt * (phase == 2 ? 2.0 : 1.0);
 
-        // Limitar cadencia de fuego real (cada 0.1s aprox)
         if (Math.abs(stateTimer % 0.1) < dt) {
             double dirX = Math.cos(spiralAngle);
             double dirY = Math.sin(spiralAngle);
 
-            // Disparar 2 balas opuestas
             spawnBullet(dirX, dirY);
             spawnBullet(-dirX, -dirY);
 
             if (phase == 2) {
-                // En fase 2, dispara 4 balas en cruz
                 spawnBullet(dirY, -dirX);
                 spawnBullet(-dirY, dirX);
             }
@@ -140,7 +125,7 @@ public class FinalBoss extends Boss {
             250.0, 4.0, 1.0,
             true,
             parent,
-            ent -> parent.getChildren().remove(ent.getView()),
+            onRemoveProjectile, // FIX: Usamos el callback del campo protegido
             this,
             bossId
         );
@@ -154,32 +139,27 @@ public class FinalBoss extends Boss {
         slamTargetX = pPos[0];
         slamTargetY = pPos[1];
         slamCharging = true;
-        view.setFill(Color.WHITE); // Flash de carga
-        stateTimer = 0.5; // Tiempo de carga estática
+        view.setFill(Color.WHITE);
+        stateTimer = 0.5;
     }
 
     private void handleSlam(double dt) {
         if (slamCharging) {
-            // Quieto, cargando...
             if (stateTimer <= 0) {
                 slamCharging = false;
-                stateTimer = 0.3; // Tiempo de vuelo
+                stateTimer = 0.3;
                 updateColor();
             }
         } else {
-            // Vuelo hacia el objetivo
             double dx = slamTargetX - view.getLayoutX();
             double dy = slamTargetY - view.getLayoutY();
             double dist = Math.sqrt(dx*dx + dy*dy);
 
-            // Velocidad muy alta
             double slamSpeed = 900.0;
 
             if (dist < 10.0 || stateTimer <= 0) {
-                // Impacto!
                 view.setLayoutX(slamTargetX);
                 view.setLayoutY(slamTargetY);
-                // Onda expansiva de balas al impactar
                 performAttack();
                 pickNextState();
             } else {
@@ -202,7 +182,6 @@ public class FinalBoss extends Boss {
 
     @Override
     protected void performAttack() {
-        // Reutilizamos el ataque circular base para el impacto del Slam
         super.performAttack();
     }
 }
