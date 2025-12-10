@@ -8,6 +8,13 @@ public enum ItemId {
     RANGE_UP,
     SHOT_SPEED_UP,
 
+    // NUEVOS ÍTEMS
+    TRIPLE_SHOT,
+    QUAD_SHOT,
+    CUPIDS_ARROW,  // Pierce
+    RUBBER_CEMENT, // Bounce
+    SPOON_BENDER,  // Homing
+
     BANDAGE,
     SMALL_CHESTPLATE,
     RUNNING_SHOES,

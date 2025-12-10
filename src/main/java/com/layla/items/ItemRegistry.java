@@ -18,9 +18,71 @@ public final class ItemRegistry {
     private static final Map<ItemId, String> ICON_PATHS = new EnumMap<>(ItemId.class);
 
     static {
-        // --- ITEM REGISTRATION START ---
+        // --- NEW ITEMS ---
+        register(new ItemDefinition(
+            ItemId.TRIPLE_SHOT,
+            "The Inner Eye",
+            "Triple shot but slower fire rate.",
+            ItemPoolType.TREASURE,
+            List.of(
+                StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 2.0),
+                StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.7)
+            )
+        ));
+        ICON_PATHS.put(ItemId.TRIPLE_SHOT, "assets/images/tripleshot.png");
 
-        // Ejemplo: Bloqueado por First Blood
+        register(new ItemDefinition(
+            ItemId.QUAD_SHOT,
+            "Mutant Spider",
+            "Quad shot, much slower.",
+            ItemPoolType.TREASURE,
+            List.of(
+                StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 3.0),
+                StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.55)
+            )
+        ));
+        // IMAGEN CUSTOM: Quadshot
+        ICON_PATHS.put(ItemId.QUAD_SHOT, "assets/images/quadshot.png");
+
+        register(new ItemDefinition(
+            ItemId.CUPIDS_ARROW,
+            "Cupid's Arrow",
+            "Piercing shots.",
+            ItemPoolType.SHOP,
+            List.of(
+                StatModifier.additive(PlayerStatId.PROJECTILE_PIERCE, 1.0)
+            )
+        ));
+        // IMAGEN CUSTOM: Piercing
+        ICON_PATHS.put(ItemId.CUPIDS_ARROW, "assets/images/piercing.png");
+
+        register(new ItemDefinition(
+            ItemId.RUBBER_CEMENT,
+            "Rubber Cement",
+            "Bouncing tears.",
+            ItemPoolType.TREASURE,
+            List.of(
+                StatModifier.additive(PlayerStatId.PROJECTILE_BOUNCE, 1.0)
+            )
+        ));
+        // IMAGEN CUSTOM: Bouncing
+        ICON_PATHS.put(ItemId.RUBBER_CEMENT, "assets/images/bouncing.png");
+
+        // NUEVO: Homing
+        register(new ItemDefinition(
+            ItemId.SPOON_BENDER,
+            "Spoon Bender",
+            "Homing shots.",
+            ItemPoolType.TREASURE,
+            List.of(
+                StatModifier.additive(PlayerStatId.PROJECTILE_HOMING, 1.0)
+            )
+        ));
+        // IMAGEN CUSTOM: Homing
+        ICON_PATHS.put(ItemId.SPOON_BENDER, "assets/images/homing.png");
+
+        // --- EXISTING REGISTRATION ---
+
         register(new ItemDefinition(
             ItemId.PEASHOOTER_AMMO,
             "Peashooter Ammo",
@@ -30,11 +92,10 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_SPEED, 50.0),
                 StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.1)
             ),
-            "ACH_FIRST_KILL" // <--- REQUIERE LOGRO
+            "ACH_FIRST_KILL"
         ));
-        ICON_PATHS.put(ItemId.PEASHOOTER_AMMO, "assets/images/item1.png"); // Reusamos placeholders
+        ICON_PATHS.put(ItemId.PEASHOOTER_AMMO, "assets/images/item1.png");
 
-        // Ejemplo: Bloqueado por Survivor
         register(new ItemDefinition(
             ItemId.GLASS_CANNON,
             "Glass Cannon",
@@ -60,7 +121,6 @@ public final class ItemRegistry {
         ));
         ICON_PATHS.put(ItemId.TEARS_UP, "assets/images/item3.png");
 
-        // Bloqueado por Novice Hunter
         register(new ItemDefinition(
             ItemId.SNIPER_MODULE,
             "Sniper Module",
@@ -104,7 +164,6 @@ public final class ItemRegistry {
             )
         ));
 
-        // Bloqueado por Pocket Money
         register(new ItemDefinition(
             ItemId.GOLDEN_WALLET,
             "Golden Wallet",
@@ -117,7 +176,6 @@ public final class ItemRegistry {
             "ACH_POCKET_MONEY"
         ));
 
-        // Bloqueado por Big Spender
         register(new ItemDefinition(
             ItemId.COUPON,
             "Coupon",
@@ -127,7 +185,6 @@ public final class ItemRegistry {
             "ACH_BIG_SPENDER"
         ));
 
-        // Bloqueado por Boss Slayer
         register(new ItemDefinition(
             ItemId.LUCKY_CHARM,
             "Lucky Charm",
@@ -137,7 +194,6 @@ public final class ItemRegistry {
             "ACH_BOSS_SLAYER"
         ));
 
-        // Bloqueado por The End (Victoria)
         register(new ItemDefinition(
             ItemId.TITAN_BLOOD,
             "Titan Blood",
@@ -151,7 +207,6 @@ public final class ItemRegistry {
             "ACH_THE_END"
         ));
 
-        // Bloqueado por Try Again (Muerte)
         register(new ItemDefinition(
             ItemId.MEDKIT,
             "Medkit",
@@ -164,7 +219,6 @@ public final class ItemRegistry {
             "ACH_TRY_AGAIN"
         ));
 
-        // Bloqueado por Gear Up
         register(new ItemDefinition(
             ItemId.SHOP_SCANNER,
             "Shop Scanner",
@@ -177,14 +231,11 @@ public final class ItemRegistry {
             "ACH_GEAR_UP"
         ));
 
-        // Ítems comunes sin bloqueo (relleno para que siempre haya algo)
         register(new ItemDefinition(ItemId.RUNNING_SHOES, "Running Shoes", "+10% move speed.", ItemPoolType.TREASURE, List.of(StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 1.10))));
         register(new ItemDefinition(ItemId.PROTEIN_BAR, "Protein Bar", "+5 max health.", ItemPoolType.TREASURE, List.of(StatModifier.additive(PlayerStatId.MAX_HEALTH, 5.0))));
         register(new ItemDefinition(ItemId.MAGNET, "Magnet", "+50 pickup range.", ItemPoolType.SHOP, List.of(StatModifier.additive(PlayerStatId.PICKUP_RANGE, 50.0))));
         register(new ItemDefinition(ItemId.SWIFT_BOOTS, "Swift Boots", "+Move speed.", ItemPoolType.TREASURE, List.of(StatModifier.additive(PlayerStatId.MOVE_SPEED, 40.0))));
         register(new ItemDefinition(ItemId.RANGE_UP, "Range Up", "Projectiles live longer.", ItemPoolType.TREASURE, List.of(StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 0.6))));
-
-        // --- END REGISTRATION ---
     }
 
     private ItemRegistry() {}
@@ -201,30 +252,17 @@ public final class ItemRegistry {
 
     public static String getIconPath(ItemId id) {
         if (id == null) return null;
-        // Fallback genérico si no tiene icono específico asignado arriba
         return ICON_PATHS.getOrDefault(id, "assets/images/item1.png");
     }
 
-    // Método legacy (devuelve todos)
-    public static List<ItemDefinition> getByPool(ItemPoolType poolType) {
-        return getUnlockedByPool(poolType, null);
-    }
-
-    /**
-     * Devuelve la lista de ítems de un pool específico, FILTRANDO los que no estén desbloqueados.
-     * @param poolType Tipo de pool (TIENDA, TESORO, etc.)
-     * @param achievements Servicio de logros (puede ser null, en cuyo caso devuelve solo los default)
-     */
     public static List<ItemDefinition> getUnlockedByPool(ItemPoolType poolType, AchievementService achievements) {
         if (poolType == null) return List.of();
 
         List<ItemDefinition> list = new ArrayList<>();
 
         for (ItemDefinition def : ITEMS.values()) {
-            // 1. Coincidir pool (o aceptar pool genérico si existiera)
             if (def.getPoolType() != poolType) continue;
 
-            // 2. Verificar desbloqueo
             if (def.isUnlockedByDefault()) {
                 list.add(def);
             } else if (achievements != null && achievements.isUnlocked(def.getRequiredAchievementId())) {
@@ -232,8 +270,6 @@ public final class ItemRegistry {
             }
         }
 
-        // Fallback de seguridad: Si no hay ítems desbloqueados en este pool,
-        // devolvemos los básicos para no romper la tienda.
         if (list.isEmpty()) {
             System.err.println("[ItemRegistry] Warning: Pool " + poolType + " empty after filtering! Returning defaults.");
             for (ItemDefinition def : ITEMS.values()) {

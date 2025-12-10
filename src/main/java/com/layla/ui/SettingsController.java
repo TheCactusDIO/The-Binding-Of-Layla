@@ -39,7 +39,7 @@ public class SettingsController {
     @FXML private CheckBox fullscreenCheck;
 
     // --- Dev / Custom Run Fields ---
-    @FXML private TitledPane devToolsPane; // Para poder expandirlo por código
+    @FXML private TitledPane devToolsPane;
     @FXML private Spinner<Double> spawnRateSpinner;
     @FXML private Spinner<Integer> wavesSpinner;
     @FXML private Spinner<Double> globalHpMultSpinner;
@@ -50,6 +50,7 @@ public class SettingsController {
     @FXML private TextField fireRateField;
     @FXML private TextField projSpeedField;
     @FXML private TextField projDamageField;
+    @FXML private TextField projRangeField; // NUEVO: Campo para el rango
 
     @FXML private Spinner<Integer> coinsSpinner;
     @FXML private CheckBox persistCheck;
@@ -71,7 +72,6 @@ public class SettingsController {
     private ChangeListener<Boolean> stationaryBinding;
     private final Path enemyBalancePath = Path.of(System.getProperty("user.home"), ".layla", "enemy_balance.json");
 
-    // Public API
     public void setOnClose(Runnable r)          { this.onClose = (r != null) ? r : () -> {}; }
     public void setOnStatsChanged(Runnable r)   { this.onStatsChanged = (r != null) ? r : () -> {}; }
     public void setStatsService(StatsService s) { if (s != null) this.stats = s; }
@@ -91,14 +91,12 @@ public class SettingsController {
         this.onCoinsChanged = onCoinsChanged;
     }
 
-    // NUEVO: Permite abrir el panel de opciones avanzadas directamente
     public void setExpandDeveloperTools(boolean expand) {
         if (devToolsPane != null) devToolsPane.setExpanded(expand);
     }
 
     @FXML
     private void initialize() {
-        // --- AUDIO BINDINGS ---
         if (musicSlider != null) {
             musicSlider.setValue(config.getMusicVolume());
             musicSlider.valueProperty().addListener((obs, oldV, newV) -> AssetsManager.setMusicVolume(newV.doubleValue()));
@@ -109,21 +107,19 @@ public class SettingsController {
         }
         if (fullscreenCheck != null) fullscreenCheck.setSelected(config.isFullscreen());
 
-        // --- SPINNERS SETUP ---
         setupSpinner(coinsSpinner, 0, 9999, 0, 1);
         setupSpinner(wavesSpinner, 1, 50, 5, 1);
         setupDoubleSpinner(spawnRateSpinner, 0.1, 10.0, 1.0, 0.1);
         setupDoubleSpinner(globalHpMultSpinner, 0.1, 10.0, 1.0, 0.1);
         setupDoubleSpinner(globalDmgMultSpinner, 0.1, 10.0, 1.0, 0.1);
 
-        // --- DEBUG SETUP ---
         setupDebugBindings();
         setupEnemyProfilesPanel();
     }
 
     public void onShow() {
         var bal = AppContext.balance();
-        var mods = AppContext.getRunModifiers(); // Cargar modificadores de partida
+        var mods = AppContext.getRunModifiers();
 
         loadUserJsonIfExists();
 
@@ -133,13 +129,13 @@ public class SettingsController {
         put(fireRateField,  baseStats.getBase(PlayerStatId.FIRE_RATE));
         put(projSpeedField, baseStats.getBase(PlayerStatId.PROJECTILE_SPEED));
         put(projDamageField,baseStats.getBase(PlayerStatId.PROJECTILE_DAMAGE));
+        put(projRangeField, baseStats.getBase(PlayerStatId.PROJECTILE_RANGE)); // NUEVO
 
         if (coinsSpinner != null) {
             int coinsToShow = (initialCoins != null) ? initialCoins : Math.max(0, bal.startCoins);
             coinsSpinner.getValueFactory().setValue(coinsToShow);
         }
 
-        // Cargar valores de Custom Run
         if (spawnRateSpinner != null) spawnRateSpinner.getValueFactory().setValue(mods.spawnRateMult);
         if (wavesSpinner != null) wavesSpinner.getValueFactory().setValue(mods.wavesPerFloor);
         if (globalHpMultSpinner != null) globalHpMultSpinner.getValueFactory().setValue(mods.enemyHpMult);
@@ -170,6 +166,7 @@ public class SettingsController {
         stats.setBaseStat(PlayerStatId.FIRE_RATE,         get(fireRateField,  stats.getBaseStat(PlayerStatId.FIRE_RATE)));
         stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  get(projSpeedField, stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED)));
         stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, get(projDamageField,stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  get(projRangeField, stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE))); // NUEVO
 
         if (coinsSpinner != null && coinsSpinner.getValue() != null) {
             int coins = Math.max(0, coinsSpinner.getValue());
@@ -177,7 +174,6 @@ public class SettingsController {
             if (onCoinsChanged != null) onCoinsChanged.accept(coins);
         }
 
-        // Guardar modificadores Custom Run
         var mods = AppContext.getRunModifiers();
         if (spawnRateSpinner != null) mods.spawnRateMult = spawnRateSpinner.getValue();
         if (wavesSpinner != null) mods.wavesPerFloor = wavesSpinner.getValue();
@@ -195,7 +191,7 @@ public class SettingsController {
         stats.getBaseStats().resetDefaults();
         AppContext.balance().resetDefaults();
         AppContext.balance().startHp = AppContext.balance().maxHp;
-        AppContext.getRunModifiers().reset(); // Resetear también modificadores
+        AppContext.getRunModifiers().reset();
 
         musicSlider.setValue(0.5);
         sfxSlider.setValue(0.8);
@@ -235,6 +231,7 @@ public class SettingsController {
         if(fireRateField != null) selectAll.accept(fireRateField);
         if(projSpeedField != null) selectAll.accept(projSpeedField);
         if(projDamageField != null) selectAll.accept(projDamageField);
+        if(projRangeField != null) selectAll.accept(projRangeField); // NUEVO
 
         if(profileHpField != null) selectAll.accept(profileHpField);
         if(profileSpeedField != null) selectAll.accept(profileSpeedField);
@@ -303,8 +300,74 @@ public class SettingsController {
     }
 
     private Path cfgPath() { return Path.of(System.getProperty("user.home"), ".layla", "stats.json"); }
+
     private void loadUserJsonIfExists() {
-        try { if (Files.exists(cfgPath())) { /* Legacy load logic */ } } catch (Exception ignored) {}
+        try {
+            if (Files.exists(cfgPath())) {
+                String json = Files.readString(cfgPath());
+                Map<String, Double> m = Json.minimalParse(json);
+                if (m == null) return;
+
+                var bal = AppContext.balance();
+                if (m.containsKey("maxHp")) bal.maxHp = m.get("maxHp");
+
+                // NUEVO: Cargar stats persistentes
+                if (m.containsKey("projDamage")) stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, m.get("projDamage"));
+                if (m.containsKey("moveSpeed")) stats.setBaseStat(PlayerStatId.MOVE_SPEED, m.get("moveSpeed"));
+                if (m.containsKey("fireRate")) stats.setBaseStat(PlayerStatId.FIRE_RATE, m.get("fireRate"));
+                if (m.containsKey("projSpeed")) stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, m.get("projSpeed"));
+                if (m.containsKey("projRange")) stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, m.get("projRange"));
+            }
+        } catch (Exception ignored) {}
     }
-    private void saveUserJson() { /* Legacy save logic */ }
+
+    private void saveUserJson() {
+        try {
+            Path p = cfgPath();
+            if (p.getParent() != null) Files.createDirectories(p.getParent());
+
+            var bal = AppContext.balance();
+            java.util.LinkedHashMap<String, Double> m = new java.util.LinkedHashMap<>();
+            m.put("maxHp", bal.maxHp);
+            // NUEVO: Guardar stats persistentes
+            m.put("projDamage", stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE));
+            m.put("moveSpeed", stats.getBaseStat(PlayerStatId.MOVE_SPEED));
+            m.put("fireRate", stats.getBaseStat(PlayerStatId.FIRE_RATE));
+            m.put("projSpeed", stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED));
+            m.put("projRange", stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE));
+
+            Files.writeString(p, Json.toJson(m));
+        } catch (Exception ignored) {}
+    }
+
+    // Helper minimalista para JSON
+    static class Json {
+        static Map<String, Double> minimalParse(String json) {
+            try {
+                java.util.HashMap<String, Double> out = new java.util.HashMap<>();
+                String s = json.trim();
+                if (!s.startsWith("{") || !s.endsWith("}")) return null;
+                s = s.substring(1, s.length() - 1).trim();
+                if (s.isEmpty()) return out;
+                for (String part : s.split(",")) {
+                    String[] kv = part.split(":");
+                    if (kv.length < 2) continue;
+                    String k = kv[0].trim().replaceAll("^\"|\"$", "");
+                    Double v = Double.parseDouble(kv[1].trim());
+                    out.put(k, v);
+                }
+                return out;
+            } catch (Exception e) { return null; }
+        }
+        static String toJson(Map<String, Double> m) {
+            StringBuilder sb = new StringBuilder("{");
+            boolean first = true;
+            for (var e : m.entrySet()) {
+                if (!first) sb.append(',');
+                first = false;
+                sb.append('"').append(e.getKey()).append('"').append(':').append(e.getValue());
+            }
+            return sb.append('}').toString();
+        }
+    }
 }

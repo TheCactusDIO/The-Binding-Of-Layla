@@ -14,7 +14,6 @@ com\layla\ui\GameController$1.class
 com\layla\entities\Coin.class
 com\layla\ui\SceneRouter$1.class
 com\layla\items\ItemPoolType.class
-com\layla\model\Enemy.class
 com\layla\model\Achievement.class
 com\layla\ui\SettingsController.class
 com\layla\db\DatabaseService$AchievementStatus.class
@@ -25,7 +24,6 @@ com\layla\services\AchievementService.class
 com\layla\model\AchievementDefinition.class
 com\layla\ui\GameController$2.class
 com\layla\db\DatabaseService$EnemyStatEntry.class
-com\layla\services\ShootingService.class
 com\layla\services\StatsService.class
 com\layla\AppContext.class
 com\layla\ui\ItemHudView.class
@@ -34,7 +32,6 @@ com\layla\ui\PauseOverlayController.class
 com\layla\model\PlayerStats.class
 com\layla\model\StatModifier.class
 com\layla\model\Enemy$2.class
-com\layla\model\Enemy$1.class
 com\layla\ui\OverlayRouter.class
 com\layla\ui\ExitConfirmController.class
 com\layla\services\SoundService.class

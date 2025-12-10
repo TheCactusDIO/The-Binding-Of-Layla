@@ -2,8 +2,10 @@ package com.layla.services;
 
 import static java.lang.Math.hypot;
 import static java.lang.Math.max;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import com.layla.AppContext;
 import com.layla.core.GameEntity;
@@ -21,8 +23,15 @@ public final class ShootingService {
     private double aimX = 0.0;
     private double aimY = -1.0;
 
+    // FIX: Ahora es genérico para aceptar Bosses
+    private Supplier<List<GameEntity>> targetSupplier;
+
     public ShootingService(StatsService statsService) {
         this.statsService = (statsService != null) ? statsService : AppContext.stats();
+    }
+
+    public void setTargetSupplier(Supplier<List<GameEntity>> supplier) {
+        this.targetSupplier = supplier;
     }
 
     public void update(double dt, double[] moveVec) {
@@ -67,27 +76,45 @@ public final class ShootingService {
         double lifetime        = statsService.getStat(PlayerStatId.PROJECTILE_RANGE);
         double damage          = statsService.getStat(PlayerStatId.PROJECTILE_DAMAGE);
 
+        int pierce = (int) statsService.getStat(PlayerStatId.PROJECTILE_PIERCE);
+        int bounce = (int) statsService.getStat(PlayerStatId.PROJECTILE_BOUNCE);
+        int count  = Math.max(1, (int) statsService.getStat(PlayerStatId.PROJECTILE_COUNT));
+        boolean homing = statsService.getStat(PlayerStatId.PROJECTILE_HOMING) > 0;
+
         double ax = aimX, ay = aimY;
-        double alen = hypot(ax, ay);
-        if (alen < 1e-6) { ax = 0.0; ay = -1.0; }
-        else { ax /= alen; ay /= alen; }
+        double baseAngle = Math.atan2(ay, ax);
 
-        Projectile p = new Projectile(
-            ax, ay,
-            projectileSpeed,
-            lifetime,
-            damage,
-            false,
-            gameArea,
-            loop::removeEntity,
-            owner,
-            "PLAYER" // NUEVO: Fuente
-        );
-        p.getView().setLayoutX(originX - 4.0);
-        p.getView().setLayoutY(originY - 4.0);
+        double spread = Math.toRadians(15);
+        if (count > 5) spread = Math.toRadians(10);
 
-        loop.addEntity(p);
-        if (onSpawn != null) onSpawn.accept(p);
+        double startAngle = baseAngle - (spread * (count - 1)) / 2.0;
+
+        for (int i = 0; i < count; i++) {
+            double currentAngle = startAngle + spread * i;
+            double dirX = Math.cos(currentAngle);
+            double dirY = Math.sin(currentAngle);
+
+            Projectile p = new Projectile(
+                dirX, dirY,
+                projectileSpeed,
+                lifetime,
+                damage,
+                false,
+                gameArea,
+                loop::removeEntity,
+                owner,
+                "PLAYER",
+                pierce,
+                bounce,
+                homing,
+                targetSupplier // Supplier actualizado
+            );
+            p.getView().setLayoutX(originX - 5.0);
+            p.getView().setLayoutY(originY - 5.0);
+
+            loop.addEntity(p);
+            if (onSpawn != null) onSpawn.accept(p);
+        }
 
         timer = fireCooldown;
         return true;

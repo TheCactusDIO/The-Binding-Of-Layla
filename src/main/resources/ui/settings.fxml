@@ -103,7 +103,10 @@
                                             <Label text="Proj Damage" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
                                             <TextField fx:id="projDamageField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-                                            <HBox spacing="8.0" GridPane.rowIndex="5" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="CENTER_LEFT">
+                                            <Label text="Proj Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                                            <HBox spacing="8.0" GridPane.rowIndex="6" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="CENTER_LEFT">
                                                 <Label text="Run Coins:" style="-fx-text-fill: #ffd54f;"/>
                                                 <Spinner fx:id="coinsSpinner" prefWidth="100.0"/>
                                             </HBox>

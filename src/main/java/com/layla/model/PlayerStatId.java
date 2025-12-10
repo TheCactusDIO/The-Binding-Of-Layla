@@ -11,6 +11,7 @@ public enum PlayerStatId {
     PROJECTILE_SPEED,    // px/s
     PROJECTILE_RANGE,    // seconds of lifetime
     PROJECTILE_DAMAGE,   // HP per projectile hit
+    PROJECTILE_COUNT,    // NUEVO: Number of projectiles per shot
 
     // Survivability and combat breadth (Brotato-like)
     HP_REGEN,            // health per second
@@ -25,5 +26,6 @@ public enum PlayerStatId {
     PICKUP_RANGE,        // coin pickup radius
     SHOP_DISCOUNT,       // shop discount multiplier (0.1 = 10%)
     PROJECTILE_PIERCE,   // number of enemies a projectile pierces
-    PROJECTILE_BOUNCE    // number of projectile bounces
+    PROJECTILE_BOUNCE,   // number of projectile bounces
+    PROJECTILE_HOMING    // Capacidad de perseguir enemigos
 }

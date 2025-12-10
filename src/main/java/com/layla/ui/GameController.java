@@ -75,7 +75,6 @@ public class GameController implements ViewLifecycle {
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
-    // NUEVO: Ya no es static final, se lee de AppContext
     private int wavesPerFloor = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
@@ -117,12 +116,10 @@ public class GameController implements ViewLifecycle {
     private static final int SHOP_OFFER_COUNT = 3;
     private static final int SHOP_REROLL_BASE_PRICE = 1;
 
-    // Constantes para penalización de Score
     private static final int SCORE_PENALTY_PER_SECOND = 1;
     private static final int SCORE_PENALTY_ON_DAMAGE = 20;
     private static final int SCORE_PENALTY_ON_BUY = 30;
 
-    // Mecánica de Combos
     private int comboCount = 0;
     private double comboMultiplier = 1.0;
     private double comboTimer = 0.0;
@@ -252,8 +249,8 @@ public class GameController implements ViewLifecycle {
 
         if (overlayLayer != null) {
             overlayLayer.getChildren().add(bossHealthBox);
-            StackPane.setAlignment(bossHealthBox, Pos.BOTTOM_CENTER);
-            StackPane.setMargin(bossHealthBox, new Insets(0, 0, 80, 0));
+            StackPane.setAlignment(bossHealthBox, Pos.TOP_CENTER);
+            StackPane.setMargin(bossHealthBox, new Insets(80, 0, 0, 0));
         }
 
         updateHudLabels();
@@ -268,11 +265,12 @@ public class GameController implements ViewLifecycle {
 
         if (charType == CharacterType.THE_FRAGILE) {
             initialMaxHp = 2.0;
-            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.5);
+            // FIX: No sobreescribir si ya está personalizado, solo aplicar modificador relativo
             statsService.setBaseStat(PlayerStatId.MOVE_SPEED, statsService.getBaseStat(PlayerStatId.MOVE_SPEED) * 1.1);
-        } else {
-            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.0);
         }
+
+        // FIX: Eliminada la línea que reseteaba PROJECTILE_DAMAGE a 1.0 para el personaje por defecto.
+        // Ahora respeta lo que venga en StatsService (cargado del JSON o modificado en Settings).
 
         statsService.setBaseStat(PlayerStatId.MAX_HEALTH, initialMaxHp);
         player.setMaxHealth(statsService.getMaxHealth());
@@ -281,7 +279,6 @@ public class GameController implements ViewLifecycle {
 
     @Override
     public void onEnter() {
-        // NUEVO: Leer configuración de oleadas al entrar
         this.wavesPerFloor = AppContext.getRunModifiers().wavesPerFloor;
 
         resetPlainGameArea();
@@ -365,7 +362,7 @@ public class GameController implements ViewLifecycle {
     }
 
     private void startWave(int wave) {
-        if (wave == wavesPerFloor) { // NUEVO: Usar variable dinámica
+        if (wave == wavesPerFloor) {
             spawnBoss();
             return;
         }
@@ -374,8 +371,7 @@ public class GameController implements ViewLifecycle {
         nextWaveTimer = 10.0 + (wave * 2.0);
 
         double difficulty = currentFloor * 1.5 + wave * 0.5;
-        // NUEVO: Multiplicar por factor de spawn personalizado
-        int enemyCount = (int)((4 + (difficulty * 1.3)) * AppContext.getRunModifiers().spawnRateMult);
+        int enemyCount = (int)((4 + (difficulty * 1.3)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
 
         spawnWaveEnemies(Math.max(1, enemyCount));
 
@@ -406,7 +402,16 @@ public class GameController implements ViewLifecycle {
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
         if (timeUp || allDead) {
-            if (currentWave < wavesPerFloor) { // NUEVO: Usar variable dinámica
+            if (allDead && nextWaveTimer > 0) {
+                int bonusCoins = (int) (nextWaveTimer / 5.0);
+                if (bonusCoins > 0) {
+                    spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), bonusCoins);
+                    AppContext.notifications().showNotification("SPEED BONUS!", "+" + bonusCoins + " coins", 2.0);
+                }
+                nextWaveTimer = 0;
+            }
+
+            if (currentWave < wavesPerFloor) {
                 currentWave++;
                 startWave(currentWave);
             }
@@ -457,10 +462,9 @@ public class GameController implements ViewLifecycle {
         double speedMul = 1.0 + difficulty * 0.05;
         double dmgMul = 1.0 + difficulty * 0.1;
 
-        // NUEVO: Aplicar multiplicadores personalizados
         var mods = AppContext.getRunModifiers();
-        hpMul *= mods.enemyHpMult;
-        dmgMul *= mods.enemyDmgMult;
+        hpMul *= Math.max(0.1, mods.enemyHpMult);
+        dmgMul *= Math.max(0.1, mods.enemyDmgMult);
 
         Enemy enemy = new Enemy(
             type, gameArea, this::getPlayerCenter,
@@ -493,9 +497,9 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         pendingSpawns = 0;
 
+        double bossHp = (400 + (currentFloor * 250)) * Math.max(0.1, AppContext.getRunModifiers().enemyHpMult);
         double bx = gameArea.getWidth()/2 - 40;
         double by = gameArea.getHeight()/2 - 100;
-        double bossHp = (400 + (currentFloor * 250)) * AppContext.getRunModifiers().enemyHpMult; // NUEVO: HP del jefe también escala
 
         String bossId = "BOSS_FLOOR_" + currentFloor;
 
@@ -564,6 +568,7 @@ public class GameController implements ViewLifecycle {
         lastPlayerHealth = player.getHealth();
 
         shootingService = new ShootingService(statsService);
+        shootingService.setTargetSupplier(this::getHomingTargets);
         shootingArmed = false;
 
         hud = new HudView(statsService, player);
@@ -579,6 +584,14 @@ public class GameController implements ViewLifecycle {
 
         gameLoop.addEntity(player);
         if (!gameLoop.isRunning()) gameLoop.start();
+    }
+
+    private List<GameEntity> getHomingTargets() {
+        List<GameEntity> targets = new ArrayList<>(enemies);
+        if (activeBoss != null && !activeBoss.isDead()) {
+            targets.add(activeBoss);
+        }
+        return targets;
     }
 
     private void addTickerIfNeeded() {
@@ -814,7 +827,6 @@ public class GameController implements ViewLifecycle {
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
         currentWave++;
-        // NUEVO: Usar variable dinámica
         if (currentWave > wavesPerFloor) {
             currentFloor++;
             if (currentFloor > MAX_FLOORS) {
@@ -993,14 +1005,16 @@ public class GameController implements ViewLifecycle {
         currentFloor = 1;
         score = 500;
         coins = Math.max(0, com.layla.AppContext.balance().startCoins);
-        statsService.clearItems();
+
+        // --- FIX CRITICO: Reseteo TOTAL de stats ---
+        statsService.resetDefaults();
+
         gameOverShown = false;
         shootingArmed = false;
         tickerAdded = false;
         rewardItemCursor = 0;
         pendingSpawns = 0;
 
-        // Reset Combo
         comboCount = 0;
         comboMultiplier = 1.0;
         comboTimer = 0.0;

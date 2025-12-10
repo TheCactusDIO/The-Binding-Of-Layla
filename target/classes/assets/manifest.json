@@ -1,8 +1,13 @@
-{
-  "images": [
-    "assets/images/hearts.png",
-    "assets/background/basement.png"
-  ],
+  {
+    "images": [
+      "assets/images/hearts.png",
+      "assets/images/quadshot.png",
+      "assets/images/tripleshot.png",
+      "assets/images/homing.png",
+      "assets/images/bouncing.png",
+      "assets/images/piercing.png",
+      "assets/background/basement.png"
+    ],
   "sounds": [
     "assets/sounds/game_start.wav",
     "assets/sounds/hit.mp3",

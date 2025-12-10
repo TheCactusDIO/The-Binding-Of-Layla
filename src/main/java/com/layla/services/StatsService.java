@@ -16,25 +16,15 @@ import com.layla.model.PlayerStatId;
 import com.layla.model.PlayerStats;
 import com.layla.model.StatModifier;
 
-/**
- * Central access point for player statistics, runtime modifiers and passive items.
- */
 public final class StatsService {
 
     private final PlayerStats baseStats = new PlayerStats();
     private final Map<PlayerStatId, List<StatModifier>> runtimeModifiers =
             new EnumMap<>(PlayerStatId.class);
 
-    // LISTA con duplicados → permite STACKS reales
     private final List<ItemId> ownedItems = new ArrayList<>();
 
-    // -----------------------------
-    // BASE STATS
-    // -----------------------------
-
-    public PlayerStats getBaseStats() {
-        return baseStats;
-    }
+    public PlayerStats getBaseStats() { return baseStats; }
 
     public double getBaseStat(PlayerStatId statId) {
         Objects.requireNonNull(statId, "statId");
@@ -46,10 +36,6 @@ public final class StatsService {
         baseStats.setBase(statId, clamp(statId, value));
     }
 
-    // -----------------------------
-    // RUNTIME MODIFIERS (BUFFS)
-    // -----------------------------
-
     public void addModifier(StatModifier modifier) {
         Objects.requireNonNull(modifier, "modifier");
         runtimeModifiers
@@ -59,29 +45,20 @@ public final class StatsService {
 
     public void removeModifier(StatModifier modifier) {
         if (modifier == null) return;
-
         List<StatModifier> list = runtimeModifiers.get(modifier.getStatId());
         if (list == null) return;
-
         list.remove(modifier);
         if (list.isEmpty()) {
             runtimeModifiers.remove(modifier.getStatId());
         }
     }
 
-    // -----------------------------
-    // RESET
-    // -----------------------------
-
     public void resetDefaults() {
         baseStats.resetDefaults();
+        baseStats.setBase(PlayerStatId.PROJECTILE_COUNT, 1.0);
         runtimeModifiers.clear();
         ownedItems.clear();
     }
-
-    // -----------------------------
-    // FINAL STAT CALCULATION
-    // -----------------------------
 
     public double getStat(PlayerStatId statId) {
         Objects.requireNonNull(statId, "statId");
@@ -90,7 +67,6 @@ public final class StatsService {
         double additive = 0.0;
         double multiplicative = 1.0;
 
-        // 1) Runtime modifiers (buffs/debuffs)
         List<StatModifier> mods = runtimeModifiers.get(statId);
         if (mods != null) {
             for (StatModifier mod : mods) {
@@ -99,7 +75,6 @@ public final class StatsService {
             }
         }
 
-        // 2) Passive items — STACKS: cada copia cuenta
         for (ItemId item : ownedItems) {
             ItemDefinition def = ItemRegistry.getDefinition(item);
             if (def == null) continue;
@@ -115,47 +90,24 @@ public final class StatsService {
         return clamp(statId, (base + additive) * multiplicative);
     }
 
-    // -----------------------------
-    // PASSIVE ITEMS (STACKING)
-    // -----------------------------
-
-    /** Adds one copy of the item. Always allows stacking. */
     public boolean grantItem(ItemId itemId) {
         if (itemId == null) return false;
         if (ItemRegistry.getDefinition(itemId) == null) return false;
-
         ownedItems.add(itemId);
         return true;
     }
 
-    public boolean hasItem(ItemId itemId) {
-        if (itemId == null) return false;
-        return ownedItems.contains(itemId);
-    }
-
-    public void clearItems() {
-        ownedItems.clear();
-    }
-
-    /** Unique set — used only when needed (not for HUD). */
-    public Set<ItemId> getOwnedItems() {
-        return Collections.unmodifiableSet(new LinkedHashSet<>(ownedItems));
-    }
-
-    /** FULL list including duplicates — used by ItemHudView. */
-    public List<ItemId> getOwnedItemsStacked() {
-        return Collections.unmodifiableList(ownedItems);
-    }
-
-    // -----------------------------
-    // CLAMP & TYPED GETTERS
-    // -----------------------------
+    public boolean hasItem(ItemId itemId) { return itemId != null && ownedItems.contains(itemId); }
+    public void clearItems() { ownedItems.clear(); }
+    public Set<ItemId> getOwnedItems() { return Collections.unmodifiableSet(new LinkedHashSet<>(ownedItems)); }
+    public List<ItemId> getOwnedItemsStacked() { return Collections.unmodifiableList(ownedItems); }
 
     private double clamp(PlayerStatId statId, double value) {
         return switch (statId) {
             case MOVE_SPEED, FIRE_RATE, PROJECTILE_SPEED,
                  PROJECTILE_RANGE, PROJECTILE_DAMAGE, MAX_HEALTH,
-                 PICKUP_RANGE, CRIT_DAMAGE
+                 PICKUP_RANGE, CRIT_DAMAGE, PROJECTILE_COUNT,
+                 PROJECTILE_PIERCE, PROJECTILE_BOUNCE, PROJECTILE_HOMING
                  -> Math.max(0.0, value);
             default -> value;
         };
@@ -180,4 +132,6 @@ public final class StatsService {
     public double getShopDiscount()     { return getStat(PlayerStatId.SHOP_DISCOUNT); }
     public double getProjectilePierce() { return getStat(PlayerStatId.PROJECTILE_PIERCE); }
     public double getProjectileBounce() { return getStat(PlayerStatId.PROJECTILE_BOUNCE); }
+    public double getProjectileCount()  { return getStat(PlayerStatId.PROJECTILE_COUNT); }
+    public double getProjectileHoming() { return getStat(PlayerStatId.PROJECTILE_HOMING); }
 }
