@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.layla.ui.GameController"
+           fx:id="root"
+           prefWidth="1280.0"
+           prefHeight="720.0"
+           stylesheets="@/ui/styles/game.css"
+           styleClass="game-root">
+
+    <children>
+        <AnchorPane pickOnBounds="false">
+            <children>
+                <HBox fx:id="hudBar"
+                      alignment="CENTER"
+                      spacing="40.0"
+                      prefHeight="72.0"
+                      minHeight="64.0"
+                      maxHeight="96.0"
+                      AnchorPane.topAnchor="0.0"
+                      AnchorPane.leftAnchor="0.0"
+                      AnchorPane.rightAnchor="0.0"
+                      styleClass="hud-bar">
+                    <children>
+                        <Label fx:id="scoreLabel"  text="Score: 0"  styleClass="hud-label"/>
+                        <Label fx:id="coinLabel"   text="Coins: 0"  styleClass="hud-label"/>
+                        <Label fx:id="floorLabel"  text="Oleada: 1"  styleClass="hud-label"/>
+                        <Label fx:id="healthLabel" text="HP: 100"   styleClass="hud-label"/>
+                    </children>
+                </HBox>
+
+                <Pane fx:id="gameArea"
+                      AnchorPane.topAnchor="72.0"
+                      AnchorPane.bottomAnchor="0.0"
+                      AnchorPane.leftAnchor="0.0"
+                      AnchorPane.rightAnchor="0.0"/>
+            </children>
+        </AnchorPane>
+
+        <StackPane fx:id="overlayLayer"
+                   pickOnBounds="false"
+                   mouseTransparent="false"
+                   style="-fx-background-color: transparent;"/>
+    </children>
+</StackPane>

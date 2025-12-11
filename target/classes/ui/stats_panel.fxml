@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.layout.HBox?>
+
+
+<StackPane fx:controller="com.layla.ui.StatsPanelController"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           style="-fx-background-color: rgba(0,0,0,0.85);">
+    <AnchorPane>
+        <children>
+
+            <ScrollPane fx:id="rootScroll"
+                        fitToWidth="true"
+                        pannable="true"
+                        vbarPolicy="AS_NEEDED"
+                        hbarPolicy="NEVER"
+                        style="-fx-background-color: transparent; -fx-background: transparent;"
+                        AnchorPane.topAnchor="20"
+                        AnchorPane.leftAnchor="20"
+                        AnchorPane.rightAnchor="20"
+                        AnchorPane.bottomAnchor="20">
+                <content>
+
+                    <VBox spacing="14">
+                        <children>
+                            <Label text="STATS PANEL"
+                                   style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold;"/>
+
+                            <!-- PLAYER STATS -->
+                                <GridPane hgap="10" vgap="8">
+                                    <columnConstraints>
+                                        <ColumnConstraints percentWidth="40"/>
+                                        <ColumnConstraints percentWidth="60"/>
+                                    </columnConstraints>
+
+                                    <children>
+                                        <!-- Player HP unificado -->
+                                        <Label text="HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="maxHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                                        <!-- Player stats -->
+                                        <Label text="Move Speed (px/s)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="moveSpeedField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                                        <Label text="Fire Rate (shots/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="fireRateField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                                        <Label text="Projectile Speed (px/s)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="projSpeedField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                                        <Label text="Projectile Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                                        <Label text="Projectile Damage" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <TextField fx:id="projDamageField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+                                        <!-- Coins row -->
+                                        <HBox spacing="8.0"
+                                            GridPane.rowIndex="7"
+                                            GridPane.columnIndex="0"
+                                            GridPane.columnSpan="2">
+                                            <children>
+                                                <Label text="Coins:" style="-fx-text-fill: white;"/>
+                                                <Spinner fx:id="coinsSpinner" prefWidth="100.0"/>
+                                            </children>
+                                        </HBox>
+                                    </children>
+                                </GridPane>
+
+                            <Separator/>
+
+                            <!-- ENEMY PROFILES -->
+                            <VBox spacing="10">
+                                <children>
+                                    <Label text="Perfiles de enemigos" style="-fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold;"/>
+
+                                    <HBox spacing="10" alignment="CENTER_LEFT">
+                                        <children>
+                                            <Label text="Tipo" style="-fx-text-fill: white;"/>
+                                            <ComboBox fx:id="enemyTypeCombo" prefWidth="180"/>
+                                            <CheckBox fx:id="stationaryCheck" text="Estacionario" style="-fx-text-fill: white;"/>
+                                            <Region HBox.hgrow="ALWAYS"/>
+                                            <Button fx:id="saveBtn" text="Guardar perfiles" styleClass="menu-button"/>
+                                        </children>
+                                    </HBox>
+
+                                    <GridPane hgap="10" vgap="8">
+                                        <columnConstraints>
+                                            <ColumnConstraints percentWidth="40"/>
+                                            <ColumnConstraints percentWidth="60"/>
+                                        </columnConstraints>
+                                        <children>
+                                            <Label text="Base HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                                            <Label text="Velocidad (px/s)" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileSpeedField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                                            <Label text="Daño contacto" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileContactField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                                            <Label text="Cadencia (disparos/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileFireField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                                            <Label text="Jitter (%)" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileJitterField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                                            <Label text="Velocidad proyectil" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileProjSpeedField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                                            <Label text="Alcance proyectil (px)" GridPane.rowIndex="6" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileProjRangeField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+                                            <Label text="Daño proyectil" GridPane.rowIndex="7" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileProjDmgField" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+                                            <Label text="Score" GridPane.rowIndex="8" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <TextField fx:id="profileScoreField" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+                                        </children>
+                                    </GridPane>
+                                </children>
+                            </VBox>
+
+                            <CheckBox fx:id="persistCheck"
+                                      text="Persistir en JSON (usuario)"
+                                      style="-fx-text-fill: white;">
+                                <tooltip>
+                                    <Tooltip text="Si está activado, guarda los valores en ~/.layla/stats.json al pulsar Aplicar o Reset."/>
+                                </tooltip>
+                            </CheckBox>
+
+                            <HBox spacing="10">
+                                <children>
+                                    <Region HBox.hgrow="ALWAYS"/>
+                                    <Button text="Cancelar" onAction="#onCancel"  styleClass="menu-button">
+                                        <tooltip><Tooltip text="Cerrar sin aplicar cambios."/></tooltip>
+                                    </Button>
+                                    <Button text="Reset"    onAction="#onReset"   styleClass="menu-button">
+                                        <tooltip><Tooltip text="Restaurar valores por defecto y aplicarlos al instante."/></tooltip>
+                                    </Button>
+                                    <Button text="Aplicar"  onAction="#onApply"   styleClass="menu-button">
+                                        <tooltip><Tooltip text="Guardar y aplicar los valores introducidos."/></tooltip>
+                                    </Button>
+                                </children>
+                            </HBox>
+                        </children>
+                        <padding>
+                            <Insets top="16" right="16" bottom="16" left="16"/>
+                        </padding>
+                    </VBox>
+
+                </content>
+            </ScrollPane>
+
+        </children>
+    </AnchorPane>
+</StackPane>

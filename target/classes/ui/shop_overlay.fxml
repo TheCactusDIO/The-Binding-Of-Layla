@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.layla.ui.ShopOverlayController">
+    <children>
+        <AnchorPane style="-fx-background-color: rgba(0,0,0,0.90);">
+            <children>
+                <HBox alignment="CENTER" spacing="20"
+                      AnchorPane.topAnchor="40.0" AnchorPane.bottomAnchor="40.0"
+                      AnchorPane.leftAnchor="40.0" AnchorPane.rightAnchor="40.0">
+
+                    <VBox spacing="10" HBox.hgrow="ALWAYS" maxWidth="600"
+                          style="-fx-background-color: #262626; -fx-background-radius: 12; -fx-padding: 20; -fx-border-color: #4a4a4a; -fx-border-width: 2; -fx-border-radius: 12;">
+
+                        <Label text="SHOP" style="-fx-font-family: 'Upheaval TT (BRK)'; -fx-text-fill: white; -fx-font-size: 32;"/>
+
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label fx:id="coinsLabel" text="Coins: 0¢" style="-fx-text-fill: #ffd54f; -fx-font-size: 18; -fx-font-weight: bold;"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="rerollButton" text="Reroll (5¢)"
+                                    styleClass="menu-button"
+                                    style="-fx-font-size: 14; -fx-padding: 5 15;"/>
+                        </HBox>
+
+                        <Separator style="-fx-opacity: 0.3;"/>
+
+                        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;" VBox.vgrow="ALWAYS" hbarPolicy="NEVER">
+                            <content>
+                                <VBox fx:id="offersContainer" spacing="8.0"/>
+                            </content>
+                        </ScrollPane>
+
+                        <Button fx:id="continueButton" text="NEXT WAVE >>"
+                                styleClass="menu-button, btn-success"
+                                maxWidth="Infinity"/>
+                    </VBox>
+
+                    <VBox spacing="8" minWidth="280" maxWidth="320"
+                          style="-fx-background-color: #e3dcd2; -fx-background-radius: 4; -fx-padding: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 0);">
+
+                        <Label text="PLAYER STATS" style="-fx-text-fill: #2c2c2c; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24; -fx-alignment: center;"/>
+                        <Separator style="-fx-background-color: #2c2c2c;"/>
+
+                        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;" VBox.vgrow="ALWAYS" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                            <content>
+                                <VBox fx:id="statsContainer" spacing="4"/>
+                            </content>
+                        </ScrollPane>
+                    </VBox>
+
+                </HBox>
+            </children>
+        </AnchorPane>
+    </children>
+</StackPane>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.Region?>
+
+<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.layla.ui.ProfileSelectController"
+           style="-fx-background-color: #111111;">
+
+    <VBox alignment="CENTER" spacing="30">
+        <Label text="SELECT SAVE FILE" style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 42px; -fx-effect: dropshadow(gaussian, black, 5, 0.5, 0, 0);"/>
+
+        <HBox alignment="CENTER" spacing="20">
+
+            <VBox spacing="8" alignment="CENTER">
+                <Button fx:id="btnSlot1" onAction="#onSlot1" prefWidth="240" prefHeight="320"
+                        style="-fx-background-color: #222; -fx-border-color: #444; -fx-border-width: 2; -fx-cursor: hand;">
+                    <graphic>
+                        <VBox alignment="CENTER" spacing="12">
+                            <Label fx:id="lblName1" text="FILE 1" style="-fx-text-fill: #ffd54f; -fx-font-weight: bold; -fx-font-size: 22px;"/>
+                            <Label fx:id="lblStats1" text="Empty" style="-fx-text-fill: #aaa; -fx-font-size: 14px;" wrapText="true" textAlignment="CENTER"/>
+                        </VBox>
+                    </graphic>
+                </Button>
+                <HBox spacing="10" alignment="CENTER" fx:id="controls1">
+                    <Button text="Rename" onAction="#onRenameSlot1" style="-fx-font-size: 11px; -fx-background-color: #333; -fx-text-fill: white; -fx-cursor: hand;"/>
+                    <Button text="Delete" onAction="#onDeleteSlot1" style="-fx-font-size: 11px; -fx-background-color: #522; -fx-text-fill: #ffaaaa; -fx-cursor: hand;"/>
+                </HBox>
+            </VBox>
+
+            <VBox spacing="8" alignment="CENTER">
+                <Button fx:id="btnSlot2" onAction="#onSlot2" prefWidth="240" prefHeight="320"
+                        style="-fx-background-color: #222; -fx-border-color: #444; -fx-border-width: 2; -fx-cursor: hand;">
+                    <graphic>
+                        <VBox alignment="CENTER" spacing="12">
+                            <Label fx:id="lblName2" text="FILE 2" style="-fx-text-fill: #ffd54f; -fx-font-weight: bold; -fx-font-size: 22px;"/>
+                            <Label fx:id="lblStats2" text="Empty" style="-fx-text-fill: #aaa; -fx-font-size: 14px;" wrapText="true" textAlignment="CENTER"/>
+                        </VBox>
+                    </graphic>
+                </Button>
+                <HBox spacing="10" alignment="CENTER" fx:id="controls2">
+                    <Button text="Rename" onAction="#onRenameSlot2" style="-fx-font-size: 11px; -fx-background-color: #333; -fx-text-fill: white; -fx-cursor: hand;"/>
+                    <Button text="Delete" onAction="#onDeleteSlot2" style="-fx-font-size: 11px; -fx-background-color: #522; -fx-text-fill: #ffaaaa; -fx-cursor: hand;"/>
+                </HBox>
+            </VBox>
+
+            <VBox spacing="8" alignment="CENTER">
+                <Button fx:id="btnSlot3" onAction="#onSlot3" prefWidth="240" prefHeight="320"
+                        style="-fx-background-color: #222; -fx-border-color: #444; -fx-border-width: 2; -fx-cursor: hand;">
+                    <graphic>
+                        <VBox alignment="CENTER" spacing="12">
+                            <Label fx:id="lblName3" text="FILE 3" style="-fx-text-fill: #ffd54f; -fx-font-weight: bold; -fx-font-size: 22px;"/>
+                            <Label fx:id="lblStats3" text="Empty" style="-fx-text-fill: #aaa; -fx-font-size: 14px;" wrapText="true" textAlignment="CENTER"/>
+                        </VBox>
+                    </graphic>
+                </Button>
+                <HBox spacing="10" alignment="CENTER" fx:id="controls3">
+                    <Button text="Rename" onAction="#onRenameSlot3" style="-fx-font-size: 11px; -fx-background-color: #333; -fx-text-fill: white; -fx-cursor: hand;"/>
+                    <Button text="Delete" onAction="#onDeleteSlot3" style="-fx-font-size: 11px; -fx-background-color: #522; -fx-text-fill: #ffaaaa; -fx-cursor: hand;"/>
+                </HBox>
+            </VBox>
+
+        </HBox>
+    </VBox>
+</StackPane>
