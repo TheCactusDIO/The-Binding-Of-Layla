@@ -1,6 +1,7 @@
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\AchievementsController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\GameOverController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\entities\FinalBoss.java
+C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\entities\GreedButton.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\model\PlayerStats.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\ExitConfirmController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\PauseOverlayController.java
@@ -41,6 +42,7 @@ C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\lay
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\model\StatModifier.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\RankingController.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\MainMenuController.java
+C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\core\SpriteAnimator.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\core\GameEntity.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\model\AchievementDefinition.java
 C:\Users\theca\Documents\DAM\Proyecto\The-Binding-Of-Layla\src\main\java\com\layla\ui\ShopOverlayController.java

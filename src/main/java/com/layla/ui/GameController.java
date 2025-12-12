@@ -12,6 +12,7 @@ import com.layla.core.InputService;
 import com.layla.db.DatabaseService;
 import com.layla.entities.Boss;
 import com.layla.entities.Coin;
+import com.layla.entities.GreedButton;
 import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
 import com.layla.entities.Rock;
@@ -48,6 +49,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
 import javafx.util.Duration;
 
 public class GameController implements ViewLifecycle {
@@ -57,7 +61,7 @@ public class GameController implements ViewLifecycle {
     @FXML private Label scoreLabel;
     @FXML private Label coinLabel;
     @FXML private Label floorLabel;
-    @FXML private Label healthLabel;
+    @FXML private Label healthLabel; // Ignorado/Oculto
     @FXML private StackPane root;
     @FXML private StackPane overlayLayer;
 
@@ -71,19 +75,27 @@ public class GameController implements ViewLifecycle {
     private ProgressBar bossHealthBar;
     private Label bossNameLabel;
 
+    // Tendero físico (ShopKeeper)
+    private GameEntity shopKeeperEntity;
+    private double shopCooldown = 0.0; // Cooldown para evitar re-entrada inmediata
+
     private boolean musicStarted = false;
-    private int score = 500;
+    private int score = 0;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
     private int wavesPerFloor = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
-    private int currentWave = 1;
+    private int currentWave = 0;
 
     private double nextWaveTimer = 0.0;
     private int pendingSpawns = 0;
     private boolean waveInProgress = false;
+
+    // Estado Greed
+    private boolean timerStopped = false;
+    private boolean moneyPenaltyActive = false;
 
     private double constantSpawnInterval;
     private double timeUntilNextSpawn = 0.0;
@@ -98,6 +110,7 @@ public class GameController implements ViewLifecycle {
     private boolean startGateOpen = false;
 
     private Boss activeBoss = null;
+    private GreedButton greedButton;
 
     private InputService input;
     private final StatsService statsService = com.layla.AppContext.stats();
@@ -202,20 +215,27 @@ public class GameController implements ViewLifecycle {
             case 4 -> "Womb";
             default -> "Sheol";
         };
-        if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + currentWave + "/" + wavesPerFloor);
+
+        String waveText = currentWave == 0 ? "Ready" : currentWave + "/" + wavesPerFloor;
+        if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + waveText);
 
         if (timeLabel != null) {
             if (activeBoss != null) {
                 timeLabel.setText("BOSS");
                 timeLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-weight: bold;");
             } else if (waveInProgress) {
-                timeLabel.setText("Next: " + formatTime(nextWaveTimer));
-                timeLabel.setStyle("-fx-text-fill: white;");
-                if (nextWaveTimer <= 3.0) {
-                    timeLabel.setStyle("-fx-text-fill: #ff5555; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
+                if (timerStopped) {
+                    timeLabel.setText("PAUSED");
+                    timeLabel.setStyle("-fx-text-fill: #aaaaff; -fx-font-weight: bold;");
+                } else {
+                    timeLabel.setText("Next: " + formatTime(nextWaveTimer));
+                    timeLabel.setStyle("-fx-text-fill: white;");
+                    if (nextWaveTimer <= 3.0) {
+                        timeLabel.setStyle("-fx-text-fill: #ff5555; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
+                    }
                 }
             } else {
-                timeLabel.setText("CLEAR");
+                timeLabel.setText(currentWave == 0 ? "START" : "CLEAR");
                 timeLabel.setStyle("-fx-text-fill: #55ff55;");
             }
         }
@@ -227,6 +247,11 @@ public class GameController implements ViewLifecycle {
 
     @FXML
     private void initialize() {
+        // Eliminar healthLabel del HUD por completo
+        if (hudBar != null && healthLabel != null) {
+            hudBar.getChildren().remove(healthLabel);
+        }
+
         if (hudBar != null) {
             if (timeLabel == null) {
                 timeLabel = new Label();
@@ -328,6 +353,8 @@ public class GameController implements ViewLifecycle {
         paused = false;
         activeBoss = null;
         waveInProgress = false;
+        if (greedButton != null) greedButton = null;
+        shopKeeperEntity = null;
     }
 
     public void signalGameStart() {
@@ -336,17 +363,60 @@ public class GameController implements ViewLifecycle {
         gameStarted = true;
 
         currentFloor = 1;
-        currentWave = 1;
+        currentWave = 0;
         enemies.clear();
         pendingSpawns = 0;
 
         changeFloorVisuals();
-        startWave(currentWave);
+
+        spawnGreedButton();
+        spawnShopKeeper();
 
         updateHudLabels();
         maybeSpawnPlayer();
         addTickerIfNeeded();
         startFloorMusicIfNeeded();
+
+        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
+    }
+
+    private void spawnGreedButton() {
+        if (greedButton != null) {
+            gameLoop.removeEntity(greedButton);
+        }
+        double cx = gameArea.getWidth() / 2.0;
+        double cy = gameArea.getHeight() / 2.0;
+
+        greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
+            if (!waveInProgress) {
+                // START: Si no hay oleada, empieza la acción.
+                if (currentWave < wavesPerFloor) {
+                    btn.setActiveState(true);
+                    startNextWave();
+                }
+            } else {
+                // STOP: Si hay oleada, solo para si pagas el precio
+                if (!timerStopped && nextWaveTimer > 0) {
+                    player.takeDamage(1.0); // 1 corazón de daño
+                    sound.play("hurt");
+
+                    coins = Math.max(0, coins - 5); // Pierdes 5 monedas
+                    updateHudLabels();
+
+                    timerStopped = true;
+                    btn.setActiveState(false); // Botón sube
+
+                    AppContext.notifications().showNotification("PAUSED!", "-1 HP, -5 Coins", 2.0);
+                } else if (!timerStopped) {
+                    // Si ya es 0, solo daño por pinchos
+                     player.takeDamage(0.5);
+                     sound.play("hurt");
+                }
+            }
+        });
+        // Inicialmente levantado
+        greedButton.setActiveState(false);
+        gameLoop.addEntity(greedButton);
     }
 
     public void backToMenu() { SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml"); }
@@ -363,59 +433,146 @@ public class GameController implements ViewLifecycle {
     }
 
     private void startWave(int wave) {
-        if (wave == wavesPerFloor) {
+        if (wave > wavesPerFloor) {
             spawnBoss();
             return;
         }
 
         waveInProgress = true;
-        nextWaveTimer = 10.0 + (wave * 2.0);
+        timerStopped = false;
+        moneyPenaltyActive = false;
+
+        // El botón se queda pulsado visualmente si no lo estaba ya
+        if (greedButton != null) greedButton.setActiveState(true);
+
+        // Quitar la tienda si está activa
+        removeShopKeeper();
+
+        nextWaveTimer = 15.0 + (wave * 2.0);
 
         double difficulty = currentFloor * 1.5 + wave * 0.5;
-        int enemyCount = (int)((4 + (difficulty * 1.3)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
+        int enemyCount = (int)((3 + (difficulty * 1.2)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
 
         spawnWaveEnemies(Math.max(1, enemyCount));
 
         constantSpawnInterval = Math.max(0.25, 2.0 - (difficulty * 0.15));
         timeUntilNextSpawn = 1.0;
 
-        System.out.println("Wave " + wave + " (F" + currentFloor + ") started.");
+        updateHudLabels();
     }
 
     private void updateGreedLogic(double dt) {
         if (activeBoss != null) return;
-        if (!waveInProgress) return;
 
-        nextWaveTimer -= dt;
-
-        timeUntilNextSpawn -= dt;
-        if (timeUntilNextSpawn <= 0.0) {
-            createSpawnIndicator(
-                enemyRng.nextDouble(50, gameArea.getWidth()-50),
-                enemyRng.nextDouble(50, gameArea.getHeight()-50),
-                pickEnemyTypeForWave(),
-                0.0
-            );
-            timeUntilNextSpawn = constantSpawnInterval * 3.0;
+        // Si no hay oleada en curso (Zona segura pre-boss o inicial)
+        if (!waveInProgress) {
+            if (shopKeeperEntity == null && enemies.isEmpty() && pendingSpawns == 0) {
+                spawnShopKeeper();
+                if (greedButton != null) greedButton.setActiveState(false);
+            }
+            return;
         }
+
+        if (!timerStopped) {
+            nextWaveTimer -= dt;
+        }
+        timeUntilNextSpawn -= dt;
 
         boolean timeUp = nextWaveTimer <= 0.0;
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
-        if (timeUp || allDead) {
-            if (allDead && nextWaveTimer > 0) {
-                int bonusCoins = (int) (nextWaveTimer / 5.0);
-                if (bonusCoins > 0) {
-                    spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), bonusCoins);
-                    AppContext.notifications().showNotification("SPEED BONUS!", "+" + bonusCoins + " coins", 2.0);
-                }
-                nextWaveTimer = 0;
+        if (allDead) {
+            // OLEADA LIMPIA
+
+            // Si limpiamos antes de tiempo, recompensa fija
+            if (nextWaveTimer > 0 && !moneyPenaltyActive) {
+                spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), 1);
+                AppContext.notifications().showNotification("QUICK CLEAR!", "+1 Coin", 2.0);
             }
 
+            nextWaveTimer = 0;
+
+            // Lógica de encadenamiento:
+            // Si la siguiente es una oleada normal o el boss, iniciamos automáticamente
             if (currentWave < wavesPerFloor) {
-                currentWave++;
-                startWave(currentWave);
+                startNextWave();
+            } else {
+                // Si hemos terminado todo lo del piso (estado raro porque el boss lo maneja handleBossDeath)
+                waveInProgress = false;
+                if (greedButton != null) greedButton.setActiveState(false);
             }
+        }
+        else if (timeUp && !timerStopped) {
+            // TIEMPO AGOTADO -> STACKING (No Boss)
+            if (currentWave < wavesPerFloor) {
+                // Si llegamos a la última (Boss), no spawnea boss por tiempo, solo esperas.
+                if (currentWave < wavesPerFloor - 1) {
+                    currentWave++;
+                    spawnWaveEnemiesForCurrentWave(); // Stacking enemies without full reset
+                    nextWaveTimer = 15.0 + (currentWave * 2.0);
+                    AppContext.notifications().showNotification("OVERWHELMED!", "Waves are stacking!", 2.0);
+                }
+            }
+        }
+    }
+
+    private void spawnWaveEnemiesForCurrentWave() {
+        double difficulty = currentFloor * 1.5 + currentWave * 0.5;
+        int enemyCount = (int)((3 + (difficulty * 1.2)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
+        spawnWaveEnemies(Math.max(1, enemyCount));
+        updateHudLabels();
+    }
+
+    private void startNextWave() {
+        if (gameOverShown || !startGateOpen) return;
+
+        currentWave++;
+        if (currentWave >= wavesPerFloor) {
+            spawnBoss();
+        } else {
+            startWave(currentWave);
+        }
+    }
+
+    // --- TIENDA ---
+
+    private void spawnShopKeeper() {
+        if (shopKeeperEntity != null || gameArea == null) return;
+
+        double cx = gameArea.getWidth() / 2.0;
+        double cy = gameArea.getHeight() / 2.0;
+
+        shopKeeperEntity = new GameEntity() {
+            StackPane view;
+            {
+                view = new StackPane();
+                Rectangle body = new Rectangle(40, 40, Color.SADDLEBROWN);
+                body.setArcWidth(10); body.setArcHeight(10);
+                body.setStroke(Color.BLACK); body.setStrokeWidth(2);
+                Text label = new Text("SHOP");
+                label.setFill(Color.GOLD);
+                label.setStyle("-fx-font-weight: bold;");
+                view.getChildren().addAll(body, label);
+                view.setLayoutX(cx - 20);
+                view.setLayoutY(cy - 100);
+                view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
+            }
+            @Override public void update(double dt) {
+                if (player != null && !paused && !gameOverShown && shopCooldown <= 0) {
+                    if (view.getBoundsInParent().intersects(player.getBounds())) {
+                        showShopOverlay();
+                    }
+                }
+            }
+            @Override public Node getView() { return view; }
+        };
+        gameLoop.addEntity(shopKeeperEntity);
+    }
+
+    private void removeShopKeeper() {
+        if (shopKeeperEntity != null) {
+            gameLoop.removeEntity(shopKeeperEntity);
+            shopKeeperEntity = null;
         }
     }
 
@@ -428,9 +585,10 @@ public class GameController implements ViewLifecycle {
             double x = 0, y = 0;
             boolean valid = false;
             for(int tries=0; tries<10; tries++) {
-                x = enemyRng.nextDouble(20, w - 40);
-                y = enemyRng.nextDouble(20, h - 40);
-                if (isValidSpawn(x, y, 20, 20)) {
+                x = enemyRng.nextDouble(40, w - 80);
+                y = enemyRng.nextDouble(40, h - 80);
+                double distToCenter = Math.hypot(x - w/2, y - h/2);
+                if (isValidSpawn(x, y, 20, 20) && distToCenter > 100) {
                     valid = true;
                     break;
                 }
@@ -438,7 +596,7 @@ public class GameController implements ViewLifecycle {
             if(!valid) { x=50; y=50; }
 
             EnemyType type = pickEnemyTypeForWave();
-            double spawnDelay = enemyRng.nextDouble(0.2, 1.5);
+            double spawnDelay = enemyRng.nextDouble(0.2, 1.0);
             createSpawnIndicator(x, y, type, spawnDelay);
         }
     }
@@ -454,10 +612,7 @@ public class GameController implements ViewLifecycle {
 
     private void spawnRealEnemy(double x, double y, EnemyType type) {
         double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
-
-        if (AppContext.isHardMode()) {
-            difficulty *= 1.5;
-        }
+        if (AppContext.isHardMode()) difficulty *= 1.5;
 
         double hpMul = 1.0 + difficulty * 0.2;
         double speedMul = 1.0 + difficulty * 0.05;
@@ -469,7 +624,6 @@ public class GameController implements ViewLifecycle {
 
         Enemy enemy = new Enemy(
             type, gameArea, this::getPlayerCenter,
-            // NUEVO: Pasamos la lista de obstáculos
             () -> obstacles,
             e -> {
                 gameLoop.removeEntity(e);
@@ -496,6 +650,12 @@ public class GameController implements ViewLifecycle {
         waveInProgress = true;
         nextWaveTimer = 99999;
 
+        if (greedButton != null) {
+            gameLoop.removeEntity(greedButton);
+            greedButton = null;
+        }
+        removeShopKeeper();
+
         for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
         enemies.clear();
         pendingSpawns = 0;
@@ -507,32 +667,17 @@ public class GameController implements ViewLifecycle {
         double by = gameArea.getHeight()/2 - 100;
         String bossId = "BOSS_FLOOR_" + currentFloor;
 
-        // Callback para limpieza correcta de proyectiles
         java.util.function.Consumer<GameEntity> projectileRemover = (ent) -> gameLoop.removeEntity(ent);
 
         if (currentFloor == 5) {
             bossHp *= 2.0;
             bossNameLabel.setText("THE HARVESTER (FINAL BOSS)");
             bossNameLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-size: 24px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 4, 1, 0, 0);");
-
-            activeBoss = new com.layla.entities.FinalBoss(
-                bx, by, bossHp, gameArea, this::getPlayerCenter,
-                (deadBoss) -> handleBossDeath(bossId),
-                (proj) -> gameLoop.addEntity(proj),
-                projectileRemover, // FIX: Inyectamos el limpiador
-                bossId
-            );
+            activeBoss = new com.layla.entities.FinalBoss(bx, by, bossHp, gameArea, this::getPlayerCenter, (deadBoss) -> handleBossDeath(bossId), (proj) -> gameLoop.addEntity(proj), projectileRemover, bossId);
         } else {
             bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
             bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
-
-            activeBoss = new Boss(
-                bx, by, bossHp, gameArea, this::getPlayerCenter,
-                (deadBoss) -> handleBossDeath(bossId),
-                (proj) -> gameLoop.addEntity(proj),
-                projectileRemover, // FIX: Inyectamos el limpiador
-                bossId
-            );
+            activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter, (deadBoss) -> handleBossDeath(bossId), (proj) -> gameLoop.addEntity(proj), projectileRemover, bossId);
         }
 
         gameLoop.addEntity(activeBoss);
@@ -558,21 +703,61 @@ public class GameController implements ViewLifecycle {
 
         spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
         updateHudLabels();
+
+        // Fin de la fase de combate del piso
         waveInProgress = false;
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
 
         spawnRoomRewardPedestal();
+        spawnShopKeeper();
+        spawnNextFloorButton();
+    }
+
+    private void spawnNextFloorButton() {
+        if (greedButton != null) gameLoop.removeEntity(greedButton);
+        double cx = gameArea.getWidth() / 2.0;
+        double cy = gameArea.getHeight() / 2.0;
+
+        greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
+            loadNextFloor();
+        });
+        greedButton.setAsExit();
+        gameLoop.addEntity(greedButton);
+    }
+
+    private void loadNextFloor() {
+        currentFloor++;
+        if (currentFloor > MAX_FLOORS) {
+            showVictoryOverlay();
+            return;
+        }
+
+        currentWave = 0;
+        enemies.clear();
+        obstacles.clear();
+
+        waveInProgress = false;
+        timerStopped = false;
+        moneyPenaltyActive = false;
+
+        changeFloorVisuals();
+        spawnRoomLayout();
+        spawnGreedButton();
+        spawnShopKeeper();
+
+        updateHudLabels();
+
+        if(player != null) {
+            player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
+        }
+
+        AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
     }
 
     private EnemyType pickEnemyTypeForWave() {
         int roll = enemyRng.nextInt(100);
-        if (currentFloor == 1) {
-            if (roll < 70) return EnemyType.SHOOTER;
-            if (roll < 90) return EnemyType.MELEE;
-            return EnemyType.TURRET;
-        }
-
+        if (currentFloor == 1) return roll < 70 ? EnemyType.SHOOTER : (roll < 90 ? EnemyType.MELEE : EnemyType.TURRET);
         if (roll < 25) return EnemyType.SHOOTER;
         if (roll < 50) return EnemyType.MELEE;
         if (roll < 75) return EnemyType.TANK;
@@ -588,7 +773,7 @@ public class GameController implements ViewLifecycle {
         player = new Player(input, gameArea, statsService);
         applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
-        player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 - 10);
+        player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
 
         lastPlayerHealth = player.getHealth();
 
@@ -613,9 +798,7 @@ public class GameController implements ViewLifecycle {
 
     private List<GameEntity> getHomingTargets() {
         List<GameEntity> targets = new ArrayList<>(enemies);
-        if (activeBoss != null && !activeBoss.isDead()) {
-            targets.add(activeBoss);
-        }
+        if (activeBoss != null && !activeBoss.isDead()) targets.add(activeBoss);
         return targets;
     }
 
@@ -631,8 +814,13 @@ public class GameController implements ViewLifecycle {
                     if (shootingArmTimer <= 0.0) shootingArmed = true;
                 }
 
+                if (shopCooldown > 0) shopCooldown -= dt;
+
                 if (!paused && !gameOverShown) {
                     updateGreedLogic(dt);
+
+                    if (greedButton != null) greedButton.update(dt);
+                    if (shopKeeperEntity != null) shopKeeperEntity.update(dt);
 
                     scoreTimer += dt;
                     if (scoreTimer >= 1.0) {
@@ -692,6 +880,22 @@ public class GameController implements ViewLifecycle {
         tickerAdded = true;
     }
 
+    private void handleEnemyDeathRewards(Enemy en) {
+        if (enemyRng.nextDouble() < 0.3) {
+            int amount = enemyRng.nextInt(1, 4);
+            if (timerStopped) amount = Math.max(1, amount / 2); // Penalización
+            spawnRewardCoins(en.getCenterX(), en.getCenterY(), amount);
+        }
+
+        comboCount++;
+        comboTimer = COMBO_MAX_TIME;
+        comboMultiplier = Math.min(5.0, 1.0 + (comboCount * 0.1));
+        EnemyProfile profile = com.layla.AppContext.balance().profile(en.getType());
+        int basePoints = (profile != null) ? profile.score : 10;
+        this.score += (int)(basePoints * comboMultiplier);
+        updateHudLabels();
+    }
+
     private void spawnRoomLayout() {
         for (GameEntity r : obstacles) {
             if (r instanceof Rock rock) rock.destroy();
@@ -699,33 +903,10 @@ public class GameController implements ViewLifecycle {
         }
         obstacles.clear();
 
-        int pattern = enemyRng.nextInt(4);
-        double w = gameArea.getWidth();
-        double h = gameArea.getHeight();
-        double cx = w / 2.0;
-        double cy = h / 2.0;
-
-        if (pattern == 0) {
-        }
-        else if (pattern == 1) {
-            spawnRockRow(cx - 80, cx + 80, cy, true);
-            spawnRockRow(cy - 80, cy + 80, cx, false);
-        }
-        else if (pattern == 2) {
-            spawnRock(cx - 150, cy - 100);
-            spawnRock(cx + 150, cy - 100);
-            spawnRock(cx - 150, cy + 100);
-            spawnRock(cx + 150, cy + 100);
-        }
-        else {
-            for (int i = 0; i < 6; i++) {
-                double rx = enemyRng.nextDouble(100, w - 100);
-                double ry = enemyRng.nextDouble(100, h - 100);
-                if (Math.abs(rx - cx) > 100 || Math.abs(ry - cy) > 100) {
-                    spawnRock(rx, ry);
-                }
-            }
-        }
+        spawnRock(50, 50);
+        spawnRock(gameArea.getWidth() - 50, 50);
+        spawnRock(50, gameArea.getHeight() - 50);
+        spawnRock(gameArea.getWidth() - 50, gameArea.getHeight() - 50);
     }
 
     private void spawnRock(double x, double y) {
@@ -734,91 +915,74 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(r);
     }
 
-    private void spawnRockRow(double start, double end, double fixed, boolean horizontal) {
-        double step = Rock.SIZE;
-        for (double p = start; p <= end; p += step) {
-            if (horizontal) spawnRock(p, fixed);
-            else spawnRock(fixed, p);
+    private void resetPlainGameArea() {
+        if (gameArea == null || root == null) return;
+        gameArea.setScaleX(1.0); gameArea.setScaleY(1.0);
+        gameArea.setManaged(true); gameArea.setClip(null);
+
+        AnchorPane anchor = null;
+        for (var n : root.getChildren()) {
+            if (n instanceof AnchorPane ap) { anchor = ap; break; }
         }
+
+        if (anchor != null) {
+            if (!anchor.getChildren().contains(gameArea)) anchor.getChildren().add(gameArea);
+            AnchorPane.setTopAnchor(gameArea, 72.0);
+            AnchorPane.setBottomAnchor(gameArea, 0.0);
+            AnchorPane.setLeftAnchor(gameArea, 0.0);
+            AnchorPane.setRightAnchor(gameArea, 0.0);
+            if (hudBar != null) hudBar.toFront();
+        }
+        changeFloorVisuals();
     }
 
-    private void resolveObstacleCollisions(double dt) {
-        if (obstacles.isEmpty()) return;
+    private void changeFloorVisuals() {
+        if (gameArea.getParent() instanceof AnchorPane parent) {
+            gameArea.setStyle("-fx-background-color: transparent;");
 
-        if (player != null && !player.isDead()) {
-            checkAndPush(player, 16.0);
-        }
-
-        for (Enemy e : enemies) {
-            if (!e.isDead()) {
-                checkAndPush(e, e.getCollisionRadius());
+            if (backgroundView == null) {
+                backgroundView = new ImageView();
+                AnchorPane.setTopAnchor(backgroundView, 72.0);
+                AnchorPane.setBottomAnchor(backgroundView, 0.0);
+                AnchorPane.setLeftAnchor(backgroundView, 0.0);
+                AnchorPane.setRightAnchor(backgroundView, 0.0);
+                parent.getChildren().add(0, backgroundView);
             }
-        }
-    }
 
-    private void checkAndPush(GameEntity entity, double radius) {
-        double eX = entity.getBounds().getCenterX();
-        double eY = entity.getBounds().getCenterY();
+            try {
+                String bgName = switch(currentFloor) {
+                    case 1 -> "basement";
+                    case 2 -> "caves";
+                    case 3 -> "depths";
+                    case 4 -> "womb";
+                    default -> "sheol";
+                };
 
-        for (GameEntity obs : obstacles) {
-            double rx = obs.getBounds().getMinX();
-            double ry = obs.getBounds().getMinY();
-            double rw = obs.getBounds().getWidth();
-            double rh = obs.getBounds().getHeight();
+                String path = "assets/background/" + bgName + ".png";
+                Image img = AssetsManager.loadImage(path);
 
-            double closestX = clamp(eX, rx, rx + rw);
-            double closestY = clamp(eY, ry, ry + rh);
-
-            double dx = eX - closestX;
-            double dy = eY - closestY;
-
-            double distSq = dx*dx + dy*dy;
-            if (distSq < radius * radius) {
-                double dist = Math.sqrt(distSq);
-                if (dist < SEPARATION_EPS) {
-                    dx = 1.0; dy = 0.0; dist = 1.0;
+                if (img == null) {
+                    img = AssetsManager.loadImage("assets/background/basement.png");
+                    if (img == null) img = new Image(getClass().getResourceAsStream("/" + "assets/background/basement.png"));
                 }
 
-                double nx = dx / dist;
-                double ny = dy / dist;
-
-                double overlap = radius - dist;
-
-                entity.getView().setLayoutX(entity.getView().getLayoutX() + nx * overlap);
-                entity.getView().setLayoutY(entity.getView().getLayoutY() + ny * overlap);
-
-                eX += nx * overlap;
-                eY += ny * overlap;
+                backgroundView.setImage(img);
+                backgroundView.setPreserveRatio(false);
+                backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
+                backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
+            } catch (Exception e) {
+                String color = switch(currentFloor) {
+                    case 1 -> "#2b2010";
+                    case 2 -> "#202020";
+                    case 3 -> "#10102b";
+                    case 4 -> "#4a0000";
+                    default -> "#000000";
+                };
+                gameArea.setStyle("-fx-background-color: " + color + ";");
             }
+            backgroundView.toBack();
+            if (hudBar != null) hudBar.toFront();
         }
-    }
-
-    private void tryShootNow() {
-        double[] ar = input.getAimArrowCardinal();
-        if (ar[0] != 0 || ar[1] != 0) {
-            double[] mv = input.getMoveVector();
-            double fx = (1.0 - bias) * ar[0] + bias * mv[0];
-            double fy = (1.0 - bias) * ar[1] + bias * mv[1];
-            shootingService.setAim(fx, fy);
-            double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
-            double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-            shootingService.tryShoot(gameArea, gameLoop, px, py, player, p -> sound.play("shot"));
-        }
-    }
-
-    private void handleEnemyDeathRewards(Enemy en) {
-        spawnRewardCoins(en.getCenterX(), en.getCenterY(), 5);
-
-        comboCount++;
-        comboTimer = COMBO_MAX_TIME;
-        comboMultiplier = Math.min(5.0, 1.0 + (comboCount * 0.1));
-
-        EnemyProfile profile = com.layla.AppContext.balance().profile(en.getType());
-        int basePoints = (profile != null) ? profile.score : 10;
-
-        this.score += (int)(basePoints * comboMultiplier);
-
-        updateHudLabels();
     }
 
     private void spawnRewardCoins(double x, double y, int amount) {
@@ -831,44 +995,18 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(coin);
     }
 
-    private boolean handleDebugItemHotkeys(KeyCode code) {
-        if (code == null) return false;
-        ItemId itemId = switch (code) {
-            case DIGIT1 -> ItemId.SWIFT_BOOTS;
-            case DIGIT2 -> ItemId.GLASS_CANNON;
-            case DIGIT3 -> ItemId.TEARS_UP;
-            default -> null;
-        };
-        if (itemId != null) {
-            statsService.grantItem(itemId);
-            applyBalanceToRuntimePlayer();
-            return true;
-        }
-        return false;
-    }
-
     private void spawnRoomRewardPedestal() {
         if (gameLoop == null || gameArea == null) return;
-        double width = gameArea.getWidth();
-        double height = gameArea.getHeight();
-
         List<ItemDefinition> availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
-
         if (availableItems.isEmpty()) return;
-
         ItemDefinition def = availableItems.get(rewardItemCursor % availableItems.size());
         final ItemId itemId = def.getId();
         rewardItemCursor++;
-
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
-            e -> {
-                gameLoop.removeEntity(e);
-                if (itemHud != null) itemHud.refresh();
-                showItemPickupOverlay(itemId);
-            },
+            e -> { gameLoop.removeEntity(e); if (itemHud != null) itemHud.refresh(); showItemPickupOverlay(itemId); },
             k -> sound.play(k)
         );
-        pedestal.setPosition((width - pedestal.getWidth()) * 0.5, (height - pedestal.getHeight()) * 0.5);
+        pedestal.setPosition(gameArea.getWidth()/2, gameArea.getHeight()/2 - 100);
         gameLoop.addEntity(pedestal);
     }
 
@@ -907,14 +1045,12 @@ public class GameController implements ViewLifecycle {
                     coins = Math.max(0, newCoins);
                     updateHudLabels();
                 });
-
                 soc.setOnItemsChanged(() -> {
                     score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
                     if (hud != null) hud.refresh();
                     if (itemHud != null) itemHud.refresh();
                     updateHudLabels();
                 });
-
                 soc.setOnRerollRequested(c -> c.setOffers(generateShopOffers(SHOP_OFFER_COUNT)));
                 soc.setOnClose(() -> {
                     coins = soc.getCoins();
@@ -922,9 +1058,9 @@ public class GameController implements ViewLifecycle {
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
                     shopOverlay = null;
                     Platform.runLater(() -> {
-                        startNextWave();
                         if (gameLoop != null && !gameOverShown) gameLoop.start();
                         paused = false;
+                        shopCooldown = 1.5; // FIX: Cooldown para evitar re-apertura inmediata
                     });
                 });
                 soc.onShow();
@@ -937,14 +1073,10 @@ public class GameController implements ViewLifecycle {
         List<ShopOffer> offers = new ArrayList<>();
         List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
         List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
-
         List<ItemDefinition> pool = new ArrayList<>(shopItems);
         pool.addAll(treasureItems);
-
         if (pool.isEmpty()) return offers;
-
         int basePrice = Math.max(5, 10 + Math.max(0, currentWave - 1) * 2);
-
         for (int i = 0; i < count; i++) {
             ItemDefinition def = pool.get(enemyRng.nextInt(pool.size()));
             int price = Math.max(5, basePrice + enemyRng.nextInt(0, 6));
@@ -953,35 +1085,11 @@ public class GameController implements ViewLifecycle {
         return offers;
     }
 
-    private void startNextWave() {
-        if (gameOverShown || !startGateOpen) return;
-        currentWave++;
-        if (currentWave > wavesPerFloor) {
-            currentFloor++;
-            if (currentFloor > MAX_FLOORS) {
-                showVictoryOverlay();
-                return;
-            }
-            currentWave = 1;
-            changeFloorVisuals();
-
-            spawnRoomLayout();
-
-            if (currentFloor > 1) {
-                achievements.onGameEnd(false, currentFloor - 1, 0, 0, 0);
-            }
-        }
-        startWave(currentWave);
-        updateHudLabels();
-    }
-
     private void showVictoryOverlay() {
         gameOverShown = true;
         if (gameLoop != null) gameLoop.stop();
-
         db.recordRunEndAsync(AppContext.getProfileId(), true, score + (coins * 2), currentFloor);
         achievements.onGameEnd(true, currentFloor, statsService.getOwnedItems().size(), coins, player.getHealth());
-
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
                 goc.setTitle("VICTORY!");
@@ -999,154 +1107,16 @@ public class GameController implements ViewLifecycle {
         });
     }
 
-    private void changeFloorVisuals() {
-        if (gameArea.getParent() instanceof AnchorPane parent) {
-            gameArea.setStyle("-fx-background-color: transparent;");
-
-            if (backgroundView == null) {
-                backgroundView = new ImageView();
-                AnchorPane.setTopAnchor(backgroundView, 72.0);
-                AnchorPane.setBottomAnchor(backgroundView, 0.0);
-                AnchorPane.setLeftAnchor(backgroundView, 0.0);
-                AnchorPane.setRightAnchor(backgroundView, 0.0);
-                parent.getChildren().add(0, backgroundView);
-            }
-
-            if (currentFloor == 1) {
-                try {
-                    String path = "assets/background/basement.png";
-                    Image img = AssetsManager.loadImage(path);
-                    if (img == null) img = new Image(getClass().getResourceAsStream("/" + path));
-                    backgroundView.setImage(img);
-                    backgroundView.setPreserveRatio(false);
-                    backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
-                    backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
-                } catch (Exception e) {
-                    gameArea.setStyle("-fx-background-color: #111111;");
-                }
-            } else {
-                backgroundView.setImage(null);
-                String color = switch(currentFloor % 3) {
-                    case 2 -> "#2b2010";
-                    case 0 -> "#10102b";
-                    default -> "#111111";
-                };
-                gameArea.setStyle("-fx-background-color: " + color + ";");
-            }
-            backgroundView.toBack();
-            if (hudBar != null) hudBar.toFront();
-        }
-    }
-
-    private void resetPlainGameArea() {
-        if (gameArea == null || root == null) return;
-        gameArea.setScaleX(1.0); gameArea.setScaleY(1.0);
-        gameArea.setManaged(true); gameArea.setClip(null);
-
-        AnchorPane anchor = null;
-        for (var n : root.getChildren()) {
-            if (n instanceof AnchorPane ap) { anchor = ap; break; }
-        }
-
-        if (anchor != null) {
-            if (!anchor.getChildren().contains(gameArea)) anchor.getChildren().add(gameArea);
-            AnchorPane.setTopAnchor(gameArea, 72.0);
-            AnchorPane.setBottomAnchor(gameArea, 0.0);
-            AnchorPane.setLeftAnchor(gameArea, 0.0);
-            AnchorPane.setRightAnchor(gameArea, 0.0);
-            if (hudBar != null) hudBar.toFront();
-        }
-        changeFloorVisuals();
-    }
-
-    private void applyEnemySeparation(double dt) {
-        if (gameArea == null || enemies.isEmpty()) return;
-        double areaW = gameArea.getWidth();
-        double areaH = gameArea.getHeight();
-
-        if (player != null && !player.isDead()) {
-            double pCx = player.getView().getLayoutX() + player.getWidth() * 0.5;
-            double pCy = player.getView().getLayoutY() + player.getHeight() * 0.5;
-            double pRad = Math.min(player.getWidth(), player.getHeight()) * 0.4;
-
-            for (Enemy e : enemies) {
-                if (e.isDead()) continue;
-                double eCx = e.getCenterX();
-                double eCy = e.getCenterY();
-                double eRad = e.getCollisionRadius();
-
-                double dx = eCx - pCx;
-                double dy = eCy - pCy;
-                double distSq = dx*dx + dy*dy;
-                double minDst = pRad + eRad;
-
-                if (distSq < minDst * minDst) {
-                     double dist = Math.sqrt(distSq);
-                     if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
-                     double overlap = minDst - dist;
-                     double nx = dx / dist;
-                     double ny = dy / dist;
-
-                     double pushE = overlap * 0.7;
-                     double pushP = overlap * 0.3;
-
-                     e.setPosition(
-                        clamp(e.getView().getLayoutX() + nx * pushE, 0, areaW - e.getWidth()),
-                        clamp(e.getView().getLayoutY() + ny * pushE, 0, areaH - e.getHeight())
-                     );
-
-                     player.setPosition(
-                        clamp(player.getView().getLayoutX() - nx * pushP, 0, areaW - player.getWidth()),
-                        clamp(player.getView().getLayoutY() - ny * pushP, 0, areaH - player.getHeight())
-                     );
-                }
-            }
-        }
-
-        for (int i = 0; i < enemies.size(); i++) {
-            Enemy a = enemies.get(i);
-            if (a.isDead()) continue;
-            for (int j = i + 1; j < enemies.size(); j++) {
-                Enemy b = enemies.get(j);
-                if (b.isDead()) continue;
-                double dx = b.getCenterX() - a.getCenterX();
-                double dy = b.getCenterY() - a.getCenterY();
-                double distSq = dx * dx + dy * dy;
-                double radSum = a.getCollisionRadius() + b.getCollisionRadius();
-                if (distSq < radSum * radSum) {
-                    double dist = Math.sqrt(distSq);
-                    if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
-                    double overlap = radSum - dist;
-                    double push = Math.min(overlap * 0.5, MAX_SEPARATION_STEP);
-                    double nx = dx / dist;
-                    double ny = dy / dist;
-                    a.setPosition(clamp(a.getView().getLayoutX() - nx * push, 0, areaW), clamp(a.getView().getLayoutY() - ny * push, 0, areaH));
-                    b.setPosition(clamp(b.getView().getLayoutX() + nx * push, 0, areaW), clamp(b.getView().getLayoutY() + ny * push, 0, areaH));
-                }
-            }
-        }
-    }
-
-    private static double clamp(double v, double min, double max) {
-        return Math.max(min, Math.min(v, max));
-    }
-
     private void showGameOverOverlay() {
         if (gameOverShown) return;
         gameOverShown = true;
         sound.play("player_death");
         if (gameLoop != null) gameLoop.stop();
-
         db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
-
         String killer = player.getLastHitSource();
-        if (killer != null) {
-            db.incrementEnemyStatAsync(AppContext.getProfileId(), killer, DatabaseService.StatType.KILLED_BY);
-        }
-
+        if (killer != null) db.incrementEnemyStatAsync(AppContext.getProfileId(), killer, DatabaseService.StatType.KILLED_BY);
         long totalDeaths = db.getStatTotal(AppContext.getProfileId(), "TOTAL_DEATHS");
         achievements.onDeath(totalDeaths + 1);
-
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
             if (controller instanceof GameOverController goc) {
                 goc.setTitle("GAME OVER\nScore: " + score);
@@ -1168,13 +1138,12 @@ public class GameController implements ViewLifecycle {
         if (pauseOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, pauseOverlay); pauseOverlay = null; }
         if (shopOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, shopOverlay); shopOverlay = null; }
         paused = false;
-
         if (gameLoop != null) gameLoop.clearEntities();
         if (ticker != null) ticker = null;
         enemies.clear();
-        currentWave = 1;
+        currentWave = 0;
         currentFloor = 1;
-        score = 500;
+        score = 0;
         coins = Math.max(0, com.layla.AppContext.balance().startCoins);
         statsService.clearItems();
         gameOverShown = false;
@@ -1182,15 +1151,12 @@ public class GameController implements ViewLifecycle {
         tickerAdded = false;
         rewardItemCursor = 0;
         pendingSpawns = 0;
-
-        comboCount = 0;
-        comboMultiplier = 1.0;
-        comboTimer = 0.0;
-
+        timerStopped = false;
+        moneyPenaltyActive = false;
+        comboCount = 0; comboMultiplier = 1.0; comboTimer = 0.0;
         updateHudLabels();
         activeBoss = null;
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
-
         if (hud != null) {
             if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
             else gameArea.getChildren().remove(hud);
@@ -1201,14 +1167,19 @@ public class GameController implements ViewLifecycle {
             else gameArea.getChildren().remove(itemHud);
             itemHud = null;
         }
+        if (greedButton != null) { gameLoop.removeEntity(greedButton); greedButton = null; }
+        removeShopKeeper();
+
         player = null;
         maybeSpawnPlayer();
         addTickerIfNeeded();
         if (gameLoop != null) gameLoop.start();
 
         changeFloorVisuals();
-        spawnRoomLayout();
-        startWave(currentWave);
+        spawnGreedButton();
+        spawnShopKeeper();
+
+        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
     }
 
     private double[] getPlayerCenter() {
@@ -1221,12 +1192,133 @@ public class GameController implements ViewLifecycle {
         return new double[] { 0, 0 };
     }
 
+    private void tryShootNow() {
+        double[] ar = input.getAimArrowCardinal();
+        if (ar[0] != 0 || ar[1] != 0) {
+            double[] mv = input.getMoveVector();
+            double fx = (1.0 - bias) * ar[0] + bias * mv[0];
+            double fy = (1.0 - bias) * ar[1] + bias * mv[1];
+            shootingService.setAim(fx, fy);
+            double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
+            double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
+            shootingService.tryShoot(gameArea, gameLoop, px, py, player, p -> sound.play("shot"));
+        }
+    }
+
+    private void resolveObstacleCollisions(double dt) {
+        if (obstacles.isEmpty()) return;
+        if (player != null && !player.isDead()) checkAndPush(player, 16.0);
+        for (Enemy e : enemies) if (!e.isDead()) checkAndPush(e, e.getCollisionRadius());
+    }
+
+    private void checkAndPush(GameEntity entity, double radius) {
+        double eX = entity.getBounds().getCenterX();
+        double eY = entity.getBounds().getCenterY();
+        for (GameEntity obs : obstacles) {
+            double rx = obs.getBounds().getMinX();
+            double ry = obs.getBounds().getMinY();
+            double rw = obs.getBounds().getWidth();
+            double rh = obs.getBounds().getHeight();
+            double closestX = clamp(eX, rx, rx + rw);
+            double closestY = clamp(eY, ry, ry + rh);
+            double dx = eX - closestX;
+            double dy = eY - closestY;
+            double distSq = dx*dx + dy*dy;
+            if (distSq < radius * radius) {
+                double dist = Math.sqrt(distSq);
+                if (dist < SEPARATION_EPS) { dx = 1.0; dy = 0.0; dist = 1.0; }
+                double nx = dx / dist;
+                double ny = dy / dist;
+                double overlap = radius - dist;
+                entity.getView().setLayoutX(entity.getView().getLayoutX() + nx * overlap);
+                entity.getView().setLayoutY(entity.getView().getLayoutY() + ny * overlap);
+                eX += nx * overlap;
+                eY += ny * overlap;
+            }
+        }
+    }
+
+    private void applyEnemySeparation(double dt) {
+        if (gameArea == null || enemies.isEmpty()) return;
+        double areaW = gameArea.getWidth();
+        double areaH = gameArea.getHeight();
+        if (player != null && !player.isDead()) {
+            double pCx = player.getView().getLayoutX() + player.getWidth() * 0.5;
+            double pCy = player.getView().getLayoutY() + player.getHeight() * 0.5;
+            double pRad = Math.min(player.getWidth(), player.getHeight()) * 0.4;
+            for (Enemy e : enemies) {
+                if (e.isDead()) continue;
+                double eCx = e.getCenterX();
+                double eCy = e.getCenterY();
+                double eRad = e.getCollisionRadius();
+                double dx = eCx - pCx;
+                double dy = eCy - pCy;
+                double distSq = dx*dx + dy*dy;
+                double minDst = pRad + eRad;
+                if (distSq < minDst * minDst) {
+                     double dist = Math.sqrt(distSq);
+                     if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
+                     double overlap = minDst - dist;
+                     double nx = dx / dist;
+                     double ny = dy / dist;
+                     double pushE = overlap * 0.7;
+                     double pushP = overlap * 0.3;
+                     e.setPosition(clamp(e.getView().getLayoutX() + nx * pushE, 0.0, areaW - e.getWidth()), clamp(e.getView().getLayoutY() + ny * pushE, 0.0, areaH - e.getHeight()));
+                     player.setPosition(clamp(player.getView().getLayoutX() - nx * pushP, 0.0, areaW - player.getWidth()), clamp(player.getView().getLayoutY() - ny * pushP, 0.0, areaH - player.getHeight()));
+                }
+            }
+        }
+        // Enemy vs Enemy
+        for (int i = 0; i < enemies.size(); i++) {
+            Enemy a = enemies.get(i);
+            if (a.isDead()) continue;
+            for (int j = i + 1; j < enemies.size(); j++) {
+                Enemy b = enemies.get(j);
+                if (b.isDead()) continue;
+                double dx = b.getCenterX() - a.getCenterX();
+                double dy = b.getCenterY() - a.getCenterY();
+                double distSq = dx * dx + dy * dy;
+                double radSum = a.getCollisionRadius() + b.getCollisionRadius();
+                if (distSq < radSum * radSum) {
+                    double dist = Math.sqrt(distSq);
+                    if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
+                    double overlap = radSum - dist;
+                    double push = Math.min(overlap * 0.5, MAX_SEPARATION_STEP);
+                    double nx = dx / dist;
+                    double ny = dy / dist;
+                    a.setPosition(clamp(a.getView().getLayoutX() - nx * push, 0.0, areaW), clamp(a.getView().getLayoutY() - ny * push, 0.0, areaH));
+                    b.setPosition(clamp(b.getView().getLayoutX() + nx * push, 0.0, areaW), clamp(b.getView().getLayoutY() + ny * push, 0.0, areaH));
+                }
+            }
+        }
+    }
+
+    private boolean handleDebugItemHotkeys(KeyCode code) {
+        if (code == null) return false;
+        ItemId itemId = switch (code) {
+            case DIGIT1 -> ItemId.SWIFT_BOOTS;
+            case DIGIT2 -> ItemId.GLASS_CANNON;
+            case DIGIT3 -> ItemId.TEARS_UP;
+            default -> null;
+        };
+        if (itemId != null) {
+            statsService.grantItem(itemId);
+            applyBalanceToRuntimePlayer();
+            return true;
+        }
+        return false;
+    }
+
     private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
         double[] center = getPlayerCenter();
         double enemyCx = ex + ew * 0.5;
         double enemyCy = ey + eh * 0.5;
         double dx = center[0] - enemyCx;
         double dy = center[1] - enemyCy;
-        return Math.hypot(dx, dy) > 250.0;
+        return Math.hypot(dx, dy) > 200.0;
+    }
+
+    private static double clamp(double v, double min, double max) {
+        return Math.max(min, Math.min(v, max));
     }
 }

@@ -6,7 +6,11 @@
       "assets/images/homing.png",
       "assets/images/bouncing.png",
       "assets/images/piercing.png",
-      "assets/background/basement.png"
+      "assets/images/player_sheet.png",
+      "assets/images/enemy_sheet.png",
+      "assets/background/basement.png",
+      "assets/background/caves.png",
+      "assets/background/depths.png"
     ],
   "sounds": [
     "assets/sounds/game_start.wav",
