@@ -28,50 +28,79 @@ public final class Player implements GameEntity {
     private static final double TAU_REVERSE  = 0.045;
 
     // --- CONFIGURACIÓN DEL SPRITE ---
-    // Ajusta esto al tamaño de cada "cuadradito" en tu PNG
     private static final int FRAME_W = 32;
     private static final int FRAME_H = 32;
-    // Ajusta las filas según tu imagen (0 es la primera fila de arriba)
-    private static final int ROW_DOWN = 0;
-    private static final int ROW_SIDE = 1; // Derecha (se invierte para izquierda)
-    private static final int ROW_UP   = 2;
-    // Cuántos frames (dibujos) tiene cada animación
-    private static final int ANIM_FRAMES = 8; // Ejemplo: 8 pasos al caminar
-    private static final int COLUMNS_IN_SHEET = 10; // Cuantas columnas tiene tu PNG en total
+    private static final int COLUMNS_IN_SHEET = 10;
+
+    // Filas
+    private static final int ROW_HEAD = 0;
+    private static final int ROW_WALK_DOWN = 1;
+    private static final int ROW_WALK_SIDE = 2;
+    private static final int ROW_WALK_UP = 3;
+    // Pelo eliminado (ROW_HAIR)
+
+    // Frames Cabeza
+    private static final int HEAD_IDX_AIM_DOWN   = 0;
+    private static final int HEAD_IDX_SHOOT_DOWN = 1;
+    private static final int HEAD_IDX_AIM_SIDE   = 2;
+    private static final int HEAD_IDX_SHOOT_SIDE = 3;
+    private static final int HEAD_IDX_AIM_UP     = 4;
+    private static final int HEAD_IDX_SHOOT_UP   = 5;
+
+    // Pelo eliminado (HAIR_IDX_*)
+
+    // --- AJUSTES VISUALES INDEPENDIENTES ---
+    // HEAD_OFFSET_Y: Mueve la cabeza respecto al cuerpo (piernas)
+    private static final double HEAD_OFFSET_Y = -12.0;
+    // Pelo eliminado (HAIR_OFFSET_Y)
+
+    // Lógica de disparo
+    private static final double SHOOT_FACE_COOLDOWN = 0.25;
+    private double lastShootTime = 99.0;
+    private int latchedShootDir = -1;
+    private int currentShootDir = -1;
 
     // View Components
     private final StackPane viewRoot = new StackPane();
-    private final Rectangle debugBox = new Rectangle(26, 26, Color.TRANSPARENT);
-    private final ImageView spriteView = new ImageView();
+    private final Rectangle debugBox = new Rectangle(20, 20, Color.TRANSPARENT);
 
-    private final SpriteAnimator animator;
+    private final ImageView bodyView = new ImageView();
+    private final ImageView headView = new ImageView();
+    // Pelo eliminado (hairView)
+
+    private final SpriteAnimator bodyAnimator;
     private final boolean hasSprite;
 
     private final Supplier<double[]> moveSupplier;
+    private final InputService inputService;
     private final Pane boundsPane;
     private final StatsService statsService;
 
     private double vx;
     private double vy;
 
-    // Dirección visual actual (0=Abajo, 1=Derecha, 2=Arriba, 3=Izquierda)
-    private int facingDir = 0;
+    private int moveDir = 0; // 0=Abajo, 1=Derecha, 2=Arriba, 3=Izquierda
+
+    private boolean isShootingFrame = false;
+    private double shootFrameTimer = 0.0;
 
     private double health = 6.0;
     private double maxHealth = 6.0;
     private boolean dead = false;
 
     private double invulnTimer = 0.0;
-    private static final double INVULN_DURATION = 0.6;
+    private static final double INVULN_DURATION = 1.0;
 
     private final Consumer<String> playSfx;
     private String lastHitSource = null;
 
-    public Player(Supplier<double[]> moveSupplier,
-                  Pane boundsPane,
-                  StatsService statsService,
-                  Consumer<String> playSfx) {
-        this.moveSupplier = Objects.requireNonNull(moveSupplier, "moveSupplier");
+    public Player(InputService input, Pane boundsPane, StatsService statsService) {
+        this(input, boundsPane, statsService, null);
+    }
+
+    private Player(InputService input, Pane boundsPane, StatsService statsService, Consumer<String> playSfx) {
+        this.inputService = Objects.requireNonNull(input, "input");
+        this.moveSupplier = input::getMoveVector;
         this.boundsPane   = Objects.requireNonNull(boundsPane, "boundsPane");
         this.statsService = (statsService != null) ? statsService : com.layla.AppContext.stats();
         this.playSfx      = (playSfx != null ? playSfx : k -> {});
@@ -84,35 +113,43 @@ public final class Player implements GameEntity {
         if (sheet == null) {
             hasSprite = false;
             debugBox.setFill(Color.CYAN);
-            // Animador dummy
-            animator = new SpriteAnimator(1, 1, 1, 1, 1);
+            bodyAnimator = new SpriteAnimator(1, 1, 1, 1, 1);
         } else {
             hasSprite = true;
-            spriteView.setImage(sheet);
-            spriteView.setFitWidth(40);
-            spriteView.setFitHeight(40);
-            // IMPORTANTE: Desactivar suavizado para pixel art nítido
-            spriteView.setSmooth(false);
+
+            setupImageView(bodyView, sheet);
+            setupImageView(headView, sheet);
+            // Pelo eliminado (setupImageView hairView)
 
             debugBox.setFill(Color.TRANSPARENT);
-            debugBox.setStroke(Color.TRANSPARENT); // Ocultar hitbox si hay sprite
+            debugBox.setStroke(Color.TRANSPARENT);
 
-            // Inicializar animador
-            animator = new SpriteAnimator(FRAME_W, FRAME_H, ANIM_FRAMES, 12, COLUMNS_IN_SHEET);
+            bodyAnimator = new SpriteAnimator(FRAME_W, FRAME_H, 8, 12, COLUMNS_IN_SHEET);
 
-            // Forzar el primer recorte inmediatamente para que no salga la hoja entera
-            spriteView.setViewport(new Rectangle2D(0, 0, FRAME_W, FRAME_H));
+            Rectangle2D initialRect = new Rectangle2D(0, 0, FRAME_W, FRAME_H);
+            bodyView.setViewport(initialRect);
+            headView.setViewport(initialRect);
+            // Pelo eliminado (hairView.setViewport)
+
+            // --- APLICAR OFFSETS ---
+            headView.setTranslateY(HEAD_OFFSET_Y);
+            // Pelo eliminado (hairView.setTranslateY)
         }
 
-        viewRoot.getChildren().addAll(debugBox, spriteView);
-        viewRoot.setLayoutX(100);
-        viewRoot.setLayoutY(100);
+        // Pelo eliminado de los hijos (hairView)
+        viewRoot.getChildren().addAll(debugBox, bodyView, headView);
+        viewRoot.setLayoutX(200);
+        viewRoot.setLayoutY(200);
 
         boundsPane.getChildren().add(viewRoot);
     }
 
-    public Player(InputService input, Pane boundsPane, StatsService statsService) {
-        this(Objects.requireNonNull(input, "input")::getMoveVector, boundsPane, statsService, null);
+    private void setupImageView(ImageView v, Image img) {
+        v.setImage(img);
+        v.setFitWidth(48);
+        v.setFitHeight(48);
+        v.setSmooth(false);
+        v.setPreserveRatio(true);
     }
 
     public void setLastHitSource(String source) { this.lastHitSource = source; }
@@ -123,7 +160,7 @@ public final class Player implements GameEntity {
         if (dt <= 0 || dead) return;
 
         if (invulnTimer > 0.0) invulnTimer = Math.max(0.0, invulnTimer - dt);
-        viewRoot.setOpacity(invulnTimer > 0 && (invulnTimer % 0.1 > 0.05) ? 0.4 : 1.0);
+        viewRoot.setOpacity(invulnTimer > 0 && (invulnTimer % 0.15 > 0.07) ? 0.4 : 1.0);
 
         syncMaxHealthFromStats();
         handleMovement(dt);
@@ -133,6 +170,7 @@ public final class Player implements GameEntity {
     private void handleMovement(double dt) {
         double[] mv = moveSupplier.get();
         double maxSpeed = statsService.getStat(PlayerStatId.MOVE_SPEED);
+
         double targetVx = mv[0] * maxSpeed;
         double targetVy = mv[1] * maxSpeed;
 
@@ -156,10 +194,9 @@ public final class Player implements GameEntity {
 
         double maxX = Math.max(0.0, boundsPane.getWidth()  - getWidth());
         double maxY = Math.max(0.0, boundsPane.getHeight() - getHeight());
-        if (nextX < 0.0)        { nextX = 0.0; vx = 0.0; }
-        else if (nextX > maxX)  { nextX = maxX; vx = 0.0; }
-        if (nextY < 0.0)        { nextY = 0.0; vy = 0.0; }
-        else if (nextY > maxY)  { nextY = maxY; vy = 0.0; }
+
+        if (nextX < 0.0) nextX = 0.0; else if (nextX > maxX) nextX = maxX;
+        if (nextY < 0.0) nextY = 0.0; else if (nextY > maxY) nextY = maxY;
 
         viewRoot.setLayoutX(nextX);
         viewRoot.setLayoutY(nextY);
@@ -168,40 +205,90 @@ public final class Player implements GameEntity {
     private void updateAnimation(double dt) {
         if (!hasSprite) return;
 
-        boolean moving = Math.abs(vx) > 10.0 || Math.abs(vy) > 10.0;
+        double[] aim = inputService.getAimArrowCardinal();
+        boolean isShootingInput = (aim[0] != 0 || aim[1] != 0);
 
-        // Determinar dirección principal
-        if (Math.abs(vx) > Math.abs(vy)) {
-            if (Math.abs(vx) > 1.0) facingDir = (vx > 0) ? 1 : 3; // 1=Der, 3=Izq
+        int newShootDir = -1;
+        if (isShootingInput) {
+            if (Math.abs(aim[0]) > Math.abs(aim[1])) {
+                newShootDir = (aim[0] > 0) ? 1 : 3;
+            } else {
+                newShootDir = (aim[1] > 0) ? 0 : 2;
+            }
+        }
+
+        if (isShootingInput) {
+            lastShootTime = 0.0;
+            latchedShootDir = newShootDir;
+
+            if (newShootDir != currentShootDir) {
+                currentShootDir = newShootDir;
+                isShootingFrame = true;
+                shootFrameTimer = 0.15;
+            } else {
+                shootFrameTimer -= dt;
+                if (shootFrameTimer <= 0) {
+                    isShootingFrame = !isShootingFrame;
+                    shootFrameTimer = 0.15;
+                }
+            }
         } else {
-            if (Math.abs(vy) > 1.0) facingDir = (vy > 0) ? 0 : 2; // 0=Abajo, 2=Arriba
+            currentShootDir = -1;
+            lastShootTime += dt;
+            isShootingFrame = false;
+            shootFrameTimer = 0.0;
         }
 
-        int targetRow = ROW_DOWN;
-        boolean flip = false;
+        boolean showShootFace = (lastShootTime < SHOOT_FACE_COOLDOWN);
 
-        switch (facingDir) {
-            case 0: targetRow = ROW_DOWN; break;
-            case 2: targetRow = ROW_UP; break;
-            case 1: targetRow = ROW_SIDE; flip = false; break;
-            case 3: targetRow = ROW_SIDE; flip = true; break; // Reusamos el sprite de lado invirtiéndolo
-        }
-
-        // Si se mueve, usa animación completa (8 frames), si no, solo el primer frame (quieto)
-        // Ajusta ANIM_FRAMES según tu hoja de sprites
+        boolean moving = Math.abs(vx) > 5.0 || Math.abs(vy) > 5.0;
         if (moving) {
-            animator.setAnimationConfig(targetRow, 0, ANIM_FRAMES, true);
-        } else {
-            // Quieto: Usamos la misma fila pero solo el primer frame (columna 0)
-            animator.setAnimationConfig(targetRow, 0, 1, true);
+            if (Math.abs(vx) > Math.abs(vy)) moveDir = (vx > 0) ? 1 : 3;
+            else moveDir = (vy > 0) ? 0 : 2;
         }
 
-        // Voltear sprite horizontalmente si mira a la izquierda
-        spriteView.setScaleX(flip ? -1 : 1);
+        int headDir = showShootFace ? latchedShootDir : moveDir;
+        if (headDir == -1) headDir = moveDir;
 
-        animator.update(dt);
-        Rectangle2D viewport = animator.getCurrentViewport();
-        spriteView.setViewport(viewport);
+        // --- ANIMAR CUERPO ---
+        int bodyRowTarget = ROW_WALK_DOWN;
+        int bodyFrames = 8;
+        boolean bodyFlip = false;
+
+        switch (moveDir) {
+            case 0: bodyRowTarget = ROW_WALK_DOWN; bodyFrames = 8; break;
+            case 2: bodyRowTarget = ROW_WALK_UP;   bodyFrames = 2; break;
+            case 1: bodyRowTarget = ROW_WALK_SIDE; bodyFrames = 8; bodyFlip = false; break;
+            case 3: bodyRowTarget = ROW_WALK_SIDE; bodyFrames = 8; bodyFlip = true;  break;
+        }
+
+        if (moving) {
+            bodyAnimator.setAnimationConfig(bodyRowTarget, 0, bodyFrames, true);
+            bodyAnimator.update(dt);
+        } else {
+            bodyAnimator.setAnimationConfig(bodyRowTarget, 0, 1, true);
+        }
+
+        bodyView.setScaleX(bodyFlip ? -1 : 1);
+        bodyView.setViewport(bodyAnimator.getCurrentViewport());
+
+        // --- ANIMAR CABEZA ---
+        int headFrameIdx = HEAD_IDX_AIM_DOWN;
+        boolean headFlip = false;
+
+        boolean useShootFrame = isShootingInput && isShootingFrame;
+
+        switch (headDir) {
+            case 0: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_DOWN : HEAD_IDX_AIM_DOWN; break;
+            case 2: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_UP   : HEAD_IDX_AIM_UP;   break;
+            case 1: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_SIDE : HEAD_IDX_AIM_SIDE; headFlip = false; break;
+            case 3: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_SIDE : HEAD_IDX_AIM_SIDE; headFlip = true;  break;
+        }
+
+        headView.setScaleX(headFlip ? -1 : 1);
+        headView.setViewport(new Rectangle2D(headFrameIdx * FRAME_W, ROW_HEAD * FRAME_H, FRAME_W, FRAME_H));
+
+        // Pelo eliminado (lógica de animación de pelo)
     }
 
     private static double pickTau(double v, double tv) {
@@ -210,19 +297,16 @@ public final class Player implements GameEntity {
         return TAU_ACCEL;
     }
 
-    @Override
-    public Node getView() { return viewRoot; }
-
-    @Override
-    public Bounds getBounds() { return viewRoot.getBoundsInParent(); }
+    @Override public Node getView() { return viewRoot; }
+    @Override public Bounds getBounds() { return viewRoot.getBoundsInParent(); }
 
     public void setPosition(double x, double y) {
         viewRoot.setLayoutX(x);
         viewRoot.setLayoutY(y);
     }
 
-    public double getWidth()  { return 26; }
-    public double getHeight() { return 26; }
+    public double getWidth()  { return 20; }
+    public double getHeight() { return 20; }
 
     public double getHealth() { return health; }
     public double getMaxHealth() { return maxHealth; }
@@ -240,7 +324,6 @@ public final class Player implements GameEntity {
     public void setMaxHealth(double maxHealth) {
         this.maxHealth = Math.max(0.0, maxHealth);
         if (health > this.maxHealth) health = this.maxHealth;
-        if (health <= 0.0 && !dead) die();
     }
 
     public void takeDamage(double amount) {
@@ -252,7 +335,7 @@ public final class Player implements GameEntity {
             die();
         } else {
             invulnTimer = INVULN_DURATION;
-            playSfx.accept("hurt");
+            if (playSfx != null) playSfx.accept("hurt");
         }
     }
 
@@ -260,7 +343,7 @@ public final class Player implements GameEntity {
         if (dead) return;
         dead = true;
         health = 0.0;
-        playSfx.accept("dead");
+        if (playSfx != null) playSfx.accept("dead");
         viewRoot.setOpacity(0.5);
         viewRoot.setRotate(90);
     }
