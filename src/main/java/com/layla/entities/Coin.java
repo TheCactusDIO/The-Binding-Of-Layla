@@ -4,121 +4,76 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.layla.core.GameEntity;
-import com.layla.model.PlayerStatId;
 import com.layla.services.StatsService;
 
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.StrokeType;
 
-public final class Coin implements GameEntity {
+public class Coin implements GameEntity {
 
-    private static final double RADIUS = 6.0;
-    private static final double BOB_SPEED = 4.0;
-    private static final double BOB_AMPLITUDE = 2.0;
-    private static final double MAGNET_SPEED_BASE = 300.0;
-    private static final double MAGNET_ACCEL = 800.0;
-
-    private final int value;
-    private final Circle view;
+    private final Pane parent;
+    private final StatsService statsService;
     private final Player player;
-    private final StatsService stats;
-    private final Consumer<Coin> onCollect;
+    private final Consumer<Coin> onPickup;
 
-    private double timeAlive = 0.0;
-    private double currentMagnetSpeed = 0.0;
-    private boolean isMagnetized = false;
-    private boolean collected = false;
+    private final Circle view;
+    private final int value;
 
-    public Coin(double x, double y, int value,
-                Pane parent,
-                StatsService stats,
-                Player player,
-                Consumer<Coin> onCollect) {
+    // Animación simple de rebote o flotación
+    private double floatTimer = 0.0;
+    private double baseY;
 
-        this.value = value;
-        this.stats = Objects.requireNonNull(stats);
+    public Coin(double x, double y, int value, Pane parent,
+                StatsService statsService, Player player, Consumer<Coin> onPickup) {
+        this.parent = Objects.requireNonNull(parent);
+        this.statsService = statsService;
         this.player = player;
-        this.onCollect = Objects.requireNonNull(onCollect);
+        this.onPickup = Objects.requireNonNull(onPickup);
+        this.value = value;
+        this.baseY = y;
 
-        this.view = new Circle(RADIUS, Color.GOLD);
-        this.view.setStroke(Color.ORANGE);
-        this.view.setStrokeWidth(1.5);
-        this.view.setStrokeType(StrokeType.INSIDE);
+        view = new Circle(6, Color.GOLD);
+        view.setStroke(Color.ORANGE);
+        view.setStrokeWidth(1.5);
+        view.setLayoutX(x);
+        view.setLayoutY(y);
 
-        this.view.setLayoutX(x);
-        this.view.setLayoutY(y);
-        this.view.setEffect(new javafx.scene.effect.DropShadow(4.0, Color.color(0,0,0,0.4)));
+        // Efecto visual simple: Texto "$" o similar si quieres
+        // Por ahora solo círculo dorado
 
-        parent.getChildren().add(this.view);
-    }
-
-    public int getValue() {
-        return value;
+        parent.getChildren().add(view);
     }
 
     @Override
     public void update(double dt) {
-        if (collected || player == null || player.isDead()) return;
+        // Animación de flotar
+        floatTimer += dt * 5.0;
+        view.setLayoutY(baseY + Math.sin(floatTimer) * 3.0);
 
-        timeAlive += dt;
-
-        if (!isMagnetized) {
-            double bobOffset = Math.sin(timeAlive * BOB_SPEED) * BOB_AMPLITUDE;
-            view.setTranslateY(bobOffset);
-        } else {
-            view.setTranslateY(0);
+        // Detección de recogida
+        if (player != null && !player.isDead()) {
+            if (view.getBoundsInParent().intersects(player.getBounds())) {
+                onPickup.accept(this);
+                // Efecto visual de recogida podría ir aquí (destruir entidad lo hace el callback)
+                parent.getChildren().remove(view);
+            }
         }
-
-        double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
-        double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-        double cx = view.getLayoutX();
-        double cy = view.getLayoutY();
-
-        double dx = px - cx;
-        double dy = py - cy;
-        double distSq = dx*dx + dy*dy;
-
-        double pickupRange = stats.getStat(PlayerStatId.PICKUP_RANGE);
-        double pickupSq = pickupRange * pickupRange;
-
-        if (distSq < pickupSq) {
-            isMagnetized = true;
-        }
-
-        if (isMagnetized) {
-            double dist = Math.sqrt(distSq);
-            if (dist < 1.0) dist = 1.0;
-
-            double dirX = dx / dist;
-            double dirY = dy / dist;
-
-            currentMagnetSpeed += MAGNET_ACCEL * dt;
-            double moveDist = Math.max(MAGNET_SPEED_BASE, currentMagnetSpeed) * dt;
-
-            view.setLayoutX(cx + dirX * moveDist);
-            view.setLayoutY(cy + dirY * moveDist);
-        }
-    }
-
-    @Override
-    public void onCollision(GameEntity other) {
-        if (collected) return;
-        if (other instanceof Player) {
-            collect();
-        }
-    }
-
-    private void collect() {
-        if (collected) return;
-        collected = true;
-        onCollect.accept(this);
     }
 
     @Override
     public Node getView() {
         return view;
+    }
+
+    @Override
+    public Bounds getBounds() {
+        return view.getBoundsInParent();
+    }
+
+    public int getValue() {
+        return value;
     }
 }
