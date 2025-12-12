@@ -368,51 +368,57 @@ public class GameController implements ViewLifecycle {
         pendingSpawns = 0;
 
         changeFloorVisuals();
-        startWave(currentWave);
+        spawnGreedButton(); // Intentar spawnear botón
+        spawnShopKeeper();
 
         updateHudLabels();
         maybeSpawnPlayer();
         addTickerIfNeeded();
         startFloorMusicIfNeeded();
 
-        AppContext.notifications().showNotification("GREED MODE", "Survive!", 4.0);
+        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
     }
 
     private void spawnGreedButton() {
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
         }
-        double cx = gameArea.getWidth() / 2.0;
-        double cy = gameArea.getHeight() / 2.0;
+
+        // CORRECCIÓN BOTÓN: Usar valores por defecto si el área aún no tiene tamaño
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+        if (w <= 0) w = 1200; // Ancho seguro por defecto
+        if (h <= 0) h = 800;  // Alto seguro por defecto
+
+        double cx = w / 2.0;
+        double cy = h / 2.0;
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
             if (!waveInProgress) {
-                // START: Si no hay oleada, empieza la acción.
+                // START
                 if (currentWave < wavesPerFloor) {
                     btn.setActiveState(true);
                     startNextWave();
                 }
             } else {
-                // STOP: Si hay oleada, solo para si pagas el precio
+                // STOP
                 if (!timerStopped && nextWaveTimer > 0) {
-                    player.takeDamage(1.0); // 1 corazón de daño
+                    player.takeDamage(1.0);
                     sound.play("hurt");
 
-                    coins = Math.max(0, coins - 5); // Pierdes 5 monedas
+                    coins = Math.max(0, coins - 5);
                     updateHudLabels();
 
                     timerStopped = true;
-                    btn.setActiveState(false); // Botón sube
+                    btn.setActiveState(false);
 
                     AppContext.notifications().showNotification("PAUSED!", "-1 HP, -5 Coins", 2.0);
                 } else if (!timerStopped) {
-                    // Si ya es 0, solo daño por pinchos
                      player.takeDamage(0.5);
                      sound.play("hurt");
                 }
             }
         });
-        // Inicialmente levantado
         greedButton.setActiveState(false);
         gameLoop.addEntity(greedButton);
     }
@@ -440,10 +446,7 @@ public class GameController implements ViewLifecycle {
         timerStopped = false;
         moneyPenaltyActive = false;
 
-        // El botón se queda pulsado visualmente si no lo estaba ya
         if (greedButton != null) greedButton.setActiveState(true);
-
-        // Quitar la tienda si está activa
         removeShopKeeper();
 
         nextWaveTimer = 10.0 + (wave * 2.0);
@@ -462,7 +465,6 @@ public class GameController implements ViewLifecycle {
     private void updateGreedLogic(double dt) {
         if (activeBoss != null) return;
 
-        // Si no hay oleada en curso (Zona segura pre-boss o inicial)
         if (!waveInProgress) {
             if (shopKeeperEntity == null && enemies.isEmpty() && pendingSpawns == 0) {
                 spawnShopKeeper();
@@ -475,20 +477,13 @@ public class GameController implements ViewLifecycle {
             nextWaveTimer -= dt;
         }
 
-        // Spawn periódico
         timeUntilNextSpawn -= dt;
-        if (timeUntilNextSpawn <= 0.0) {
-             // Solo spawn adicional si faltan bichos por salir
-             // Opcional en Greed Mode puro, pero aquí lo dejamos simple
-        }
+        if (timeUntilNextSpawn <= 0.0) { }
 
         boolean timeUp = nextWaveTimer <= 0.0;
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
         if (allDead) {
-            // OLEADA LIMPIA
-
-            // Si limpiamos antes de tiempo, recompensa fija
             if (nextWaveTimer > 0 && !moneyPenaltyActive) {
                 spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), 1);
                 AppContext.notifications().showNotification("QUICK CLEAR!", "+1 Coin", 2.0);
@@ -496,23 +491,18 @@ public class GameController implements ViewLifecycle {
 
             nextWaveTimer = 0;
 
-            // Lógica de encadenamiento:
-            // Si la siguiente es una oleada normal o el boss, iniciamos automáticamente
             if (currentWave < wavesPerFloor) {
                 startNextWave();
             } else {
-                // Si hemos terminado todo lo del piso
                 waveInProgress = false;
                 if (greedButton != null) greedButton.setActiveState(false);
             }
         }
         else if (timeUp && !timerStopped) {
-            // TIEMPO AGOTADO -> STACKING (No Boss)
             if (currentWave < wavesPerFloor) {
-                // Si llegamos a la última (Boss), no spawnea boss por tiempo, solo esperas.
                 if (currentWave < wavesPerFloor - 1) {
                     currentWave++;
-                    spawnWaveEnemiesForCurrentWave(); // Stacking enemies without full reset
+                    spawnWaveEnemiesForCurrentWave();
                     nextWaveTimer = 10.0 + (currentWave * 2.0);
                     AppContext.notifications().showNotification("OVERWHELMED!", "Waves are stacking!", 2.0);
                 }
@@ -545,13 +535,14 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
-    // --- TIENDA ---
-
     private void spawnShopKeeper() {
         if (shopKeeperEntity != null || gameArea == null) return;
 
-        double cx = gameArea.getWidth() / 2.0;
-        double cy = gameArea.getHeight() / 2.0;
+        // Coordenadas seguras para la tienda si el área no está lista
+        double w = gameArea.getWidth(); if (w <= 0) w = 1200;
+        double h = gameArea.getHeight(); if (h <= 0) h = 800;
+        double cx = w / 2.0;
+        double cy = h / 2.0;
 
         shopKeeperEntity = new GameEntity() {
             StackPane view;
@@ -589,8 +580,8 @@ public class GameController implements ViewLifecycle {
 
     private void spawnWaveEnemies(int count) {
         if (gameArea == null || player == null) return;
-        double w = gameArea.getWidth();
-        double h = gameArea.getHeight();
+        double w = gameArea.getWidth(); if (w<=0) w=1200;
+        double h = gameArea.getHeight(); if (h<=0) h=800;
 
         for (int i = 0; i < count; i++) {
             double x = 0, y = 0;
@@ -714,7 +705,6 @@ public class GameController implements ViewLifecycle {
         spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
         updateHudLabels();
 
-        // Fin de la fase de combate del piso
         waveInProgress = false;
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
@@ -741,12 +731,18 @@ public class GameController implements ViewLifecycle {
     private void maybeSpawnPlayer() {
         if (!startGateOpen) return;
         if (player != null || input == null || gameLoop == null) return;
-        if (gameArea.getWidth() <= 0) return;
+        // CORRECCIÓN: Check más flexible para spawnear aunque el layout no esté perfecto
+        if (gameArea.getWidth() <= 0 && gameArea.getPrefWidth() <= 0) return;
 
         player = new Player(input, gameArea, statsService);
         applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
-        player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 - 10);
+
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1200;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 800;
+
+        // Spawnear más abajo para no pisar el botón
+        player.setPosition(w/2 - 10, h/2 + 100);
 
         lastPlayerHealth = player.getHealth();
 
@@ -878,6 +874,7 @@ public class GameController implements ViewLifecycle {
 
         int pattern = enemyRng.nextInt(4);
         double w = gameArea.getWidth(); double h = gameArea.getHeight();
+        if (w<=0) w=1200; if(h<=0) h=800;
         double cx = w/2; double cy = h/2;
 
         if (pattern == 1) {
@@ -994,14 +991,14 @@ public class GameController implements ViewLifecycle {
         final ItemId itemId = def.getId();
         rewardItemCursor++;
 
-        double cx = gameArea.getWidth() / 2.0;
-        double cy = gameArea.getHeight() / 2.0;
+        double w = gameArea.getWidth(); if (w<=0) w=1200;
+        double h = gameArea.getHeight(); if (h<=0) h=800;
 
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
             e -> { gameLoop.removeEntity(e); if (itemHud != null) itemHud.refresh(); showItemPickupOverlay(itemId); },
             k -> sound.play(k)
         );
-        pedestal.setPosition(cx, cy + 80); // Un poco abajo del centro
+        pedestal.setPosition(w/2, h/2 + 80);
         gameLoop.addEntity(pedestal);
     }
 
@@ -1193,18 +1190,13 @@ public class GameController implements ViewLifecycle {
             double fy = (1.0 - bias) * ar[1] + bias * mv[1];
             shootingService.setAim(fx, fy);
 
-            // CENTRO VISUAL DEL SPRITE (48x48)
-            // La hitbox es 20x20. Calculamos el centro de la hitbox.
-            double centerX = player.getView().getLayoutX() + player.getWidth() / 2.0;
-            double centerY = player.getView().getLayoutY() + player.getHeight() / 2.0;
+            // CORRECCIÓN DISPARO: Ajuste para sprite 48x48
+            double centerX = player.getView().getLayoutX() + 24.0; // Centro visual (48/2)
+            double centerY = player.getView().getLayoutY() + 24.0;
 
-            // AJUSTES DE POSICIÓN DE DISPARO
-            // Corrección basada en feedback visual del usuario
-            // Eje X: +20
-            // Eje Y: +10
-
-            double spawnX = centerX + 20.0;
-            double spawnY = centerY + 10.0;
+            // Offset desde el centro visual hacia la "cabeza/boca"
+            double spawnX = centerX + 2.0;
+            double spawnY = centerY - 8.0;
 
             shootingService.tryShoot(gameArea, gameLoop, spawnX, spawnY, player, p -> sound.play("shot"));
         }

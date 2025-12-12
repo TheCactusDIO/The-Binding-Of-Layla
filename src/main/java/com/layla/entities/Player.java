@@ -37,7 +37,6 @@ public final class Player implements GameEntity {
     private static final int ROW_WALK_DOWN = 1;
     private static final int ROW_WALK_SIDE = 2;
     private static final int ROW_WALK_UP = 3;
-    // Pelo eliminado (ROW_HAIR)
 
     // Frames Cabeza
     private static final int HEAD_IDX_AIM_DOWN   = 0;
@@ -47,12 +46,8 @@ public final class Player implements GameEntity {
     private static final int HEAD_IDX_AIM_UP     = 4;
     private static final int HEAD_IDX_SHOOT_UP   = 5;
 
-    // Pelo eliminado (HAIR_IDX_*)
-
-    // --- AJUSTES VISUALES INDEPENDIENTES ---
-    // HEAD_OFFSET_Y: Mueve la cabeza respecto al cuerpo (piernas)
+    // Offset vertical para la cabeza
     private static final double HEAD_OFFSET_Y = -12.0;
-    // Pelo eliminado (HAIR_OFFSET_Y)
 
     // Lógica de disparo
     private static final double SHOOT_FACE_COOLDOWN = 0.25;
@@ -62,11 +57,10 @@ public final class Player implements GameEntity {
 
     // View Components
     private final StackPane viewRoot = new StackPane();
-    private final Rectangle debugBox = new Rectangle(20, 20, Color.TRANSPARENT);
+    private final Rectangle debugBox = new Rectangle(30, 30, Color.TRANSPARENT);
 
     private final ImageView bodyView = new ImageView();
     private final ImageView headView = new ImageView();
-    // Pelo eliminado (hairView)
 
     private final SpriteAnimator bodyAnimator;
     private final boolean hasSprite;
@@ -79,7 +73,7 @@ public final class Player implements GameEntity {
     private double vx;
     private double vy;
 
-    private int moveDir = 0; // 0=Abajo, 1=Derecha, 2=Arriba, 3=Izquierda
+    private int moveDir = 0;
 
     private boolean isShootingFrame = false;
     private double shootFrameTimer = 0.0;
@@ -108,6 +102,7 @@ public final class Player implements GameEntity {
 
         debugBox.setStroke(Color.BLACK);
         debugBox.setStrokeWidth(1);
+        debugBox.setFill(Color.TRANSPARENT);
 
         Image sheet = AssetsManager.loadImage("assets/images/player_sheet.png");
         if (sheet == null) {
@@ -116,27 +111,22 @@ public final class Player implements GameEntity {
             bodyAnimator = new SpriteAnimator(1, 1, 1, 1, 1);
         } else {
             hasSprite = true;
+            debugBox.setStroke(Color.TRANSPARENT);
 
+            // Configurar vistas
             setupImageView(bodyView, sheet);
             setupImageView(headView, sheet);
-            // Pelo eliminado (setupImageView hairView)
 
-            debugBox.setFill(Color.TRANSPARENT);
-            debugBox.setStroke(Color.TRANSPARENT);
+            // Ajuste de posición de la cabeza (Visual)
+            headView.setTranslateY(HEAD_OFFSET_Y);
 
             bodyAnimator = new SpriteAnimator(FRAME_W, FRAME_H, 8, 12, COLUMNS_IN_SHEET);
 
             Rectangle2D initialRect = new Rectangle2D(0, 0, FRAME_W, FRAME_H);
             bodyView.setViewport(initialRect);
             headView.setViewport(initialRect);
-            // Pelo eliminado (hairView.setViewport)
-
-            // --- APLICAR OFFSETS ---
-            headView.setTranslateY(HEAD_OFFSET_Y);
-            // Pelo eliminado (hairView.setTranslateY)
         }
 
-        // Pelo eliminado de los hijos (hairView)
         viewRoot.getChildren().addAll(debugBox, bodyView, headView);
         viewRoot.setLayoutX(200);
         viewRoot.setLayoutY(200);
@@ -287,8 +277,6 @@ public final class Player implements GameEntity {
 
         headView.setScaleX(headFlip ? -1 : 1);
         headView.setViewport(new Rectangle2D(headFrameIdx * FRAME_W, ROW_HEAD * FRAME_H, FRAME_W, FRAME_H));
-
-        // Pelo eliminado (lógica de animación de pelo)
     }
 
     private static double pickTau(double v, double tv) {
@@ -305,8 +293,8 @@ public final class Player implements GameEntity {
         viewRoot.setLayoutY(y);
     }
 
-    public double getWidth()  { return 20; }
-    public double getHeight() { return 20; }
+    public double getWidth()  { return viewRoot.getWidth(); }
+    public double getHeight() { return viewRoot.getHeight(); }
 
     public double getHealth() { return health; }
     public double getMaxHealth() { return maxHealth; }
