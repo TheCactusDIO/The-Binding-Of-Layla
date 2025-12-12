@@ -80,14 +80,14 @@ public class GameController implements ViewLifecycle {
     private double shopCooldown = 0.0; // Cooldown para evitar re-entrada inmediata
 
     private boolean musicStarted = false;
-    private int score = 0;
+    private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
     private int wavesPerFloor = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
-    private int currentWave = 0;
+    private int currentWave = 1;
 
     private double nextWaveTimer = 0.0;
     private int pendingSpawns = 0;
@@ -363,21 +363,19 @@ public class GameController implements ViewLifecycle {
         gameStarted = true;
 
         currentFloor = 1;
-        currentWave = 0;
+        currentWave = 1;
         enemies.clear();
         pendingSpawns = 0;
 
         changeFloorVisuals();
-
-        spawnGreedButton();
-        spawnShopKeeper();
+        startWave(currentWave);
 
         updateHudLabels();
         maybeSpawnPlayer();
         addTickerIfNeeded();
         startFloorMusicIfNeeded();
 
-        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
+        AppContext.notifications().showNotification("GREED MODE", "Survive!", 4.0);
     }
 
     private void spawnGreedButton() {
@@ -448,10 +446,10 @@ public class GameController implements ViewLifecycle {
         // Quitar la tienda si está activa
         removeShopKeeper();
 
-        nextWaveTimer = 15.0 + (wave * 2.0);
+        nextWaveTimer = 10.0 + (wave * 2.0);
 
         double difficulty = currentFloor * 1.5 + wave * 0.5;
-        int enemyCount = (int)((3 + (difficulty * 1.2)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
+        int enemyCount = (int)((4 + (difficulty * 1.3)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
 
         spawnWaveEnemies(Math.max(1, enemyCount));
 
@@ -476,7 +474,13 @@ public class GameController implements ViewLifecycle {
         if (!timerStopped) {
             nextWaveTimer -= dt;
         }
+
+        // Spawn periódico
         timeUntilNextSpawn -= dt;
+        if (timeUntilNextSpawn <= 0.0) {
+             // Solo spawn adicional si faltan bichos por salir
+             // Opcional en Greed Mode puro, pero aquí lo dejamos simple
+        }
 
         boolean timeUp = nextWaveTimer <= 0.0;
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
@@ -497,7 +501,7 @@ public class GameController implements ViewLifecycle {
             if (currentWave < wavesPerFloor) {
                 startNextWave();
             } else {
-                // Si hemos terminado todo lo del piso (estado raro porque el boss lo maneja handleBossDeath)
+                // Si hemos terminado todo lo del piso
                 waveInProgress = false;
                 if (greedButton != null) greedButton.setActiveState(false);
             }
@@ -509,7 +513,7 @@ public class GameController implements ViewLifecycle {
                 if (currentWave < wavesPerFloor - 1) {
                     currentWave++;
                     spawnWaveEnemiesForCurrentWave(); // Stacking enemies without full reset
-                    nextWaveTimer = 15.0 + (currentWave * 2.0);
+                    nextWaveTimer = 10.0 + (currentWave * 2.0);
                     AppContext.notifications().showNotification("OVERWHELMED!", "Waves are stacking!", 2.0);
                 }
             }
@@ -518,20 +522,27 @@ public class GameController implements ViewLifecycle {
 
     private void spawnWaveEnemiesForCurrentWave() {
         double difficulty = currentFloor * 1.5 + currentWave * 0.5;
-        int enemyCount = (int)((3 + (difficulty * 1.2)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
+        int enemyCount = (int)((4 + (difficulty * 1.3)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
         spawnWaveEnemies(Math.max(1, enemyCount));
         updateHudLabels();
     }
 
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
-
         currentWave++;
-        if (currentWave >= wavesPerFloor) {
-            spawnBoss();
-        } else {
-            startWave(currentWave);
+        if (currentWave > wavesPerFloor) {
+            currentFloor++;
+            if (currentFloor > MAX_FLOORS) {
+                showVictoryOverlay();
+                return;
+            }
+            currentWave = 1;
+            changeFloorVisuals();
+            spawnRoomLayout();
+            if (currentFloor > 1) achievements.onGameEnd(false, currentFloor-1, 0, 0, 0);
         }
+        startWave(currentWave);
+        updateHudLabels();
     }
 
     // --- TIENDA ---
@@ -585,10 +596,9 @@ public class GameController implements ViewLifecycle {
             double x = 0, y = 0;
             boolean valid = false;
             for(int tries=0; tries<10; tries++) {
-                x = enemyRng.nextDouble(40, w - 80);
-                y = enemyRng.nextDouble(40, h - 80);
-                double distToCenter = Math.hypot(x - w/2, y - h/2);
-                if (isValidSpawn(x, y, 20, 20) && distToCenter > 100) {
+                x = enemyRng.nextDouble(20, w - 40);
+                y = enemyRng.nextDouble(20, h - 40);
+                if (isValidSpawn(x, y, 20, 20)) {
                     valid = true;
                     break;
                 }
@@ -596,7 +606,7 @@ public class GameController implements ViewLifecycle {
             if(!valid) { x=50; y=50; }
 
             EnemyType type = pickEnemyTypeForWave();
-            double spawnDelay = enemyRng.nextDouble(0.2, 1.0);
+            double spawnDelay = enemyRng.nextDouble(0.2, 1.5);
             createSpawnIndicator(x, y, type, spawnDelay);
         }
     }
@@ -711,53 +721,16 @@ public class GameController implements ViewLifecycle {
 
         spawnRoomRewardPedestal();
         spawnShopKeeper();
-        spawnNextFloorButton();
-    }
-
-    private void spawnNextFloorButton() {
-        if (greedButton != null) gameLoop.removeEntity(greedButton);
-        double cx = gameArea.getWidth() / 2.0;
-        double cy = gameArea.getHeight() / 2.0;
-
-        greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
-            loadNextFloor();
-        });
-        greedButton.setAsExit();
-        gameLoop.addEntity(greedButton);
-    }
-
-    private void loadNextFloor() {
-        currentFloor++;
-        if (currentFloor > MAX_FLOORS) {
-            showVictoryOverlay();
-            return;
-        }
-
-        currentWave = 0;
-        enemies.clear();
-        obstacles.clear();
-
-        waveInProgress = false;
-        timerStopped = false;
-        moneyPenaltyActive = false;
-
-        changeFloorVisuals();
-        spawnRoomLayout();
-        spawnGreedButton();
-        spawnShopKeeper();
-
-        updateHudLabels();
-
-        if(player != null) {
-            player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
-        }
-
-        AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
     }
 
     private EnemyType pickEnemyTypeForWave() {
         int roll = enemyRng.nextInt(100);
-        if (currentFloor == 1) return roll < 70 ? EnemyType.SHOOTER : (roll < 90 ? EnemyType.MELEE : EnemyType.TURRET);
+        if (currentFloor == 1) {
+            if(roll < 70) return EnemyType.SHOOTER;
+            if(roll < 90) return EnemyType.MELEE;
+            return EnemyType.TURRET;
+        }
+
         if (roll < 25) return EnemyType.SHOOTER;
         if (roll < 50) return EnemyType.MELEE;
         if (roll < 75) return EnemyType.TANK;
@@ -773,7 +746,7 @@ public class GameController implements ViewLifecycle {
         player = new Player(input, gameArea, statsService);
         applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
-        player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
+        player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 - 10);
 
         lastPlayerHealth = player.getHealth();
 
@@ -903,16 +876,37 @@ public class GameController implements ViewLifecycle {
         }
         obstacles.clear();
 
-        spawnRock(50, 50);
-        spawnRock(gameArea.getWidth() - 50, 50);
-        spawnRock(50, gameArea.getHeight() - 50);
-        spawnRock(gameArea.getWidth() - 50, gameArea.getHeight() - 50);
+        int pattern = enemyRng.nextInt(4);
+        double w = gameArea.getWidth(); double h = gameArea.getHeight();
+        double cx = w/2; double cy = h/2;
+
+        if (pattern == 1) {
+            spawnRockRow(cx - 80, cx + 80, cy, true);
+            spawnRockRow(cy - 80, cy + 80, cx, false);
+        } else if (pattern == 2) {
+            spawnRock(cx - 150, cy - 100); spawnRock(cx + 150, cy - 100);
+            spawnRock(cx - 150, cy + 100); spawnRock(cx + 150, cy + 100);
+        } else if (pattern == 3) {
+            for(int i=0; i<6; i++) {
+                double rx = enemyRng.nextDouble(100, w-100);
+                double ry = enemyRng.nextDouble(100, h-100);
+                if(Math.abs(rx-cx) > 100 || Math.abs(ry-cy) > 100) spawnRock(rx, ry);
+            }
+        }
     }
 
     private void spawnRock(double x, double y) {
         Rock r = new Rock(x, y, gameArea);
         obstacles.add(r);
         gameLoop.addEntity(r);
+    }
+
+    private void spawnRockRow(double start, double end, double fixed, boolean horizontal) {
+        double step = Rock.SIZE;
+        for (double p = start; p <= end; p += step) {
+            if (horizontal) spawnRock(p, fixed);
+            else spawnRock(fixed, p);
+        }
     }
 
     private void resetPlainGameArea() {
@@ -957,15 +951,12 @@ public class GameController implements ViewLifecycle {
                     case 4 -> "womb";
                     default -> "sheol";
                 };
-
                 String path = "assets/background/" + bgName + ".png";
                 Image img = AssetsManager.loadImage(path);
-
                 if (img == null) {
                     img = AssetsManager.loadImage("assets/background/basement.png");
-                    if (img == null) img = new Image(getClass().getResourceAsStream("/" + "assets/background/basement.png"));
+                    if (img == null) img = new Image(getClass().getResourceAsStream("/assets/background/basement.png"));
                 }
-
                 backgroundView.setImage(img);
                 backgroundView.setPreserveRatio(false);
                 backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
@@ -1002,11 +993,15 @@ public class GameController implements ViewLifecycle {
         ItemDefinition def = availableItems.get(rewardItemCursor % availableItems.size());
         final ItemId itemId = def.getId();
         rewardItemCursor++;
+
+        double cx = gameArea.getWidth() / 2.0;
+        double cy = gameArea.getHeight() / 2.0;
+
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
             e -> { gameLoop.removeEntity(e); if (itemHud != null) itemHud.refresh(); showItemPickupOverlay(itemId); },
             k -> sound.play(k)
         );
-        pedestal.setPosition(gameArea.getWidth()/2, gameArea.getHeight()/2 - 100);
+        pedestal.setPosition(cx, cy + 80); // Un poco abajo del centro
         gameLoop.addEntity(pedestal);
     }
 
@@ -1060,7 +1055,7 @@ public class GameController implements ViewLifecycle {
                     Platform.runLater(() -> {
                         if (gameLoop != null && !gameOverShown) gameLoop.start();
                         paused = false;
-                        shopCooldown = 1.5; // FIX: Cooldown para evitar re-apertura inmediata
+                        shopCooldown = 1.5;
                     });
                 });
                 soc.onShow();
@@ -1141,9 +1136,9 @@ public class GameController implements ViewLifecycle {
         if (gameLoop != null) gameLoop.clearEntities();
         if (ticker != null) ticker = null;
         enemies.clear();
-        currentWave = 0;
+        currentWave = 1;
         currentFloor = 1;
-        score = 0;
+        score = 500;
         coins = Math.max(0, com.layla.AppContext.balance().startCoins);
         statsService.clearItems();
         gameOverShown = false;
@@ -1176,10 +1171,8 @@ public class GameController implements ViewLifecycle {
         if (gameLoop != null) gameLoop.start();
 
         changeFloorVisuals();
-        spawnGreedButton();
-        spawnShopKeeper();
-
-        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
+        spawnRoomLayout();
+        startWave(currentWave);
     }
 
     private double[] getPlayerCenter() {
@@ -1199,9 +1192,21 @@ public class GameController implements ViewLifecycle {
             double fx = (1.0 - bias) * ar[0] + bias * mv[0];
             double fy = (1.0 - bias) * ar[1] + bias * mv[1];
             shootingService.setAim(fx, fy);
-            double px = player.getView().getLayoutX() + player.getWidth() / 2.0;
-            double py = player.getView().getLayoutY() + player.getHeight() / 2.0;
-            shootingService.tryShoot(gameArea, gameLoop, px, py, player, p -> sound.play("shot"));
+
+            // CENTRO VISUAL DEL SPRITE (48x48)
+            // La hitbox es 20x20. Calculamos el centro de la hitbox.
+            double centerX = player.getView().getLayoutX() + player.getWidth() / 2.0;
+            double centerY = player.getView().getLayoutY() + player.getHeight() / 2.0;
+
+            // AJUSTES DE POSICIÓN DE DISPARO
+            // Corrección basada en feedback visual del usuario
+            // Eje X: +20
+            // Eje Y: +10
+
+            double spawnX = centerX + 20.0;
+            double spawnY = centerY + 10.0;
+
+            shootingService.tryShoot(gameArea, gameLoop, spawnX, spawnY, player, p -> sound.play("shot"));
         }
     }
 
@@ -1268,7 +1273,6 @@ public class GameController implements ViewLifecycle {
                 }
             }
         }
-        // Enemy vs Enemy
         for (int i = 0; i < enemies.size(); i++) {
             Enemy a = enemies.get(i);
             if (a.isDead()) continue;
