@@ -84,7 +84,13 @@ public class GreedButton implements GameEntity {
     @Override
     public void onCollision(GameEntity other) {
         if (other instanceof Player) {
-            if (cooldown <= 0) {
+            // Comprobación de distancia más estricta para evitar toques accidentales
+            Bounds b1 = this.getBounds();
+            Bounds b2 = other.getBounds();
+            double dist = Math.hypot(b1.getCenterX() - b2.getCenterX(), b1.getCenterY() - b2.getCenterY());
+
+            // Radio botón ~22 + Radio jugador ~12 = 34. Usamos 32 para exigir cercanía real.
+            if (dist < 32.0 && cooldown <= 0) {
                 // Notificar al controlador siempre que se pisa, él decide qué hacer
                 onPressed.accept(this);
                 cooldown = 1.0; // Evitar rebote inmediato

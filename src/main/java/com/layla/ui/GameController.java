@@ -87,7 +87,7 @@ public class GameController implements ViewLifecycle {
     private int wavesPerFloor = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
-    private int currentWave = 1;
+    private int currentWave = 0;
 
     private double nextWaveTimer = 0.0;
     private int pendingSpawns = 0;
@@ -96,6 +96,7 @@ public class GameController implements ViewLifecycle {
     // Estado Greed
     private boolean timerStopped = false;
     private boolean moneyPenaltyActive = false;
+    private double buttonSafetyTimer = 0.0; // Delay para evitar pulsar el botón sin querer
 
     private double constantSpawnInterval;
     private double timeUntilNextSpawn = 0.0;
@@ -247,7 +248,6 @@ public class GameController implements ViewLifecycle {
 
     @FXML
     private void initialize() {
-        // Eliminar healthLabel del HUD por completo
         if (hudBar != null && healthLabel != null) {
             hudBar.getChildren().remove(healthLabel);
         }
@@ -363,12 +363,13 @@ public class GameController implements ViewLifecycle {
         gameStarted = true;
 
         currentFloor = 1;
-        currentWave = 1;
+        currentWave = 0;
         enemies.clear();
         pendingSpawns = 0;
 
         changeFloorVisuals();
-        spawnGreedButton(); // Intentar spawnear botón
+
+        spawnGreedButton();
         spawnShopKeeper();
 
         updateHudLabels();
@@ -384,14 +385,33 @@ public class GameController implements ViewLifecycle {
             gameLoop.removeEntity(greedButton);
         }
 
-        // CORRECCIÓN BOTÓN: Usar valores por defecto si el área aún no tiene tamaño
         double w = gameArea.getWidth();
         double h = gameArea.getHeight();
-        if (w <= 0) w = 1200; // Ancho seguro por defecto
-        if (h <= 0) h = 800;  // Alto seguro por defecto
+        if (w <= 0) w = 1200;
+        if (h <= 0) h = 800;
 
         double cx = w / 2.0;
         double cy = h / 2.0;
+
+        // Comprobación de obstáculos (Rocas en medio)
+        // Si hay alguna roca cerca del centro, movemos el botón a la derecha
+        boolean obstructed = false;
+        for (GameEntity e : obstacles) {
+            Node view = e.getView();
+            if (view != null) {
+                // Asumiendo que las rocas están cerca del centro
+                double ox = view.getLayoutX() + 25; // Centro aprox de la roca
+                double oy = view.getLayoutY() + 25;
+                if (Math.hypot(cx - ox, cy - oy) < 70) {
+                    obstructed = true;
+                    break;
+                }
+            }
+        }
+
+        if (obstructed) {
+            cx += 200.0; // Mover a la derecha MÁS LEJOS si está obstruido
+        }
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
             if (!waveInProgress) {
@@ -401,7 +421,9 @@ public class GameController implements ViewLifecycle {
                     startNextWave();
                 }
             } else {
-                // STOP
+                // STOP: Check de seguridad (delay 3s)
+                if (buttonSafetyTimer > 0) return; // Si aún hay delay, ignorar pisada
+
                 if (!timerStopped && nextWaveTimer > 0) {
                     player.takeDamage(1.0);
                     sound.play("hurt");
@@ -445,6 +467,7 @@ public class GameController implements ViewLifecycle {
         waveInProgress = true;
         timerStopped = false;
         moneyPenaltyActive = false;
+        buttonSafetyTimer = 3.0; // ACTIVAR DELAY DE SEGURIDAD (3 segundos)
 
         if (greedButton != null) greedButton.setActiveState(true);
         removeShopKeeper();
@@ -464,6 +487,9 @@ public class GameController implements ViewLifecycle {
 
     private void updateGreedLogic(double dt) {
         if (activeBoss != null) return;
+
+        // Reducir temporizador de seguridad si está activo
+        if (buttonSafetyTimer > 0) buttonSafetyTimer -= dt;
 
         if (!waveInProgress) {
             if (shopKeeperEntity == null && enemies.isEmpty() && pendingSpawns == 0) {
@@ -538,11 +564,21 @@ public class GameController implements ViewLifecycle {
     private void spawnShopKeeper() {
         if (shopKeeperEntity != null || gameArea == null) return;
 
-        // Coordenadas seguras para la tienda si el área no está lista
-        double w = gameArea.getWidth(); if (w <= 0) w = 1200;
-        double h = gameArea.getHeight(); if (h <= 0) h = 800;
-        double cx = w / 2.0;
-        double cy = h / 2.0;
+        // Obtenemos la posición del botón (si existe) para poner la tienda encima
+        double cx, cy;
+        if (greedButton != null) {
+            Node btnView = greedButton.getView();
+            cx = btnView.getLayoutX() + 22; // +mitad ancho botón
+            cy = btnView.getLayoutY() + 22;
+        } else {
+            double w = gameArea.getWidth(); if (w <= 0) w = 1200;
+            double h = gameArea.getHeight(); if (h <= 0) h = 800;
+            cx = w / 2.0;
+            cy = h / 2.0;
+        }
+
+        final double finalCx = cx;
+        final double finalCy = cy;
 
         shopKeeperEntity = new GameEntity() {
             StackPane view;
@@ -555,8 +591,10 @@ public class GameController implements ViewLifecycle {
                 label.setFill(Color.GOLD);
                 label.setStyle("-fx-font-weight: bold;");
                 view.getChildren().addAll(body, label);
-                view.setLayoutX(cx - 20);
-                view.setLayoutY(cy - 100);
+
+                // Tienda siempre encima del botón
+                view.setLayoutX(finalCx - 20);
+                view.setLayoutY(finalCy - 100);
                 view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
             }
             @Override public void update(double dt) {
@@ -731,7 +769,6 @@ public class GameController implements ViewLifecycle {
     private void maybeSpawnPlayer() {
         if (!startGateOpen) return;
         if (player != null || input == null || gameLoop == null) return;
-        // CORRECCIÓN: Check más flexible para spawnear aunque el layout no esté perfecto
         if (gameArea.getWidth() <= 0 && gameArea.getPrefWidth() <= 0) return;
 
         player = new Player(input, gameArea, statsService);
@@ -741,7 +778,6 @@ public class GameController implements ViewLifecycle {
         double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1200;
         double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 800;
 
-        // Spawnear más abajo para no pisar el botón
         player.setPosition(w/2 - 10, h/2 + 100);
 
         lastPlayerHealth = player.getHealth();
@@ -1133,7 +1169,7 @@ public class GameController implements ViewLifecycle {
         if (gameLoop != null) gameLoop.clearEntities();
         if (ticker != null) ticker = null;
         enemies.clear();
-        currentWave = 1;
+        currentWave = 0; // FIX: Reset to 0 (espera)
         currentFloor = 1;
         score = 500;
         coins = Math.max(0, com.layla.AppContext.balance().startCoins);
@@ -1145,6 +1181,9 @@ public class GameController implements ViewLifecycle {
         pendingSpawns = 0;
         timerStopped = false;
         moneyPenaltyActive = false;
+        waveInProgress = false; // CORRECCIÓN 1: Importante para no auto-iniciar
+        nextWaveTimer = 0;
+
         comboCount = 0; comboMultiplier = 1.0; comboTimer = 0.0;
         updateHudLabels();
         activeBoss = null;
@@ -1169,7 +1208,12 @@ public class GameController implements ViewLifecycle {
 
         changeFloorVisuals();
         spawnRoomLayout();
-        startWave(currentWave);
+
+        // CORRECCIÓN FINAL: NO iniciar oleada. Spawnear botón y tienda.
+        spawnGreedButton();
+        spawnShopKeeper();
+
+        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
     }
 
     private double[] getPlayerCenter() {
@@ -1190,11 +1234,12 @@ public class GameController implements ViewLifecycle {
             double fy = (1.0 - bias) * ar[1] + bias * mv[1];
             shootingService.setAim(fx, fy);
 
-            // CORRECCIÓN DISPARO: Ajuste para sprite 48x48
-            double centerX = player.getView().getLayoutX() + 24.0; // Centro visual (48/2)
-            double centerY = player.getView().getLayoutY() + 24.0;
+            // CENTRO VISUAL DEL SPRITE (48x48)
+            // La hitbox es 20x20. Calculamos el centro de la hitbox.
+            double centerX = player.getView().getLayoutX() + player.getWidth() / 2.0;
+            double centerY = player.getView().getLayoutY() + player.getHeight() / 2.0;
 
-            // Offset desde el centro visual hacia la "cabeza/boca"
+            // AJUSTES DE POSICIÓN DE DISPARO (Corrección usuario)
             double spawnX = centerX + 2.0;
             double spawnY = centerY - 8.0;
 

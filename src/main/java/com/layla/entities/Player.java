@@ -46,7 +46,17 @@ public final class Player implements GameEntity {
     private static final int HEAD_IDX_AIM_UP     = 4;
     private static final int HEAD_IDX_SHOOT_UP   = 5;
 
-    // Offset vertical para la cabeza
+    // --- AJUSTES VISUALES ---
+    // Hitbox lógica (física) reducida para evitar colisiones "falsas" con el aire del sprite
+    private static final double HITBOX_SIZE = 24.0;
+    // Tamaño visual del sprite
+    private static final double SPRITE_SIZE = 48.0;
+
+    // Offset para centrar el sprite (48px) sobre la hitbox (24px)
+    // (24 - 48) / 2 = -12
+    private static final double CENTER_OFFSET = (HITBOX_SIZE - SPRITE_SIZE) / 2.0;
+
+    // Offset vertical específico de la cabeza respecto al cuerpo
     private static final double HEAD_OFFSET_Y = -12.0;
 
     // Lógica de disparo
@@ -57,7 +67,8 @@ public final class Player implements GameEntity {
 
     // View Components
     private final StackPane viewRoot = new StackPane();
-    private final Rectangle debugBox = new Rectangle(30, 30, Color.TRANSPARENT);
+    // La caja física (Hitbox) - Transparente pero define el tamaño del GameEntity
+    private final Rectangle debugBox = new Rectangle(HITBOX_SIZE, HITBOX_SIZE, Color.TRANSPARENT);
 
     private final ImageView bodyView = new ImageView();
     private final ImageView headView = new ImageView();
@@ -73,7 +84,7 @@ public final class Player implements GameEntity {
     private double vx;
     private double vy;
 
-    private int moveDir = 0;
+    private int moveDir = 0; // 0=Abajo, 1=Derecha, 2=Arriba, 3=Izquierda
 
     private boolean isShootingFrame = false;
     private double shootFrameTimer = 0.0;
@@ -102,6 +113,7 @@ public final class Player implements GameEntity {
 
         debugBox.setStroke(Color.BLACK);
         debugBox.setStrokeWidth(1);
+        // Si quieres ver la hitbox real para depurar, cambia esto a Color.RED
         debugBox.setFill(Color.TRANSPARENT);
 
         Image sheet = AssetsManager.loadImage("assets/images/player_sheet.png");
@@ -117,8 +129,16 @@ public final class Player implements GameEntity {
             setupImageView(bodyView, sheet);
             setupImageView(headView, sheet);
 
-            // Ajuste de posición de la cabeza (Visual)
-            headView.setTranslateY(HEAD_OFFSET_Y);
+            // IMPORTANTE: Unmanaged para que el StackPane no crezca al tamaño de la imagen
+            bodyView.setManaged(false);
+            headView.setManaged(false);
+
+            // Centrar manualmente las imágenes respecto a la hitbox (0,0 es esquina sup izq de hitbox)
+            bodyView.setLayoutX(CENTER_OFFSET);
+            bodyView.setLayoutY(CENTER_OFFSET);
+
+            headView.setLayoutX(CENTER_OFFSET);
+            headView.setLayoutY(CENTER_OFFSET + HEAD_OFFSET_Y);
 
             bodyAnimator = new SpriteAnimator(FRAME_W, FRAME_H, 8, 12, COLUMNS_IN_SHEET);
 
@@ -131,13 +151,17 @@ public final class Player implements GameEntity {
         viewRoot.setLayoutX(200);
         viewRoot.setLayoutY(200);
 
+        // Forzar tamaño del root al de la hitbox
+        viewRoot.setMinSize(HITBOX_SIZE, HITBOX_SIZE);
+        viewRoot.setMaxSize(HITBOX_SIZE, HITBOX_SIZE);
+
         boundsPane.getChildren().add(viewRoot);
     }
 
     private void setupImageView(ImageView v, Image img) {
         v.setImage(img);
-        v.setFitWidth(48);
-        v.setFitHeight(48);
+        v.setFitWidth(SPRITE_SIZE);
+        v.setFitHeight(SPRITE_SIZE);
         v.setSmooth(false);
         v.setPreserveRatio(true);
     }
@@ -293,8 +317,8 @@ public final class Player implements GameEntity {
         viewRoot.setLayoutY(y);
     }
 
-    public double getWidth()  { return viewRoot.getWidth(); }
-    public double getHeight() { return viewRoot.getHeight(); }
+    public double getWidth()  { return HITBOX_SIZE; }
+    public double getHeight() { return HITBOX_SIZE; }
 
     public double getHealth() { return health; }
     public double getMaxHealth() { return maxHealth; }
