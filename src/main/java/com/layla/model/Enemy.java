@@ -66,6 +66,11 @@ public final class Enemy implements GameEntity {
     private double burstShotTimer = 0.0;
     private double burstCooldownTimer = 0.0;
 
+    // Anti-Stuck Logic
+    private double stuckTimer = 0.0;
+    private double[] stuckDirection = {0,0};
+    private double lastX, lastY;
+
     private final double[] tmpDir = new double[2];
     private final double collisionRadius = Math.min(WIDTH, HEIGHT) * 0.5;
 
@@ -152,6 +157,22 @@ public final class Enemy implements GameEntity {
         double[] playerCenter = playerCenterSupplier.get();
         aiTime += dt;
 
+        // Anti-Stuck Check
+        double distMoved = Math.hypot(viewRoot.getLayoutX() - lastX, viewRoot.getLayoutY() - lastY);
+        if (distMoved < 0.5 * dt * 60) { // Si se mueve muy poco
+             stuckTimer += dt;
+             if (stuckTimer > 0.5) { // Medio segundo atascado
+                 // Elegir dirección de escape aleatoria
+                 stuckDirection[0] = ThreadLocalRandom.current().nextDouble(-1, 1);
+                 stuckDirection[1] = ThreadLocalRandom.current().nextDouble(-1, 1);
+                 stuckTimer = -0.5; // Cooldown negativo para mantener la dirección un rato
+             }
+        } else {
+             stuckTimer = 0;
+             lastX = viewRoot.getLayoutX();
+             lastY = viewRoot.getLayoutY();
+        }
+
         handleMovement(profile, playerCenter, dt);
         updateAnimation(dt);
 
@@ -182,6 +203,14 @@ public final class Enemy implements GameEntity {
     // --- MOVIMIENTO (Resumido del original para brevedad, lógica intacta) ---
     private void handleMovement(EnemyProfile profile, double[] playerCenter, double dt) {
         boolean isStat = profile.stationary && type != EnemyType.SHOOTER;
+
+        // Si estamos desatascando, forzar movimiento en dirección escape
+        if (stuckTimer < 0) {
+            stuckTimer += dt; // Contar hacia 0
+            moveWithSlide(stuckDirection, profile.speed * speedMultiplier * dt);
+            return;
+        }
+
         if (type == EnemyType.TURRET || isStat || !hasValidTarget(playerCenter)) return;
 
         switch (type) {
@@ -272,8 +301,20 @@ public final class Enemy implements GameEntity {
         double currX = viewRoot.getLayoutX();
         double currY = viewRoot.getLayoutY();
 
-        if (!checkCollision(currX + deltaX, currY)) currX += deltaX;
-        if (!checkCollision(currX, currY + deltaY)) currY += deltaY;
+        // Check X axis
+        if (!checkCollision(currX + deltaX, currY)) {
+            currX += deltaX;
+        } else {
+            // Intentar deslizar en Y si X está bloqueado
+            if (!checkCollision(currX, currY + Math.signum(deltaY) * distance * 0.5)) {
+                 // Pequeño empuje lateral para no quedarse clavado
+            }
+        }
+
+        // Check Y axis
+        if (!checkCollision(currX, currY + deltaY)) {
+            currY += deltaY;
+        }
 
         double maxX = Math.max(0.0, boundsPane.getWidth() - WIDTH);
         double maxY = Math.max(0.0, boundsPane.getHeight() - HEIGHT);
@@ -285,10 +326,14 @@ public final class Enemy implements GameEntity {
         if (obstaclesSupplier == null) return false;
         List<GameEntity> obstacles = obstaclesSupplier.get();
         if (obstacles == null || obstacles.isEmpty()) return false;
+
         BoundingBox myBounds = new BoundingBox(x, y, WIDTH, HEIGHT);
-        double margin = 1.0;
+        double margin = 2.0; // Margen un poco más permisivo
         BoundingBox checkBounds = new BoundingBox(x + margin, y + margin, WIDTH - margin*2, HEIGHT - margin*2);
+
         for (GameEntity obs : obstacles) {
+            // Ignorar entidades pequeñas o pickups que no sean sólidos (como monedas)
+            // Asumimos que la lista de obstáculos contiene Rocas, Tienda y Botón Salida
             if (obs.getBounds().intersects(checkBounds)) return true;
         }
         return false;
@@ -410,6 +455,11 @@ public final class Enemy implements GameEntity {
     public double getCollisionRadius() { return collisionRadius; }
     public double getCenterX() { return viewRoot.getLayoutX() + getWidth() * 0.5; }
     public double getCenterY() { return viewRoot.getLayoutY() + getHeight() * 0.5; }
+
+    // --- MÉTODOS AÑADIDOS PARA SOLUCIONAR ERROR DE COMPILACIÓN ---
+    public double getX() { return viewRoot.getLayoutX(); }
+    public double getY() { return viewRoot.getLayoutY(); }
+    // -------------------------------------------------------------
 
     public void setPosition(double x, double y) {
         viewRoot.setLayoutX(x);

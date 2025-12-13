@@ -35,6 +35,7 @@ import com.layla.ui.ShopOverlayController.ShopOffer;
 import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -79,6 +80,10 @@ public class GameController implements ViewLifecycle {
     private GameEntity shopKeeperEntity;
     private double shopCooldown = 0.0; // Cooldown para evitar re-entrada inmediata
 
+    // ESTADO PERSISTENTE DE LA TIENDA
+    private List<ShopOffer> currentShopOffers = new ArrayList<>();
+    private int currentRerollPrice = 1;
+
     private boolean musicStarted = false;
     private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
@@ -96,7 +101,7 @@ public class GameController implements ViewLifecycle {
     // Estado Greed
     private boolean timerStopped = false;
     private boolean moneyPenaltyActive = false;
-    private double buttonSafetyTimer = 0.0; // Delay para evitar pulsar el botón sin querer
+    private double buttonSafetyTimer = 0.0;
 
     private double constantSpawnInterval;
     private double timeUntilNextSpawn = 0.0;
@@ -130,7 +135,7 @@ public class GameController implements ViewLifecycle {
     private static final double SEPARATION_EPS = 1e-5;
     private static final double MAX_SEPARATION_STEP = 6.0;
     private static final int SHOP_OFFER_COUNT = 3;
-    private static final int SHOP_REROLL_BASE_PRICE = 1;
+    private static final int SHOP_REROLL_BASE_PRICE = 1; // Precio base inicial
 
     private static final int SCORE_PENALTY_PER_SECOND = 1;
     private static final int SCORE_PENALTY_ON_DAMAGE = 20;
@@ -243,6 +248,12 @@ public class GameController implements ViewLifecycle {
 
         if (activeBoss != null && bossHealthBar != null) {
             bossHealthBar.setProgress(activeBoss.getHp() / activeBoss.getMaxHp());
+        }
+
+        // ASEGURAR VISIBILIDAD DE ITEMS
+        if (itemHud != null) {
+            itemHud.toFront();
+            itemHud.refresh();
         }
     }
 
@@ -367,6 +378,9 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         pendingSpawns = 0;
 
+        currentRerollPrice = SHOP_REROLL_BASE_PRICE;
+        currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
+
         changeFloorVisuals();
 
         spawnGreedButton();
@@ -383,6 +397,7 @@ public class GameController implements ViewLifecycle {
     private void spawnGreedButton() {
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
+            obstacles.remove(greedButton);
         }
 
         double w = gameArea.getWidth();
@@ -393,36 +408,36 @@ public class GameController implements ViewLifecycle {
         double cx = w / 2.0;
         double cy = h / 2.0;
 
-        // Comprobación de obstáculos (Rocas en medio)
-        // Si hay alguna roca cerca del centro, movemos el botón a la derecha
+        // Comprobación rápida para no caer encima de una roca
         boolean obstructed = false;
         for (GameEntity e : obstacles) {
-            Node view = e.getView();
-            if (view != null) {
-                // Asumiendo que las rocas están cerca del centro
-                double ox = view.getLayoutX() + 25; // Centro aprox de la roca
-                double oy = view.getLayoutY() + 25;
-                if (Math.hypot(cx - ox, cy - oy) < 70) {
-                    obstructed = true;
-                    break;
+            if(e instanceof Rock) {
+                Node view = e.getView();
+                if (view != null) {
+                    double ox = view.getLayoutX() + 25;
+                    double oy = view.getLayoutY() + 25;
+                    if (Math.hypot(cx - ox, cy - oy) < 80) {
+                        obstructed = true;
+                        break;
+                    }
                 }
             }
         }
 
         if (obstructed) {
-            cx += 200.0; // Mover a la derecha MÁS LEJOS si está obstruido
+            cx += 200.0;
         }
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
             if (!waveInProgress) {
-                // START
-                if (currentWave < wavesPerFloor) {
+                // START: Permite iniciar oleada normal O Boss si toca (<= wavesPerFloor)
+                if (currentWave <= wavesPerFloor) {
                     btn.setActiveState(true);
                     startNextWave();
                 }
             } else {
                 // STOP: Check de seguridad (delay 3s)
-                if (buttonSafetyTimer > 0) return; // Si aún hay delay, ignorar pisada
+                if (buttonSafetyTimer > 0) return;
 
                 if (!timerStopped && nextWaveTimer > 0) {
                     player.takeDamage(1.0);
@@ -443,6 +458,7 @@ public class GameController implements ViewLifecycle {
         });
         greedButton.setActiveState(false);
         gameLoop.addEntity(greedButton);
+        checkAndPushInteractive(greedButton); // Asegura que no esté sobre nada
     }
 
     public void backToMenu() { SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml"); }
@@ -467,11 +483,18 @@ public class GameController implements ViewLifecycle {
         waveInProgress = true;
         timerStopped = false;
         moneyPenaltyActive = false;
-        buttonSafetyTimer = 3.0; // ACTIVAR DELAY DE SEGURIDAD (3 segundos)
+        buttonSafetyTimer = 3.0;
 
         if (greedButton != null) greedButton.setActiveState(true);
         removeShopKeeper();
 
+        // Si es la oleada final, invocamos al BOSS
+        if (wave == wavesPerFloor) {
+            spawnBoss();
+            return;
+        }
+
+        // Oleada normal
         nextWaveTimer = 10.0 + (wave * 2.0);
 
         double difficulty = currentFloor * 1.5 + wave * 0.5;
@@ -510,6 +533,7 @@ public class GameController implements ViewLifecycle {
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
         if (allDead) {
+            // Oleada limpia
             if (nextWaveTimer > 0 && !moneyPenaltyActive) {
                 spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), 1);
                 AppContext.notifications().showNotification("QUICK CLEAR!", "+1 Coin", 2.0);
@@ -517,15 +541,19 @@ public class GameController implements ViewLifecycle {
 
             nextWaveTimer = 0;
 
+            // Si la siguiente es <= al Boss, iniciamos
             if (currentWave < wavesPerFloor) {
                 startNextWave();
             } else {
+                // Hemos terminado la oleada normal justo antes del Boss (o el Boss mismo ya murió)
                 waveInProgress = false;
                 if (greedButton != null) greedButton.setActiveState(false);
             }
         }
         else if (timeUp && !timerStopped) {
+            // Tiempo agotado (Stacking)
             if (currentWave < wavesPerFloor) {
+                // Permitimos stackear hasta la oleada anterior al Boss
                 if (currentWave < wavesPerFloor - 1) {
                     currentWave++;
                     spawnWaveEnemiesForCurrentWave();
@@ -546,35 +574,33 @@ public class GameController implements ViewLifecycle {
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
         currentWave++;
+
+        // Si superamos el máximo de oleadas (ya matamos al Boss), siguiente piso
         if (currentWave > wavesPerFloor) {
-            currentFloor++;
-            if (currentFloor > MAX_FLOORS) {
-                showVictoryOverlay();
-                return;
-            }
-            currentWave = 1;
-            changeFloorVisuals();
-            spawnRoomLayout();
-            if (currentFloor > 1) achievements.onGameEnd(false, currentFloor-1, 0, 0, 0);
+            // Esto solo ocurre si pulsamos el botón DESPUÉS de matar al boss
+            return;
         }
+
         startWave(currentWave);
         updateHudLabels();
     }
 
     private void spawnShopKeeper() {
-        if (shopKeeperEntity != null || gameArea == null) return;
+        if (shopKeeperEntity != null) {
+            gameLoop.removeEntity(shopKeeperEntity);
+            obstacles.remove(shopKeeperEntity);
+        }
+        if (gameArea == null) return;
 
-        // Obtenemos la posición del botón (si existe) para poner la tienda encima
-        double cx, cy;
+        double w = gameArea.getWidth(); if (w <= 0) w = 1200;
+        double h = gameArea.getHeight(); if (h <= 0) h = 800;
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+
         if (greedButton != null) {
             Node btnView = greedButton.getView();
-            cx = btnView.getLayoutX() + 22; // +mitad ancho botón
+            cx = btnView.getLayoutX() + 22;
             cy = btnView.getLayoutY() + 22;
-        } else {
-            double w = gameArea.getWidth(); if (w <= 0) w = 1200;
-            double h = gameArea.getHeight(); if (h <= 0) h = 800;
-            cx = w / 2.0;
-            cy = h / 2.0;
         }
 
         final double finalCx = cx;
@@ -592,26 +618,65 @@ public class GameController implements ViewLifecycle {
                 label.setStyle("-fx-font-weight: bold;");
                 view.getChildren().addAll(body, label);
 
-                // Tienda siempre encima del botón
                 view.setLayoutX(finalCx - 20);
                 view.setLayoutY(finalCy - 100);
                 view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
             }
             @Override public void update(double dt) {
                 if (player != null && !paused && !gameOverShown && shopCooldown <= 0) {
-                    if (view.getBoundsInParent().intersects(player.getBounds())) {
+                    Bounds b1 = view.getBoundsInParent();
+                    Bounds b2 = player.getBounds();
+                    double dist = Math.hypot(b1.getCenterX() - b2.getCenterX(), b1.getCenterY() - b2.getCenterY());
+
+                    if (dist < 30.0) {
                         showShopOverlay();
                     }
                 }
             }
             @Override public Node getView() { return view; }
+            @Override public Bounds getBounds() { return view.getBoundsInParent(); }
         };
         gameLoop.addEntity(shopKeeperEntity);
+        obstacles.add(shopKeeperEntity); // Se añade para lógica, pero se ignora en colisiones
+
+        checkAndPushInteractive(shopKeeperEntity);
+    }
+
+    /**
+     * Mueve la entidad si está colisionando con una roca u otro obstáculo.
+     * Ahora intenta varias direcciones hasta encontrar un hueco.
+     */
+    private void checkAndPushInteractive(GameEntity entity) {
+        if (entity.getView() == null) return;
+
+        int tries = 0;
+        boolean collided = true;
+
+        while (collided && tries < 15) {
+            collided = false;
+            Bounds b = entity.getBounds();
+
+            for (GameEntity obs : obstacles) {
+                if (obs != entity && obs.getBounds().intersects(b)) {
+                    collided = true;
+                    // Mover hacia la derecha/abajo para encontrar hueco
+                    entity.getView().setLayoutX(entity.getView().getLayoutX() + 60);
+                    // Si se sale mucho, bajar de linea
+                    if (entity.getView().getLayoutX() > gameArea.getWidth() - 100) {
+                        entity.getView().setLayoutX(100);
+                        entity.getView().setLayoutY(entity.getView().getLayoutY() + 60);
+                    }
+                    break;
+                }
+            }
+            tries++;
+        }
     }
 
     private void removeShopKeeper() {
         if (shopKeeperEntity != null) {
             gameLoop.removeEntity(shopKeeperEntity);
+            obstacles.remove(shopKeeperEntity);
             shopKeeperEntity = null;
         }
     }
@@ -749,6 +814,56 @@ public class GameController implements ViewLifecycle {
 
         spawnRoomRewardPedestal();
         spawnShopKeeper();
+
+        spawnNextFloorButton();
+    }
+
+    private void spawnNextFloorButton() {
+        if (greedButton != null) gameLoop.removeEntity(greedButton);
+
+        double w = gameArea.getWidth(); if (w <= 0) w = 1200;
+        double h = gameArea.getHeight(); if (h <= 0) h = 800;
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+
+        greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
+            loadNextFloor();
+        });
+        greedButton.setAsExit();
+        gameLoop.addEntity(greedButton);
+        checkAndPushInteractive(greedButton); // FIX: Comprobar colisión tras spawnear
+    }
+
+    private void loadNextFloor() {
+        currentFloor++;
+        if (currentFloor > MAX_FLOORS) {
+            showVictoryOverlay();
+            return;
+        }
+
+        currentWave = 0;
+        enemies.clear();
+        obstacles.clear();
+
+        waveInProgress = false;
+        timerStopped = false;
+        moneyPenaltyActive = false;
+
+        currentRerollPrice = SHOP_REROLL_BASE_PRICE;
+        currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
+
+        changeFloorVisuals();
+        spawnRoomLayout();
+        spawnGreedButton();
+        spawnShopKeeper();
+
+        updateHudLabels();
+
+        if(player != null) {
+            player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
+        }
+
+        AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
     }
 
     private EnemyType pickEnemyTypeForWave() {
@@ -796,6 +911,10 @@ public class GameController implements ViewLifecycle {
         overlayLayer.getChildren().add(itemHud);
         StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
         StackPane.setMargin(itemHud, new Insets(12, 8, 12, 8));
+
+        // ASEGURAR QUE EL HUD DE ITEMS ESTÁ AL FRENTE
+        itemHud.toFront();
+        hud.toFront();
 
         gameLoop.addEntity(player);
         if (!gameLoop.isRunning()) gameLoop.start();
@@ -888,7 +1007,7 @@ public class GameController implements ViewLifecycle {
     private void handleEnemyDeathRewards(Enemy en) {
         if (enemyRng.nextDouble() < 0.3) {
             int amount = enemyRng.nextInt(1, 4);
-            if (timerStopped) amount = Math.max(1, amount / 2); // Penalización
+            if (timerStopped) amount = Math.max(1, amount / 2);
             spawnRewardCoins(en.getCenterX(), en.getCenterY(), amount);
         }
 
@@ -925,6 +1044,14 @@ public class GameController implements ViewLifecycle {
                 double ry = enemyRng.nextDouble(100, h-100);
                 if(Math.abs(rx-cx) > 100 || Math.abs(ry-cy) > 100) spawnRock(rx, ry);
             }
+        }
+
+        List<GameEntity> interactives = new ArrayList<>();
+        if (shopKeeperEntity != null) interactives.add(shopKeeperEntity);
+        if (greedButton != null) interactives.add(greedButton);
+
+        for (GameEntity ent : interactives) {
+            checkAndPushInteractive(ent);
         }
     }
 
@@ -1009,6 +1136,52 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    private void showShopOverlay() {
+        paused = true;
+        if (gameLoop != null) gameLoop.stop();
+        final javafx.scene.Node[] overlayRef = new javafx.scene.Node[1];
+        overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/shop_overlay.fxml", 0.90, controller -> {
+            if (controller instanceof ShopOverlayController soc) {
+                soc.setStatsService(statsService);
+                soc.setCoins(coins);
+                soc.setRerollBasePrice(currentRerollPrice);
+                soc.setOffers(currentShopOffers);
+                soc.setOnCoinsChanged(newCoins -> {
+                    coins = Math.max(0, newCoins);
+                    updateHudLabels();
+                });
+                soc.setOnItemsChanged(() -> {
+                    score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
+                    if (hud != null) hud.refresh();
+                    if (itemHud != null) itemHud.refresh();
+                    updateHudLabels();
+                });
+
+                soc.setOnRerollPriceChanged(newPrice -> {
+                    currentRerollPrice = newPrice;
+                });
+
+                soc.setOnRerollRequested(c -> {
+                    currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
+                    c.setOffers(currentShopOffers);
+                });
+                soc.setOnClose(() -> {
+                    coins = soc.getCoins();
+                    updateHudLabels();
+                    OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
+                    shopOverlay = null;
+                    Platform.runLater(() -> {
+                        if (gameLoop != null && !gameOverShown) gameLoop.start();
+                        paused = false;
+                        shopCooldown = 5.0;
+                    });
+                });
+                soc.onShow();
+            }
+        });
+        shopOverlay = overlayRef[0];
+    }
+
     private void spawnRewardCoins(double x, double y, int amount) {
         Coin coin = new Coin(x, y, amount, gameArea, statsService, player, c -> {
             coins += c.getValue();
@@ -1036,6 +1209,10 @@ public class GameController implements ViewLifecycle {
         );
         pedestal.setPosition(w/2, h/2 + 80);
         gameLoop.addEntity(pedestal);
+
+        // FIX: Evitar que el pedestal salga sobre una roca y añadirlo a obstáculos
+        checkAndPushInteractive(pedestal);
+        obstacles.add(pedestal);
     }
 
     private void showItemPickupOverlay(ItemId itemId) {
@@ -1059,44 +1236,6 @@ public class GameController implements ViewLifecycle {
         });
     }
 
-    private void showShopOverlay() {
-        paused = true;
-        if (gameLoop != null) gameLoop.stop();
-        final javafx.scene.Node[] overlayRef = new javafx.scene.Node[1];
-        overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/shop_overlay.fxml", 0.90, controller -> {
-            if (controller instanceof ShopOverlayController soc) {
-                soc.setStatsService(statsService);
-                soc.setCoins(coins);
-                soc.setRerollBasePrice(SHOP_REROLL_BASE_PRICE);
-                soc.setOffers(generateShopOffers(SHOP_OFFER_COUNT));
-                soc.setOnCoinsChanged(newCoins -> {
-                    coins = Math.max(0, newCoins);
-                    updateHudLabels();
-                });
-                soc.setOnItemsChanged(() -> {
-                    score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
-                    if (hud != null) hud.refresh();
-                    if (itemHud != null) itemHud.refresh();
-                    updateHudLabels();
-                });
-                soc.setOnRerollRequested(c -> c.setOffers(generateShopOffers(SHOP_OFFER_COUNT)));
-                soc.setOnClose(() -> {
-                    coins = soc.getCoins();
-                    updateHudLabels();
-                    OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
-                    shopOverlay = null;
-                    Platform.runLater(() -> {
-                        if (gameLoop != null && !gameOverShown) gameLoop.start();
-                        paused = false;
-                        shopCooldown = 1.5;
-                    });
-                });
-                soc.onShow();
-            }
-        });
-        shopOverlay = overlayRef[0];
-    }
-
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
         List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
@@ -1104,234 +1243,12 @@ public class GameController implements ViewLifecycle {
         List<ItemDefinition> pool = new ArrayList<>(shopItems);
         pool.addAll(treasureItems);
         if (pool.isEmpty()) return offers;
-        int basePrice = Math.max(5, 10 + Math.max(0, currentWave - 1) * 2);
         for (int i = 0; i < count; i++) {
             ItemDefinition def = pool.get(enemyRng.nextInt(pool.size()));
-            int price = Math.max(5, basePrice + enemyRng.nextInt(0, 6));
+            int price = Math.max(5, 10 + Math.max(0, currentWave - 1) * 2 + enemyRng.nextInt(0, 6));
             offers.add(new ShopOffer(def.getId(), price));
         }
         return offers;
-    }
-
-    private void showVictoryOverlay() {
-        gameOverShown = true;
-        if (gameLoop != null) gameLoop.stop();
-        db.recordRunEndAsync(AppContext.getProfileId(), true, score + (coins * 2), currentFloor);
-        achievements.onGameEnd(true, currentFloor, statsService.getOwnedItems().size(), coins, player.getHealth());
-        gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
-            if (controller instanceof GameOverController goc) {
-                goc.setTitle("VICTORY!");
-                goc.setOnRetry(() -> {
-                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                    gameOverOverlay = null;
-                    restartGame();
-                });
-                goc.setOnBackToMenu(() -> {
-                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                    gameOverOverlay = null;
-                    backToMenu();
-                });
-            }
-        });
-    }
-
-    private void showGameOverOverlay() {
-        if (gameOverShown) return;
-        gameOverShown = true;
-        sound.play("player_death");
-        if (gameLoop != null) gameLoop.stop();
-        db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
-        String killer = player.getLastHitSource();
-        if (killer != null) db.incrementEnemyStatAsync(AppContext.getProfileId(), killer, DatabaseService.StatType.KILLED_BY);
-        long totalDeaths = db.getStatTotal(AppContext.getProfileId(), "TOTAL_DEATHS");
-        achievements.onDeath(totalDeaths + 1);
-        gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.75, controller -> {
-            if (controller instanceof GameOverController goc) {
-                goc.setTitle("GAME OVER\nScore: " + score);
-                goc.setOnRetry(() -> {
-                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                    gameOverOverlay = null;
-                    restartGame();
-                });
-                goc.setOnBackToMenu(() -> {
-                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                    gameOverOverlay = null;
-                    backToMenu();
-                });
-            }
-        });
-    }
-
-    private void restartGame() {
-        if (pauseOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, pauseOverlay); pauseOverlay = null; }
-        if (shopOverlay != null) { OverlayRouter.closeOverlay(overlayLayer, shopOverlay); shopOverlay = null; }
-        paused = false;
-        if (gameLoop != null) gameLoop.clearEntities();
-        if (ticker != null) ticker = null;
-        enemies.clear();
-        currentWave = 0; // FIX: Reset to 0 (espera)
-        currentFloor = 1;
-        score = 500;
-        coins = Math.max(0, com.layla.AppContext.balance().startCoins);
-        statsService.clearItems();
-        gameOverShown = false;
-        shootingArmed = false;
-        tickerAdded = false;
-        rewardItemCursor = 0;
-        pendingSpawns = 0;
-        timerStopped = false;
-        moneyPenaltyActive = false;
-        waveInProgress = false; // CORRECCIÓN 1: Importante para no auto-iniciar
-        nextWaveTimer = 0;
-
-        comboCount = 0; comboMultiplier = 1.0; comboTimer = 0.0;
-        updateHudLabels();
-        activeBoss = null;
-        if (bossHealthBox != null) bossHealthBox.setVisible(false);
-        if (hud != null) {
-            if (overlayLayer != null) overlayLayer.getChildren().remove(hud);
-            else gameArea.getChildren().remove(hud);
-            hud = null;
-        }
-        if (itemHud != null) {
-            if (overlayLayer != null) overlayLayer.getChildren().remove(itemHud);
-            else gameArea.getChildren().remove(itemHud);
-            itemHud = null;
-        }
-        if (greedButton != null) { gameLoop.removeEntity(greedButton); greedButton = null; }
-        removeShopKeeper();
-
-        player = null;
-        maybeSpawnPlayer();
-        addTickerIfNeeded();
-        if (gameLoop != null) gameLoop.start();
-
-        changeFloorVisuals();
-        spawnRoomLayout();
-
-        // CORRECCIÓN FINAL: NO iniciar oleada. Spawnear botón y tienda.
-        spawnGreedButton();
-        spawnShopKeeper();
-
-        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
-    }
-
-    private double[] getPlayerCenter() {
-        if (player != null) {
-            return new double[] {
-                player.getView().getLayoutX() + player.getWidth() * 0.5,
-                player.getView().getLayoutY() + player.getHeight() * 0.5
-            };
-        }
-        return new double[] { 0, 0 };
-    }
-
-    private void tryShootNow() {
-        double[] ar = input.getAimArrowCardinal();
-        if (ar[0] != 0 || ar[1] != 0) {
-            double[] mv = input.getMoveVector();
-            double fx = (1.0 - bias) * ar[0] + bias * mv[0];
-            double fy = (1.0 - bias) * ar[1] + bias * mv[1];
-            shootingService.setAim(fx, fy);
-
-            // CENTRO VISUAL DEL SPRITE (48x48)
-            // La hitbox es 20x20. Calculamos el centro de la hitbox.
-            double centerX = player.getView().getLayoutX() + player.getWidth() / 2.0;
-            double centerY = player.getView().getLayoutY() + player.getHeight() / 2.0;
-
-            // AJUSTES DE POSICIÓN DE DISPARO (Corrección usuario)
-            double spawnX = centerX + 2.0;
-            double spawnY = centerY - 8.0;
-
-            shootingService.tryShoot(gameArea, gameLoop, spawnX, spawnY, player, p -> sound.play("shot"));
-        }
-    }
-
-    private void resolveObstacleCollisions(double dt) {
-        if (obstacles.isEmpty()) return;
-        if (player != null && !player.isDead()) checkAndPush(player, 16.0);
-        for (Enemy e : enemies) if (!e.isDead()) checkAndPush(e, e.getCollisionRadius());
-    }
-
-    private void checkAndPush(GameEntity entity, double radius) {
-        double eX = entity.getBounds().getCenterX();
-        double eY = entity.getBounds().getCenterY();
-        for (GameEntity obs : obstacles) {
-            double rx = obs.getBounds().getMinX();
-            double ry = obs.getBounds().getMinY();
-            double rw = obs.getBounds().getWidth();
-            double rh = obs.getBounds().getHeight();
-            double closestX = clamp(eX, rx, rx + rw);
-            double closestY = clamp(eY, ry, ry + rh);
-            double dx = eX - closestX;
-            double dy = eY - closestY;
-            double distSq = dx*dx + dy*dy;
-            if (distSq < radius * radius) {
-                double dist = Math.sqrt(distSq);
-                if (dist < SEPARATION_EPS) { dx = 1.0; dy = 0.0; dist = 1.0; }
-                double nx = dx / dist;
-                double ny = dy / dist;
-                double overlap = radius - dist;
-                entity.getView().setLayoutX(entity.getView().getLayoutX() + nx * overlap);
-                entity.getView().setLayoutY(entity.getView().getLayoutY() + ny * overlap);
-                eX += nx * overlap;
-                eY += ny * overlap;
-            }
-        }
-    }
-
-    private void applyEnemySeparation(double dt) {
-        if (gameArea == null || enemies.isEmpty()) return;
-        double areaW = gameArea.getWidth();
-        double areaH = gameArea.getHeight();
-        if (player != null && !player.isDead()) {
-            double pCx = player.getView().getLayoutX() + player.getWidth() * 0.5;
-            double pCy = player.getView().getLayoutY() + player.getHeight() * 0.5;
-            double pRad = Math.min(player.getWidth(), player.getHeight()) * 0.4;
-            for (Enemy e : enemies) {
-                if (e.isDead()) continue;
-                double eCx = e.getCenterX();
-                double eCy = e.getCenterY();
-                double eRad = e.getCollisionRadius();
-                double dx = eCx - pCx;
-                double dy = eCy - pCy;
-                double distSq = dx*dx + dy*dy;
-                double minDst = pRad + eRad;
-                if (distSq < minDst * minDst) {
-                     double dist = Math.sqrt(distSq);
-                     if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
-                     double overlap = minDst - dist;
-                     double nx = dx / dist;
-                     double ny = dy / dist;
-                     double pushE = overlap * 0.7;
-                     double pushP = overlap * 0.3;
-                     e.setPosition(clamp(e.getView().getLayoutX() + nx * pushE, 0.0, areaW - e.getWidth()), clamp(e.getView().getLayoutY() + ny * pushE, 0.0, areaH - e.getHeight()));
-                     player.setPosition(clamp(player.getView().getLayoutX() - nx * pushP, 0.0, areaW - player.getWidth()), clamp(player.getView().getLayoutY() - ny * pushP, 0.0, areaH - player.getHeight()));
-                }
-            }
-        }
-        for (int i = 0; i < enemies.size(); i++) {
-            Enemy a = enemies.get(i);
-            if (a.isDead()) continue;
-            for (int j = i + 1; j < enemies.size(); j++) {
-                Enemy b = enemies.get(j);
-                if (b.isDead()) continue;
-                double dx = b.getCenterX() - a.getCenterX();
-                double dy = b.getCenterY() - a.getCenterY();
-                double distSq = dx * dx + dy * dy;
-                double radSum = a.getCollisionRadius() + b.getCollisionRadius();
-                if (distSq < radSum * radSum) {
-                    double dist = Math.sqrt(distSq);
-                    if (dist < SEPARATION_EPS) dist = SEPARATION_EPS;
-                    double overlap = radSum - dist;
-                    double push = Math.min(overlap * 0.5, MAX_SEPARATION_STEP);
-                    double nx = dx / dist;
-                    double ny = dy / dist;
-                    a.setPosition(clamp(a.getView().getLayoutX() - nx * push, 0.0, areaW), clamp(a.getView().getLayoutY() - ny * push, 0.0, areaH));
-                    b.setPosition(clamp(b.getView().getLayoutX() + nx * push, 0.0, areaW), clamp(b.getView().getLayoutY() + ny * push, 0.0, areaH));
-                }
-            }
-        }
     }
 
     private boolean handleDebugItemHotkeys(KeyCode code) {
@@ -1361,5 +1278,164 @@ public class GameController implements ViewLifecycle {
 
     private static double clamp(double v, double min, double max) {
         return Math.max(min, Math.min(v, max));
+    }
+
+    // -------------------------------------------------------------------------
+    // MÉTODOS AÑADIDOS / MODIFICADOS
+    // -------------------------------------------------------------------------
+
+    private void tryShootNow() {
+        if (player == null || shootingService == null || input == null) return;
+        double[] aim = input.getAimArrowCardinal();
+        if (Math.abs(aim[0]) > 0.01 || Math.abs(aim[1]) > 0.01) {
+             shootingService.setAim(aim[0], aim[1]);
+             Bounds bounds = player.getBounds();
+             double originX = bounds.getCenterX();
+             double originY = bounds.getCenterY();
+             shootingService.tryShoot(gameArea, gameLoop, originX, originY, player, proj -> {
+                 // sound.play("shoot.wav");
+             });
+        }
+    }
+
+    private double[] getPlayerCenter() {
+        if (player == null) return new double[]{0, 0};
+        Bounds b = player.getBounds();
+        return new double[]{ b.getCenterX(), b.getCenterY() };
+    }
+
+    private void resolveObstacleCollisions(double dt) {
+        if (player != null) {
+            for (GameEntity obs : obstacles) {
+                 resolveCollision(player, obs);
+            }
+        }
+        for (Enemy e : enemies) {
+            for (GameEntity obs : obstacles) {
+                resolveCollision(e, obs);
+            }
+        }
+    }
+
+    /**
+     * Lógica mejorada de colisión: Separación por profundidad de penetración (Muro sólido).
+     * También ignora la tienda.
+     */
+    private void resolveCollision(GameEntity dynamic, GameEntity staticEnt) {
+         // SOLUCIÓN PROBLEMA 2: Ignorar colisión con la tienda para poder entrar
+         if (staticEnt == shopKeeperEntity) return;
+
+         if (dynamic.getView() == null || staticEnt.getView() == null) return;
+
+         Bounds d = dynamic.getBounds();
+         Bounds s = staticEnt.getBounds();
+
+         // Si no se tocan, no hacemos nada
+         if (!d.intersects(s)) return;
+
+         double dx = d.getCenterX() - s.getCenterX();
+         double dy = d.getCenterY() - s.getCenterY();
+
+         // Calcular mitad de anchos/altos para saber cuánto solapamiento hay
+         double halfWidths = (d.getWidth() / 2.0) + (s.getWidth() / 2.0);
+         double halfHeights = (d.getHeight() / 2.0) + (s.getHeight() / 2.0);
+
+         // overlapX = Cuánto se metió en X
+         double overlapX = halfWidths - Math.abs(dx);
+         // overlapY = Cuánto se metió en Y
+         double overlapY = halfHeights - Math.abs(dy);
+
+         if (overlapX > 0 && overlapY > 0) {
+             // SOLUCIÓN PROBLEMA 1: Resolver en el eje de menor penetración para evitar "rebote"
+             if (overlapX < overlapY) {
+                 // Empujar fuera en X exactamente la distancia que se metió
+                 double sign = Math.signum(dx);
+                 dynamic.getView().setLayoutX(dynamic.getView().getLayoutX() + (overlapX * sign));
+             } else {
+                 // Empujar fuera en Y exactamente la distancia que se metió
+                 double sign = Math.signum(dy);
+                 dynamic.getView().setLayoutY(dynamic.getView().getLayoutY() + (overlapY * sign));
+             }
+         }
+    }
+
+    private void applyEnemySeparation(double dt) {
+        for (int i = 0; i < enemies.size(); i++) {
+            Enemy e1 = enemies.get(i);
+            for (int j = i + 1; j < enemies.size(); j++) {
+                Enemy e2 = enemies.get(j);
+
+                double dx = e1.getCenterX() - e2.getCenterX();
+                double dy = e1.getCenterY() - e2.getCenterY();
+                double distSq = dx*dx + dy*dy;
+
+                if (distSq < 900) {
+                    double dist = Math.sqrt(distSq);
+                    if (dist < 0.1) dist = 0.1;
+                    double force = (30.0 - dist) / dist;
+                    double pushX = dx * force * dt * 50.0;
+                    double pushY = dy * force * dt * 50.0;
+                    e1.setPosition(e1.getX() + pushX, e1.getY() + pushY);
+                    e2.setPosition(e2.getX() - pushX, e2.getY() - pushY);
+                }
+            }
+        }
+    }
+
+    /**
+     * Muestra la pantalla de Game Over y permite reiniciar correctamente.
+     */
+    private void showGameOverOverlay() {
+        if (gameOverShown) return;
+        gameOverShown = true;
+        if (gameLoop != null) gameLoop.stop();
+
+        db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
+
+        gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.85, c -> {
+            if (c instanceof GameOverController goc) {
+                goc.setTitle("GAME OVER");
+                goc.setOnRetry(() -> {
+                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                     gameOverOverlay = null;
+
+                     // SOLUCIÓN PROBLEMA 2: Recarga completa y señal de inicio
+                     SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+                     SceneRouter.whenControllerIs(GameController.class, GameController::signalGameStart);
+                });
+                goc.setOnBackToMenu(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    backToMenu();
+                });
+            }
+        });
+    }
+
+    private void showVictoryOverlay() {
+         if (gameOverShown) return;
+        gameOverShown = true;
+        if (gameLoop != null) gameLoop.stop();
+
+        db.recordRunEndAsync(AppContext.getProfileId(), true, score, currentFloor);
+
+        gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.85, c -> {
+            if (c instanceof GameOverController goc) {
+                goc.setTitle("VICTORY!");
+                 goc.setOnRetry(() -> {
+                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                     gameOverOverlay = null;
+
+                     // SOLUCIÓN PROBLEMA 2: Recarga completa y señal de inicio
+                     SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+                     SceneRouter.whenControllerIs(GameController.class, GameController::signalGameStart);
+                });
+                goc.setOnBackToMenu(() -> {
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    backToMenu();
+                });
+            }
+        });
     }
 }

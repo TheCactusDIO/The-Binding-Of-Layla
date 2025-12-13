@@ -2,8 +2,8 @@ package com.layla.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
-import java.util.function.IntConsumer;
 
 import com.layla.core.AssetsManager;
 import com.layla.items.ItemDefinition;
@@ -15,6 +15,9 @@ import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -30,10 +33,9 @@ import javafx.util.Duration;
 
 public class ShopOverlayController {
 
-    public static final class ShopOffer {
+    public static class ShopOffer {
         public final ItemId itemId;
         public final int price;
-
         public ShopOffer(ItemId itemId, int price) {
             this.itemId = itemId;
             this.price = price;
@@ -42,139 +44,100 @@ public class ShopOverlayController {
 
     @FXML private Label coinsLabel;
     @FXML private VBox offersContainer;
-    @FXML private VBox statsContainer; // Contenedor para las stats (derecha)
+    @FXML private VBox statsContainer;
     @FXML private Button continueButton;
     @FXML private Button rerollButton;
 
-    private final List<ShopOffer> offers = new ArrayList<>();
-    private int coins;
-    private int rerollBasePrice = 1;
-    private int rerollPrice = 1;
     private StatsService statsService;
-    private Runnable onClose;
-    private IntConsumer onCoinsChanged;
-    private Consumer<ShopOverlayController> onRerollRequested;
+    private int currentCoins;
+    private int rerollBasePrice = 1;
+    private List<ShopOffer> offers = new ArrayList<>();
+
+    private Consumer<Integer> onCoinsChanged;
     private Runnable onItemsChanged;
+    private Consumer<ShopOverlayController> onRerollRequested;
+    private Consumer<Integer> onRerollPriceChanged;
+    private Runnable onClose;
+
+    @FXML
+    private void initialize() {
+        if (statsContainer != null) {
+            statsContainer.setStyle("-fx-background-color: rgba(30, 30, 30, 0.95); -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #444; -fx-border-radius: 10; -fx-border-width: 2;");
+        }
+
+        if (offers != null && !offers.isEmpty()) {
+            buildOffersUI();
+        }
+        buildStatsUI();
+
+        if (continueButton != null) {
+            continueButton.setText("EXIT SHOP");
+            continueButton.setOnAction(e -> onCloseAction());
+        }
+
+        if (rerollButton != null) {
+            rerollButton.setOnAction(e -> onRerollAction());
+        }
+    }
+
+    public void setStatsService(StatsService stats) {
+        this.statsService = stats;
+        buildStatsUI();
+    }
 
     public void setCoins(int coins) {
-        this.coins = Math.max(0, coins);
+        this.currentCoins = Math.max(0, coins);
         updateCoinsLabel();
         refreshAffordability();
     }
 
-    public int getCoins() { return coins; }
+    public int getCoins() { return currentCoins; }
 
-    public void setOnItemsChanged(Runnable onItemsChanged) {
-        this.onItemsChanged = onItemsChanged;
+    public void setRerollBasePrice(int price) {
+        this.rerollBasePrice = Math.max(0, price);
+        updateRerollLabel();
+        refreshAffordability();
     }
+
+    public int getRerollBasePrice() { return this.rerollBasePrice; }
 
     public void setOffers(List<ShopOffer> offers) {
         this.offers.clear();
         if (offers != null) {
             this.offers.addAll(offers);
         }
-        buildOffersUI();
+        if (offersContainer != null) {
+            buildOffersUI();
+        }
     }
 
-    public void setStatsService(StatsService statsService) {
-        this.statsService = statsService;
-    }
-
-    public void setOnClose(Runnable onClose) {
-        this.onClose = onClose;
-    }
-
-    public void setOnCoinsChanged(IntConsumer onCoinsChanged) {
-        this.onCoinsChanged = onCoinsChanged;
-    }
-
-    public void setOnRerollRequested(Consumer<ShopOverlayController> onRerollRequested) {
-        this.onRerollRequested = onRerollRequested;
-    }
-
-    public void setRerollBasePrice(int basePrice) {
-        this.rerollBasePrice = Math.max(0, basePrice);
-    }
+    public void setOnCoinsChanged(Consumer<Integer> callback) { this.onCoinsChanged = callback; }
+    public void setOnItemsChanged(Runnable callback) { this.onItemsChanged = callback; }
+    public void setOnRerollRequested(Consumer<ShopOverlayController> callback) { this.onRerollRequested = callback; }
+    public void setOnRerollPriceChanged(Consumer<Integer> callback) { this.onRerollPriceChanged = callback; }
+    public void setOnClose(Runnable callback) { this.onClose = callback; }
 
     public void onShow() {
-        rerollPrice = Math.max(0, rerollBasePrice);
-        buildOffersUI();
-        buildStatsUI(); // Construimos la lista de stats al abrir
         updateCoinsLabel();
         updateRerollLabel();
+        buildOffersUI();
+        buildStatsUI();
+        refreshAffordability();
 
         if (continueButton != null) {
-            continueButton.setOnAction(e -> {
-                if (onClose != null) onClose.run();
-            });
+            continueButton.setText("EXIT SHOP");
         }
+    }
+
+    private void updateCoinsLabel() {
+        if (coinsLabel != null) coinsLabel.setText("Coins: " + currentCoins + "¢");
+    }
+
+    private void updateRerollLabel() {
         if (rerollButton != null) {
-            rerollButton.setOnAction(e -> handleReroll());
+            rerollButton.setText("Reroll (" + rerollBasePrice + "¢)");
         }
     }
-
-    // ================= SECCIÓN DE STATS (DERECHA) =================
-
-    private void buildStatsUI() {
-        if (statsContainer == null || statsService == null) return;
-        statsContainer.getChildren().clear();
-
-        // Lista de stats importantes estilo Brotato
-        addStatRow("Max HP",        statsService.getMaxHealth(),        false, "Vida máxima total.");
-        addStatRow("Regeneration",  statsService.getHpRegen(),          false, "Vida recuperada cada segundo.");
-        addStatRow("Lifesteal",     statsService.getLifesteal(),        true,  "Probabilidad de curarse al dañar un enemigo.");
-        addStatRow("Damage",        statsService.getProjectileDamage(), false, "Daño por disparo.");
-        addStatRow("Attack Speed",  statsService.getFireRate(),         false, "Disparos por segundo.");
-        addStatRow("Crit Chance",   statsService.getCritChance(),       true,  "Probabilidad de hacer doble daño.");
-        addStatRow("Range",         statsService.getProjectileRange(),  false, "Distancia que viajan los disparos (tiempo de vida).");
-        addStatRow("Speed",         statsService.getMoveSpeed(),        false, "Velocidad de movimiento.");
-        addStatRow("Armor",         statsService.getArmor(),            false, "Reduce el daño recibido.");
-        addStatRow("Dodge",         statsService.getDodge(),            true,  "Probabilidad de ignorar un golpe.");
-        addStatRow("Luck",          statsService.getLuck(),             false, "Afecta la calidad de los drops y la tienda.");
-        addStatRow("Harvesting",    statsService.getHarvesting(),       false, "Dinero y experiencia extra al final de la ronda.");
-    }
-
-    private void addStatRow(String name, double value, boolean isPercent, String description) {
-        HBox row = new HBox();
-        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        row.setPadding(new javafx.geometry.Insets(2, 0, 2, 0));
-
-        // Nombre de la stat
-        Label nameLbl = new Label(name);
-        nameLbl.setStyle("-fx-text-fill: #2c2c2c; -fx-font-weight: bold; -fx-font-size: 14;");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        // Valor formateado
-        String valStr = isPercent ? String.format("%.0f%%", value) : String.format("%.1f", value);
-        Label valLbl = new Label(valStr);
-        valLbl.setStyle("-fx-text-fill: #1a1a1a; -fx-font-family: 'Consolas'; -fx-font-size: 14; -fx-font-weight: bold;");
-
-        // Color verde/rojo según si es positivo o negativo
-        if (value > 0) valLbl.setStyle(valLbl.getStyle() + "-fx-text-fill: #006400;");
-        else if (value < 0) valLbl.setStyle(valLbl.getStyle() + "-fx-text-fill: #8b0000;");
-
-        row.getChildren().addAll(nameLbl, spacer, valLbl);
-
-        // --- TOOLTIP MEJORADO ---
-        if (description != null && !description.isEmpty()) {
-            Tooltip tt = new Tooltip(description);
-            // Hacer que aparezca casi al instante (sin esperar 1 segundo)
-            tt.setShowDelay(Duration.millis(50));
-            tt.setShowDuration(Duration.INDEFINITE);
-            // Estilo específico para que no herede el CSS feo de Windows/Mac
-            tt.getStyleClass().add("game-tooltip");
-            Tooltip.install(row, tt);
-
-            // Cursor de ayuda para indicar que hay info
-            row.setCursor(javafx.scene.Cursor.HAND);
-        }
-
-        statsContainer.getChildren().add(row);
-    }
-
-    // ================= SECCIÓN DE TIENDA (IZQUIERDA) =================
 
     private void buildOffersUI() {
         if (offersContainer == null) return;
@@ -188,43 +151,45 @@ public class ShopOverlayController {
 
     private HBox createOfferRow(ShopOffer offer) {
         HBox row = new HBox(10.0);
-        // Estilo de tarjeta oscura para cada ítem
         row.setStyle("-fx-background-color: #333333; -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #555; -fx-border-radius: 8;");
-        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        row.setAlignment(Pos.CENTER_LEFT);
 
         ImageView iconView = new ImageView();
         iconView.setFitWidth(42.0);
         iconView.setFitHeight(42.0);
         iconView.setPreserveRatio(true);
-        Image icon = loadIcon(offer.itemId);
-        if (icon != null) {
-            iconView.setImage(icon);
+        String path = ItemRegistry.getIconPath(offer.itemId);
+        if (path != null) {
+             Image icon = AssetsManager.loadImage(path.startsWith("/") ? path.substring(1) : path);
+             if (icon != null) iconView.setImage(icon);
         }
 
         VBox infoBox = new VBox(2.0);
-        Label nameLabel = new Label(getItemName(offer.itemId));
-        nameLabel.getStyleClass().add("hud-label"); // Reusa estilo del HUD
-        nameLabel.setStyle("-fx-font-size: 16; -fx-text-fill: #ffd54f;");
+        ItemDefinition def = ItemRegistry.getDefinition(offer.itemId);
+        String name = (def != null ? def.getName() : offer.itemId.name());
+        String desc = (def != null ? def.getDescription() : "???");
 
-        Label descLabel = new Label(getItemDescription(offer.itemId));
+        Label nameLabel = new Label(name);
+        nameLabel.setStyle("-fx-font-size: 16; -fx-text-fill: #ffd54f; -fx-font-weight: bold;");
+
+        Label descLabel = new Label(desc);
         descLabel.setWrapText(true);
         descLabel.setMaxWidth(220.0);
         descLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11;");
+
         infoBox.getChildren().addAll(nameLabel, descLabel);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         VBox buyBox = new VBox(4);
-        buyBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+        buyBox.setAlignment(Pos.CENTER_RIGHT);
 
         Label priceLabel = new Label(offer.price + "¢");
         priceLabel.setStyle("-fx-text-fill: #ffdd55; -fx-font-weight: bold; -fx-font-size: 16;");
 
         Button buyButton = new Button("COMPRAR");
-        buyButton.getStyleClass().add("menu-button"); // Reusa estilo de botón
-        buyButton.setStyle("-fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
-
+        buyButton.setStyle("-fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6; -fx-background-color: #4CAF50; -fx-text-fill: white;");
         buyButton.setUserData(offer);
         buyButton.setOnAction(e -> handlePurchase(offer, buyButton));
 
@@ -235,154 +200,157 @@ public class ShopOverlayController {
     }
 
     private void handlePurchase(ShopOffer offer, Button button) {
-        if (offer == null || button == null) return;
-        if (button.isDisable()) return;
-        if (coins < offer.price) return;
+        if (currentCoins < offer.price) return;
 
-        coins = Math.max(0, coins - offer.price);
+        currentCoins -= offer.price;
+        if (onCoinsChanged != null) onCoinsChanged.accept(currentCoins);
         updateCoinsLabel();
-        notifyCoinsChanged();
 
-        if (statsService != null && offer.itemId != null) {
+        if (statsService != null) {
             statsService.grantItem(offer.itemId);
-        }
-
-        // 🔹 Refrescar la lista de stats de la derecha para ver el cambio inmediato
-        buildStatsUI();
-
-        if (onItemsChanged != null) {
-            onItemsChanged.run();
         }
 
         button.setDisable(true);
         button.setText("VENDIDO");
         button.setStyle("-fx-background-color: #444; -fx-text-fill: #888;");
-        button.setUserData(null);
 
-        var parent = button.getParent().getParent(); // Subir al HBox principal
-        if (parent instanceof HBox row) {
-            row.setStyle("-fx-opacity: 0.4; -fx-background-color: #202020; -fx-background-radius: 8; -fx-padding: 10;");
-        }
+        offers.remove(offer);
 
+        if (onItemsChanged != null) onItemsChanged.run();
+
+        buildStatsUI();
         refreshAffordability();
     }
 
-    private void handleReroll() {
-        if (coins < rerollPrice) return;
+    private void onRerollAction() {
+        if (currentCoins >= rerollBasePrice) {
+            currentCoins -= rerollBasePrice;
+            if (onCoinsChanged != null) onCoinsChanged.accept(currentCoins);
 
-        coins = Math.max(0, coins - rerollPrice);
-        notifyCoinsChanged();
-        updateCoinsLabel();
+            // Incremento aleatorio entre 1 y 3
+            int increment = ThreadLocalRandom.current().nextInt(1, 4); // 1, 2, o 3
+            rerollBasePrice += increment;
 
-        int inc = incrementRerollPrice();
-        updateRerollLabel();
-        refreshAffordability();
+            if (onRerollPriceChanged != null) onRerollPriceChanged.accept(rerollBasePrice);
 
-        showRerollFloatText(inc);
+            if (onRerollRequested != null) {
+                onRerollRequested.accept(this);
+            }
 
-        if (onRerollRequested != null) {
-            onRerollRequested.accept(this);
+            updateCoinsLabel();
+            updateRerollLabel();
+
+            // Mostrar texto flotante con el coste pagado
+            showRerollFloatText(rerollBasePrice - increment);
+            refreshAffordability();
         }
     }
 
-    private void updateCoinsLabel() {
-        if (coinsLabel != null) {
-            coinsLabel.setText("Coins: " + coins + "¢");
-        }
-    }
-
-    private void updateRerollLabel() {
-        if (rerollButton != null) {
-            rerollButton.setText("Reroll (" + rerollPrice + "¢)");
-        }
+    private void onCloseAction() {
+        if (onClose != null) onClose.run();
     }
 
     private void refreshAffordability() {
         if (offersContainer == null) return;
-        for (var node : offersContainer.getChildren()) {
+
+        for (Node node : offersContainer.getChildren()) {
             if (node instanceof HBox row) {
-                // Buscamos el botón dentro de la estructura (HBox -> VBox -> Button)
-                var lastChild = row.getChildren().get(row.getChildren().size() - 1);
-                if (lastChild instanceof VBox buyBox) {
-                    for(var b : buyBox.getChildren()) {
-                        if (b instanceof Button btn) {
+                if (!row.getChildren().isEmpty() && row.getChildren().get(row.getChildren().size() - 1) instanceof VBox buyBox) {
+                    for (Node n : buyBox.getChildren()) {
+                        if (n instanceof Button btn && !btn.getText().equals("VENDIDO")) {
                             Object ud = btn.getUserData();
                             if (ud instanceof ShopOffer offer) {
-                                btn.setDisable(coins < offer.price);
+                                btn.setDisable(currentCoins < offer.price);
+                                if (currentCoins < offer.price) {
+                                    btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
+                                } else {
+                                    btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
         if (rerollButton != null) {
-            rerollButton.setDisable(coins < rerollPrice);
+            rerollButton.setDisable(currentCoins < rerollBasePrice);
         }
     }
 
-    private void notifyCoinsChanged() {
-        if (onCoinsChanged != null) {
-            onCoinsChanged.accept(coins);
+    private void buildStatsUI() {
+        if (statsContainer == null || statsService == null) return;
+        statsContainer.getChildren().clear();
+
+        addStatRow("Max HP",       statsService.getMaxHealth(),       false, "Vida máxima total.");
+        addStatRow("Regeneration", statsService.getHpRegen(),         false, "Vida recuperada cada segundo.");
+        addStatRow("Lifesteal",    statsService.getLifesteal(),       true,  "Probabilidad de curarse al dañar.");
+        addStatRow("Damage",       statsService.getProjectileDamage(),false, "Daño por disparo.");
+        addStatRow("Fire Rate",    statsService.getFireRate(),        false, "Disparos por segundo.");
+        addStatRow("Speed",        statsService.getMoveSpeed(),       false, "Velocidad de movimiento.");
+        addStatRow("Armor",        statsService.getArmor(),           false, "Reducción de daño.");
+        addStatRow("Luck",         statsService.getLuck(),            false, "Suerte en drops.");
+    }
+
+    private void addStatRow(String name, double value, boolean isPercent, String desc) {
+        HBox row = new HBox();
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(2, 0, 2, 0));
+
+        Label nameLbl = new Label(name);
+        nameLbl.setStyle("-fx-text-fill: #ccc; -fx-font-weight: bold; -fx-font-size: 12;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        String valStr = isPercent ? String.format("%.0f%%", value) : String.format("%.1f", value);
+        Label valLbl = new Label(valStr);
+
+        String color = "#fff";
+        if (value > 0) color = "#4caf50";
+
+        valLbl.setStyle("-fx-text-fill: " + color + "; -fx-font-family: 'Consolas'; -fx-font-size: 12; -fx-font-weight: bold;");
+
+        if (desc != null) {
+            Tooltip tt = new Tooltip(desc);
+            Tooltip.install(row, tt);
         }
+
+        row.getChildren().addAll(nameLbl, spacer, valLbl);
+        statsContainer.getChildren().add(row);
     }
 
-    private int incrementRerollPrice() {
-        int inc = java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 3); // Reroll sube poco a poco
-        rerollPrice = rerollPrice + inc;
-        return inc;
-    }
-
-    private String getItemName(ItemId itemId) {
-        ItemDefinition def = itemId == null ? null : ItemRegistry.getDefinition(itemId);
-        return (def != null && def.getName() != null) ? def.getName() : (itemId != null ? itemId.name() : "Item");
-    }
-
-    private String getItemDescription(ItemId itemId) {
-        ItemDefinition def = itemId == null ? null : ItemRegistry.getDefinition(itemId);
-        return (def != null && def.getDescription() != null) ? def.getDescription() : "Un objeto misterioso.";
-    }
-
-    private Image loadIcon(ItemId itemId) {
-        if (itemId == null) return null;
-        try {
-            String path = ItemRegistry.getIconPath(itemId);
-            if (path == null) return null;
-            String rel = path.startsWith("/") ? path.substring(1) : path;
-            return AssetsManager.loadImage(rel);
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    private void showRerollFloatText(int inc) {
+    private void showRerollFloatText(int costPaid) {
         if (rerollButton == null || rerollButton.getScene() == null) return;
 
-        Label floating = new Label("+" + inc + "¢");
-        floating.setStyle("-fx-text-fill: #ff5555; -fx-font-size: 18px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 2, 1, 0, 0);");
+        Label floating = new Label("- " + costPaid + "¢");
+        floating.setStyle("-fx-text-fill: #ff5555; -fx-font-size: 16px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 2, 1, 0, 0);");
 
         Scene scene = rerollButton.getScene();
-        if (!(scene.getRoot() instanceof StackPane root)) return;
+        if (scene.getRoot() instanceof StackPane root) {
+            root.getChildren().add(floating);
 
-        root.getChildren().add(floating);
+            var p = rerollButton.localToScene(rerollButton.getWidth()/2, 0);
+            var local = root.sceneToLocal(p.getX(), p.getY());
 
-        var p = rerollButton.localToScene(rerollButton.getWidth()/2, 0);
-        var localInRoot = root.sceneToLocal(p.getX(), p.getY());
+            floating.setTranslateX(local.getX());
+            floating.setTranslateY(local.getY());
 
-        floating.setTranslateX(localInRoot.getX());
-        floating.setTranslateY(localInRoot.getY() - 10);
-
-        Timeline tl = new Timeline(
-            new KeyFrame(Duration.ZERO,
-                new KeyValue(floating.opacityProperty(), 1.0),
-                new KeyValue(floating.translateYProperty(), floating.getTranslateY())
-            ),
-            new KeyFrame(Duration.millis(800),
-                new KeyValue(floating.opacityProperty(), 0.0),
-                new KeyValue(floating.translateYProperty(), floating.getTranslateY() - 40)
-            )
-        );
-
-        tl.setOnFinished(e -> root.getChildren().remove(floating));
-        tl.play();
+            Timeline tl = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                    new KeyValue(floating.translateYProperty(), local.getY()),
+                    new KeyValue(floating.opacityProperty(), 1.0)
+                ),
+                new KeyFrame(Duration.millis(600),
+                    new KeyValue(floating.translateYProperty(), local.getY() - 30),
+                    new KeyValue(floating.opacityProperty(), 0.0)
+                )
+            );
+            tl.setOnFinished(e -> root.getChildren().remove(floating));
+            tl.play();
+        }
     }
+
+    @FXML private void onReroll() { onRerollAction(); }
+    @FXML private void onClose() { onCloseAction(); }
 }
