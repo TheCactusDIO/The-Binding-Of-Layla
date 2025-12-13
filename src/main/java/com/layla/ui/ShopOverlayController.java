@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 import com.layla.core.AssetsManager;
+import com.layla.entities.Player;
 import com.layla.items.ItemDefinition;
 import com.layla.items.ItemId;
 import com.layla.items.ItemRegistry;
@@ -36,6 +38,8 @@ public class ShopOverlayController {
     public static class ShopOffer {
         public final ItemId itemId;
         public final int price;
+        public boolean sold = false; // Agregado campo sold
+
         public ShopOffer(ItemId itemId, int price) {
             this.itemId = itemId;
             this.price = price;
@@ -49,15 +53,20 @@ public class ShopOverlayController {
     @FXML private Button rerollButton;
 
     private StatsService statsService;
+    private Player player; // Necesario para curar
     private int currentCoins;
     private int rerollBasePrice = 1;
     private List<ShopOffer> offers = new ArrayList<>();
 
-    private Consumer<Integer> onCoinsChanged;
+    private IntConsumer onCoinsChanged; // Cambiado a IntConsumer
     private Runnable onItemsChanged;
     private Consumer<ShopOverlayController> onRerollRequested;
     private Consumer<Integer> onRerollPriceChanged;
     private Runnable onClose;
+
+    // Lógica Corazón
+    private int heartPrice = 0;
+    private Consumer<ShopOverlayController> onHeartBuyRequest;
 
     @FXML
     private void initialize() {
@@ -85,6 +94,8 @@ public class ShopOverlayController {
         buildStatsUI();
     }
 
+    public void setPlayer(Player player) { this.player = player; }
+
     public void setCoins(int coins) {
         this.currentCoins = Math.max(0, coins);
         updateCoinsLabel();
@@ -111,7 +122,11 @@ public class ShopOverlayController {
         }
     }
 
-    public void setOnCoinsChanged(Consumer<Integer> callback) { this.onCoinsChanged = callback; }
+    // Métodos para el corazón
+    public void setHeartPrice(int price) { this.heartPrice = price; refreshAffordability(); }
+    public void setOnHeartBuyRequest(Consumer<ShopOverlayController> callback) { this.onHeartBuyRequest = callback; }
+
+    public void setOnCoinsChanged(IntConsumer callback) { this.onCoinsChanged = callback; }
     public void setOnItemsChanged(Runnable callback) { this.onItemsChanged = callback; }
     public void setOnRerollRequested(Consumer<ShopOverlayController> callback) { this.onRerollRequested = callback; }
     public void setOnRerollPriceChanged(Consumer<Integer> callback) { this.onRerollPriceChanged = callback; }
@@ -143,10 +158,62 @@ public class ShopOverlayController {
         if (offersContainer == null) return;
         offersContainer.getChildren().clear();
 
+        // 1. Agregar Fila del Corazón
+        offersContainer.getChildren().add(createHeartRow());
+
+        // 2. Agregar Filas de Ofertas
         for (ShopOffer offer : offers) {
             offersContainer.getChildren().add(createOfferRow(offer));
         }
         refreshAffordability();
+    }
+
+    private HBox createHeartRow() {
+        HBox row = new HBox(10.0);
+        row.setStyle("-fx-background-color: #333333; -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #555; -fx-border-radius: 8;");
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        ImageView iconView = new ImageView();
+        iconView.setFitWidth(42.0);
+        iconView.setFitHeight(42.0);
+        iconView.setPreserveRatio(true);
+        // Usar el icono del corazón de salud
+        Image icon = AssetsManager.loadImage("assets/images/health_icon.png");
+        if (icon != null) iconView.setImage(icon);
+
+        VBox infoBox = new VBox(2.0);
+        Label nameLabel = new Label("Red Heart");
+        nameLabel.setStyle("-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-font-weight: bold;");
+
+        Label descLabel = new Label("Restores 1 Heart container.");
+        descLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11;");
+
+        infoBox.getChildren().addAll(nameLabel, descLabel);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        VBox buyBox = new VBox(4);
+        buyBox.setAlignment(Pos.CENTER_RIGHT);
+
+        Label priceLabel = new Label(heartPrice + "¢");
+        priceLabel.setStyle("-fx-text-fill: #ffdd55; -fx-font-weight: bold; -fx-font-size: 16;");
+
+        Button buyButton = new Button("COMPRAR");
+        buyButton.setStyle("-fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+
+        buyButton.setOnAction(e -> {
+            if (onHeartBuyRequest != null) onHeartBuyRequest.accept(this);
+            // El GameController manejará la lógica y llamará a setCoins/setHeartPrice, lo que refrescará la UI
+        });
+
+        buyBox.getChildren().addAll(priceLabel, buyButton);
+        row.getChildren().addAll(iconView, infoBox, spacer, buyBox);
+
+        // Guardamos referencia al precio para actualizarlo si cambia
+        row.setUserData("HEART_ROW");
+
+        return row;
     }
 
     private HBox createOfferRow(ShopOffer offer) {
@@ -188,8 +255,14 @@ public class ShopOverlayController {
         Label priceLabel = new Label(offer.price + "¢");
         priceLabel.setStyle("-fx-text-fill: #ffdd55; -fx-font-weight: bold; -fx-font-size: 16;");
 
-        Button buyButton = new Button("COMPRAR");
-        buyButton.setStyle("-fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        Button buyButton = new Button(offer.sold ? "VENDIDO" : "COMPRAR");
+        if (offer.sold) {
+            buyButton.setDisable(true);
+            buyButton.setStyle("-fx-background-color: #444; -fx-text-fill: #888;");
+        } else {
+            buyButton.setStyle("-fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        }
+
         buyButton.setUserData(offer);
         buyButton.setOnAction(e -> handlePurchase(offer, buyButton));
 
@@ -210,11 +283,10 @@ public class ShopOverlayController {
             statsService.grantItem(offer.itemId);
         }
 
+        offer.sold = true;
         button.setDisable(true);
         button.setText("VENDIDO");
         button.setStyle("-fx-background-color: #444; -fx-text-fill: #888;");
-
-        offers.remove(offer);
 
         if (onItemsChanged != null) onItemsChanged.run();
 
@@ -228,7 +300,7 @@ public class ShopOverlayController {
             if (onCoinsChanged != null) onCoinsChanged.accept(currentCoins);
 
             // Incremento aleatorio entre 1 y 3
-            int increment = ThreadLocalRandom.current().nextInt(1, 4); // 1, 2, o 3
+            int increment = ThreadLocalRandom.current().nextInt(1, 4);
             rerollBasePrice += increment;
 
             if (onRerollPriceChanged != null) onRerollPriceChanged.accept(rerollBasePrice);
@@ -240,7 +312,6 @@ public class ShopOverlayController {
             updateCoinsLabel();
             updateRerollLabel();
 
-            // Mostrar texto flotante con el coste pagado
             showRerollFloatText(rerollBasePrice - increment);
             refreshAffordability();
         }
@@ -255,6 +326,33 @@ public class ShopOverlayController {
 
         for (Node node : offersContainer.getChildren()) {
             if (node instanceof HBox row) {
+                if ("HEART_ROW".equals(row.getUserData())) {
+                    // Actualizar fila corazón
+                    VBox buyBox = (VBox) row.getChildren().get(row.getChildren().size() - 1);
+                    Label priceLbl = (Label) buyBox.getChildren().get(0);
+                    Button btn = (Button) buyBox.getChildren().get(1);
+
+                    priceLbl.setText(heartPrice + "¢");
+
+                    boolean canAfford = currentCoins >= heartPrice;
+                    boolean healthFull = (player != null && player.getHealth() >= player.getMaxHealth());
+
+                    btn.setDisable(!canAfford || healthFull);
+
+                    if (healthFull) {
+                        btn.setText("LLENO");
+                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa;");
+                    } else if (!canAfford) {
+                        btn.setText("COMPRAR");
+                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa;");
+                    } else {
+                        btn.setText("COMPRAR");
+                        btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+                    }
+                    continue;
+                }
+
+                // Ofertas normales
                 if (!row.getChildren().isEmpty() && row.getChildren().get(row.getChildren().size() - 1) instanceof VBox buyBox) {
                     for (Node n : buyBox.getChildren()) {
                         if (n instanceof Button btn && !btn.getText().equals("VENDIDO")) {

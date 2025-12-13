@@ -84,6 +84,9 @@ public class GameController implements ViewLifecycle {
     private List<ShopOffer> currentShopOffers = new ArrayList<>();
     private int currentRerollPrice = 1;
 
+    // PRECIO DEL CORAZÓN (Escalable)
+    private int currentHeartPrice = 2;
+
     private boolean musicStarted = false;
     private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
@@ -384,12 +387,15 @@ public class GameController implements ViewLifecycle {
         startGateOpen = true;
         gameStarted = true;
 
-        // FIX 2: Resetear estadísticas del jugador (Items y stats)
+        // Resetear estadísticas del jugador
         statsService.resetDefaults();
 
-        // FIX 3: Resetear monedas y puntuación explícitamente al iniciar
-        this.coins = 0; // REINICIO CONFIRMADO
+        // Resetear monedas y puntuación
+        this.coins = 0;
         this.score = 500;
+
+        // Resetear precio del corazón a base (2)
+        this.currentHeartPrice = 2;
 
         currentFloor = 1;
         currentWave = 0;
@@ -625,7 +631,7 @@ public class GameController implements ViewLifecycle {
         shopKeeperEntity = new GameEntity() {
             Node view;
             {
-                // CAMBIO: Cargar imagen shop.png
+                // USAR IMAGEN DE LA TIENDA
                 Image shopImg = AssetsManager.loadImage("assets/images/shop.png");
                 if (shopImg != null) {
                     ImageView iv = new ImageView(shopImg);
@@ -856,6 +862,9 @@ public class GameController implements ViewLifecycle {
         currentWave = 0;
 
         clearLevel();
+
+        // Reset precio corazón al cambiar de piso
+        currentHeartPrice = 2;
 
         waveInProgress = false;
         timerStopped = false;
@@ -1174,9 +1183,27 @@ public class GameController implements ViewLifecycle {
         overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/shop_overlay.fxml", 0.90, controller -> {
             if (controller instanceof ShopOverlayController soc) {
                 soc.setStatsService(statsService);
+                soc.setPlayer(player); // Necesario para curar
                 soc.setCoins(coins);
                 soc.setRerollBasePrice(currentRerollPrice);
                 soc.setOffers(currentShopOffers);
+
+                // Configurar lógica del corazón
+                soc.setHeartPrice(currentHeartPrice);
+                soc.setOnHeartBuyRequest((c) -> {
+                    // Lógica de compra de corazón
+                    if (coins >= currentHeartPrice && player.getHealth() < player.getMaxHealth()) {
+                        coins -= currentHeartPrice;
+                        player.addHealth(2); // Cura un corazón entero
+                        currentHeartPrice += 2;
+
+                        // Actualizar UI
+                        updateHudLabels();
+                        c.setCoins(coins);
+                        c.setHeartPrice(currentHeartPrice);
+                    }
+                });
+
                 soc.setOnCoinsChanged(newCoins -> {
                     coins = Math.max(0, newCoins);
                     updateHudLabels();
@@ -1241,7 +1268,7 @@ public class GameController implements ViewLifecycle {
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
             e -> {
                 gameLoop.removeEntity(e);
-                obstacles.remove(e); // FIX 1: Eliminar de obstáculos para evitar colisión invisible
+                obstacles.remove(e);
                 if (itemHud != null) itemHud.refresh();
                 showItemPickupOverlay(itemId);
             },
@@ -1277,6 +1304,7 @@ public class GameController implements ViewLifecycle {
 
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
+        // El corazón ya no se añade aquí, se gestiona aparte en el controlador
         List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
         List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
         List<ItemDefinition> pool = new ArrayList<>(shopItems);
