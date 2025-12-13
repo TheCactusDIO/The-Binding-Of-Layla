@@ -110,6 +110,9 @@ public class GameController implements ViewLifecycle {
     private boolean paused = false;
     private boolean gameOverShown = false;
 
+    // FIX REINICIO: Bandera estática para indicar que se debe iniciar partida al cargar
+    private static boolean restartPending = false;
+
     private GameLoop gameLoop;
     private Player player;
     private boolean playerSpawnListenerAdded = false;
@@ -250,7 +253,6 @@ public class GameController implements ViewLifecycle {
             bossHealthBar.setProgress(activeBoss.getHp() / activeBoss.getMaxHp());
         }
 
-        // ASEGURAR VISIBILIDAD DE ITEMS
         if (itemHud != null) {
             itemHud.toFront();
             itemHud.refresh();
@@ -353,6 +355,15 @@ public class GameController implements ViewLifecycle {
             gameArea.heightProperty().addListener((obs, oh, nh) -> maybeSpawnPlayer());
         }
         maybeSpawnPlayer();
+
+        // FIX REINICIO: Si hay un reinicio pendiente, lanzar juego inmediatamente
+        if (restartPending) {
+            restartPending = false;
+            Platform.runLater(() -> {
+                System.out.println("[GameController] Restart pending -> Signal Game Start");
+                signalGameStart();
+            });
+        }
     }
 
     @Override
@@ -397,46 +408,28 @@ public class GameController implements ViewLifecycle {
     private void spawnGreedButton() {
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
+            if (greedButton.getView() != null) gameArea.getChildren().remove(greedButton.getView());
             obstacles.remove(greedButton);
         }
 
-        double w = gameArea.getWidth();
-        double h = gameArea.getHeight();
-        if (w <= 0) w = 1200;
-        if (h <= 0) h = 800;
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
 
         double cx = w / 2.0;
         double cy = h / 2.0;
 
-        // Comprobación rápida para no caer encima de una roca
-        boolean obstructed = false;
-        for (GameEntity e : obstacles) {
-            if(e instanceof Rock) {
-                Node view = e.getView();
-                if (view != null) {
-                    double ox = view.getLayoutX() + 25;
-                    double oy = view.getLayoutY() + 25;
-                    if (Math.hypot(cx - ox, cy - oy) < 80) {
-                        obstructed = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (obstructed) {
-            cx += 200.0;
-        }
+        // Limpiar área central para evitar bloques invisibles
+        clearAreaAround(cx, cy, 100);
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
             if (!waveInProgress) {
-                // START: Permite iniciar oleada normal O Boss si toca (<= wavesPerFloor)
+                // START
                 if (currentWave <= wavesPerFloor) {
                     btn.setActiveState(true);
                     startNextWave();
                 }
             } else {
-                // STOP: Check de seguridad (delay 3s)
+                // STOP
                 if (buttonSafetyTimer > 0) return;
 
                 if (!timerStopped && nextWaveTimer > 0) {
@@ -458,7 +451,31 @@ public class GameController implements ViewLifecycle {
         });
         greedButton.setActiveState(false);
         gameLoop.addEntity(greedButton);
-        checkAndPushInteractive(greedButton); // Asegura que no esté sobre nada
+        // FIX: Evitar que el botón aparezca sobre el jugador si está ahí
+        checkAndPushInteractive(greedButton);
+    }
+
+    /**
+     * Elimina cualquier obstáculo (roca) en un radio dado.
+     * FIX: No borra la tienda (shopKeeperEntity) para evitar que desaparezca.
+     */
+    private void clearAreaAround(double x, double y, double radius) {
+        List<GameEntity> toRemove = new ArrayList<>();
+        for (GameEntity obs : obstacles) {
+            if (obs == shopKeeperEntity) continue; // PROTEGER TIENDA
+
+            Bounds b = obs.getBounds();
+            double dist = Math.hypot(b.getCenterX() - x, b.getCenterY() - y);
+            if (dist < radius) {
+                toRemove.add(obs);
+            }
+        }
+        for (GameEntity obs : toRemove) {
+            if (obs instanceof Rock rock) rock.destroy();
+            gameLoop.removeEntity(obs);
+            if (obs.getView() != null) gameArea.getChildren().remove(obs.getView());
+            obstacles.remove(obs);
+        }
     }
 
     public void backToMenu() { SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml"); }
@@ -488,13 +505,11 @@ public class GameController implements ViewLifecycle {
         if (greedButton != null) greedButton.setActiveState(true);
         removeShopKeeper();
 
-        // Si es la oleada final, invocamos al BOSS
         if (wave == wavesPerFloor) {
             spawnBoss();
             return;
         }
 
-        // Oleada normal
         nextWaveTimer = 10.0 + (wave * 2.0);
 
         double difficulty = currentFloor * 1.5 + wave * 0.5;
@@ -511,7 +526,6 @@ public class GameController implements ViewLifecycle {
     private void updateGreedLogic(double dt) {
         if (activeBoss != null) return;
 
-        // Reducir temporizador de seguridad si está activo
         if (buttonSafetyTimer > 0) buttonSafetyTimer -= dt;
 
         if (!waveInProgress) {
@@ -533,7 +547,6 @@ public class GameController implements ViewLifecycle {
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
 
         if (allDead) {
-            // Oleada limpia
             if (nextWaveTimer > 0 && !moneyPenaltyActive) {
                 spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), 1);
                 AppContext.notifications().showNotification("QUICK CLEAR!", "+1 Coin", 2.0);
@@ -541,19 +554,32 @@ public class GameController implements ViewLifecycle {
 
             nextWaveTimer = 0;
 
-            // Si la siguiente es <= al Boss, iniciamos
-            if (currentWave < wavesPerFloor) {
-                startNextWave();
-            } else {
-                // Hemos terminado la oleada normal justo antes del Boss (o el Boss mismo ya murió)
+            // FIX 3: Si se paró el timer, NO lanzar siguiente oleada automáticamente.
+            if (timerStopped) {
                 waveInProgress = false;
                 if (greedButton != null) greedButton.setActiveState(false);
+            } else {
+                if (currentWave < wavesPerFloor) {
+                    startNextWave();
+                } else {
+                    // Fin de oleadas normales, prepararse para Boss (pero esperar al botón si se quiere)
+                    // O si ya es la ultima antes del boss, lanzarlo?
+                    // Greed mode original lanza todo seguido.
+                    // Si timer no parado, sigue.
+                    // PERO, si currentWave == wavesPerFloor - 1, la siguiente es BOSS.
+                    // startNextWave maneja eso.
+                    if (currentWave < wavesPerFloor) {
+                        startNextWave();
+                    } else {
+                        // Estamos justo antes del boss, o ya lo matamos
+                        waveInProgress = false;
+                        if (greedButton != null) greedButton.setActiveState(false);
+                    }
+                }
             }
         }
         else if (timeUp && !timerStopped) {
-            // Tiempo agotado (Stacking)
             if (currentWave < wavesPerFloor) {
-                // Permitimos stackear hasta la oleada anterior al Boss
                 if (currentWave < wavesPerFloor - 1) {
                     currentWave++;
                     spawnWaveEnemiesForCurrentWave();
@@ -575,10 +601,8 @@ public class GameController implements ViewLifecycle {
         if (gameOverShown || !startGateOpen) return;
         currentWave++;
 
-        // Si superamos el máximo de oleadas (ya matamos al Boss), siguiente piso
         if (currentWave > wavesPerFloor) {
-            // Esto solo ocurre si pulsamos el botón DESPUÉS de matar al boss
-            return;
+            return; // Esperar a activar boss manualmente o lógica boss
         }
 
         startWave(currentWave);
@@ -588,12 +612,14 @@ public class GameController implements ViewLifecycle {
     private void spawnShopKeeper() {
         if (shopKeeperEntity != null) {
             gameLoop.removeEntity(shopKeeperEntity);
+            if (shopKeeperEntity.getView() != null) gameArea.getChildren().remove(shopKeeperEntity.getView());
             obstacles.remove(shopKeeperEntity);
         }
         if (gameArea == null) return;
 
-        double w = gameArea.getWidth(); if (w <= 0) w = 1200;
-        double h = gameArea.getHeight(); if (h <= 0) h = 800;
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
+
         double cx = w / 2.0;
         double cy = h / 2.0;
 
@@ -637,45 +663,15 @@ public class GameController implements ViewLifecycle {
             @Override public Bounds getBounds() { return view.getBoundsInParent(); }
         };
         gameLoop.addEntity(shopKeeperEntity);
-        obstacles.add(shopKeeperEntity); // Se añade para lógica, pero se ignora en colisiones
+        obstacles.add(shopKeeperEntity);
 
-        checkAndPushInteractive(shopKeeperEntity);
-    }
-
-    /**
-     * Mueve la entidad si está colisionando con una roca u otro obstáculo.
-     * Ahora intenta varias direcciones hasta encontrar un hueco.
-     */
-    private void checkAndPushInteractive(GameEntity entity) {
-        if (entity.getView() == null) return;
-
-        int tries = 0;
-        boolean collided = true;
-
-        while (collided && tries < 15) {
-            collided = false;
-            Bounds b = entity.getBounds();
-
-            for (GameEntity obs : obstacles) {
-                if (obs != entity && obs.getBounds().intersects(b)) {
-                    collided = true;
-                    // Mover hacia la derecha/abajo para encontrar hueco
-                    entity.getView().setLayoutX(entity.getView().getLayoutX() + 60);
-                    // Si se sale mucho, bajar de linea
-                    if (entity.getView().getLayoutX() > gameArea.getWidth() - 100) {
-                        entity.getView().setLayoutX(100);
-                        entity.getView().setLayoutY(entity.getView().getLayoutY() + 60);
-                    }
-                    break;
-                }
-            }
-            tries++;
-        }
+        // No chequeamos push para la tienda, asumimos posición fija relativa al botón
     }
 
     private void removeShopKeeper() {
         if (shopKeeperEntity != null) {
             gameLoop.removeEntity(shopKeeperEntity);
+            if (shopKeeperEntity.getView() != null) gameArea.getChildren().remove(shopKeeperEntity.getView());
             obstacles.remove(shopKeeperEntity);
             shopKeeperEntity = null;
         }
@@ -683,8 +679,8 @@ public class GameController implements ViewLifecycle {
 
     private void spawnWaveEnemies(int count) {
         if (gameArea == null || player == null) return;
-        double w = gameArea.getWidth(); if (w<=0) w=1200;
-        double h = gameArea.getHeight(); if (h<=0) h=800;
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
 
         for (int i = 0; i < count; i++) {
             double x = 0, y = 0;
@@ -756,6 +752,7 @@ public class GameController implements ViewLifecycle {
 
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
+            if (greedButton.getView() != null) gameArea.getChildren().remove(greedButton.getView());
             greedButton = null;
         }
         removeShopKeeper();
@@ -812,26 +809,34 @@ public class GameController implements ViewLifecycle {
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
 
-        spawnRoomRewardPedestal();
+        // FIX 1: Cambiar orden. Primero limpiar/spawnear botón, luego tienda.
+        spawnNextFloorButton();
         spawnShopKeeper();
 
-        spawnNextFloorButton();
+        spawnRoomRewardPedestal();
     }
 
     private void spawnNextFloorButton() {
-        if (greedButton != null) gameLoop.removeEntity(greedButton);
+        if (greedButton != null) {
+            gameLoop.removeEntity(greedButton);
+            if (greedButton.getView() != null) gameArea.getChildren().remove(greedButton.getView());
+        }
 
-        double w = gameArea.getWidth(); if (w <= 0) w = 1200;
-        double h = gameArea.getHeight(); if (h <= 0) h = 800;
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
+
         double cx = w / 2.0;
         double cy = h / 2.0;
+
+        // FIX 2: Borrar rocas del centro para evitar colisiones fantasmas
+        clearAreaAround(cx, cy, 100);
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
             loadNextFloor();
         });
         greedButton.setAsExit();
         gameLoop.addEntity(greedButton);
-        checkAndPushInteractive(greedButton); // FIX: Comprobar colisión tras spawnear
+        checkAndPushInteractive(greedButton);
     }
 
     private void loadNextFloor() {
@@ -842,8 +847,8 @@ public class GameController implements ViewLifecycle {
         }
 
         currentWave = 0;
-        enemies.clear();
-        obstacles.clear();
+
+        clearLevel();
 
         waveInProgress = false;
         timerStopped = false;
@@ -866,6 +871,30 @@ public class GameController implements ViewLifecycle {
         AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
     }
 
+    /**
+     * Limpia completamente el nivel actual.
+     */
+    private void clearLevel() {
+        for (Enemy e : new ArrayList<>(enemies)) {
+            gameLoop.removeEntity(e);
+            if (e.getView() != null) gameArea.getChildren().remove(e.getView());
+        }
+        enemies.clear();
+
+        for (GameEntity obs : new ArrayList<>(obstacles)) {
+            if (obs instanceof Rock rock) rock.destroy();
+            gameLoop.removeEntity(obs);
+            if (obs.getView() != null) gameArea.getChildren().remove(obs.getView());
+        }
+        obstacles.clear();
+
+        if (player != null && player.getView() != null) {
+            gameArea.getChildren().removeIf(n -> n != player.getView());
+        } else {
+            gameArea.getChildren().clear();
+        }
+    }
+
     private EnemyType pickEnemyTypeForWave() {
         int roll = enemyRng.nextInt(100);
         if (currentFloor == 1) {
@@ -884,14 +913,13 @@ public class GameController implements ViewLifecycle {
     private void maybeSpawnPlayer() {
         if (!startGateOpen) return;
         if (player != null || input == null || gameLoop == null) return;
-        if (gameArea.getWidth() <= 0 && gameArea.getPrefWidth() <= 0) return;
+
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
 
         player = new Player(input, gameArea, statsService);
         applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
-
-        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1200;
-        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 800;
 
         player.setPosition(w/2 - 10, h/2 + 100);
 
@@ -912,7 +940,6 @@ public class GameController implements ViewLifecycle {
         StackPane.setAlignment(itemHud, Pos.TOP_RIGHT);
         StackPane.setMargin(itemHud, new Insets(12, 8, 12, 8));
 
-        // ASEGURAR QUE EL HUD DE ITEMS ESTÁ AL FRENTE
         itemHud.toFront();
         hud.toFront();
 
@@ -1028,8 +1055,8 @@ public class GameController implements ViewLifecycle {
         obstacles.clear();
 
         int pattern = enemyRng.nextInt(4);
-        double w = gameArea.getWidth(); double h = gameArea.getHeight();
-        if (w<=0) w=1200; if(h<=0) h=800;
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
         double cx = w/2; double cy = h/2;
 
         if (pattern == 1) {
@@ -1200,17 +1227,20 @@ public class GameController implements ViewLifecycle {
         final ItemId itemId = def.getId();
         rewardItemCursor++;
 
-        double w = gameArea.getWidth(); if (w<=0) w=1200;
-        double h = gameArea.getHeight(); if (h<=0) h=800;
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
+
+        double cx = w/2; double cy = h/2;
+
+        clearAreaAround(cx, cy + 80, 60);
 
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
             e -> { gameLoop.removeEntity(e); if (itemHud != null) itemHud.refresh(); showItemPickupOverlay(itemId); },
             k -> sound.play(k)
         );
-        pedestal.setPosition(w/2, h/2 + 80);
+        pedestal.setPosition(cx, cy + 80);
         gameLoop.addEntity(pedestal);
 
-        // FIX: Evitar que el pedestal salga sobre una roca y añadirlo a obstáculos
         checkAndPushInteractive(pedestal);
         obstacles.add(pedestal);
     }
@@ -1280,10 +1310,6 @@ public class GameController implements ViewLifecycle {
         return Math.max(min, Math.min(v, max));
     }
 
-    // -------------------------------------------------------------------------
-    // MÉTODOS AÑADIDOS / MODIFICADOS
-    // -------------------------------------------------------------------------
-
     private void tryShootNow() {
         if (player == null || shootingService == null || input == null) return;
         double[] aim = input.getAimArrowCardinal();
@@ -1317,12 +1343,7 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    /**
-     * Lógica mejorada de colisión: Separación por profundidad de penetración (Muro sólido).
-     * También ignora la tienda.
-     */
     private void resolveCollision(GameEntity dynamic, GameEntity staticEnt) {
-         // SOLUCIÓN PROBLEMA 2: Ignorar colisión con la tienda para poder entrar
          if (staticEnt == shopKeeperEntity) return;
 
          if (dynamic.getView() == null || staticEnt.getView() == null) return;
@@ -1330,29 +1351,22 @@ public class GameController implements ViewLifecycle {
          Bounds d = dynamic.getBounds();
          Bounds s = staticEnt.getBounds();
 
-         // Si no se tocan, no hacemos nada
          if (!d.intersects(s)) return;
 
          double dx = d.getCenterX() - s.getCenterX();
          double dy = d.getCenterY() - s.getCenterY();
 
-         // Calcular mitad de anchos/altos para saber cuánto solapamiento hay
          double halfWidths = (d.getWidth() / 2.0) + (s.getWidth() / 2.0);
          double halfHeights = (d.getHeight() / 2.0) + (s.getHeight() / 2.0);
 
-         // overlapX = Cuánto se metió en X
          double overlapX = halfWidths - Math.abs(dx);
-         // overlapY = Cuánto se metió en Y
          double overlapY = halfHeights - Math.abs(dy);
 
          if (overlapX > 0 && overlapY > 0) {
-             // SOLUCIÓN PROBLEMA 1: Resolver en el eje de menor penetración para evitar "rebote"
              if (overlapX < overlapY) {
-                 // Empujar fuera en X exactamente la distancia que se metió
                  double sign = Math.signum(dx);
                  dynamic.getView().setLayoutX(dynamic.getView().getLayoutX() + (overlapX * sign));
              } else {
-                 // Empujar fuera en Y exactamente la distancia que se metió
                  double sign = Math.signum(dy);
                  dynamic.getView().setLayoutY(dynamic.getView().getLayoutY() + (overlapY * sign));
              }
@@ -1382,9 +1396,31 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    /**
-     * Muestra la pantalla de Game Over y permite reiniciar correctamente.
-     */
+    private void checkAndPushInteractive(GameEntity entity) {
+        if (entity.getView() == null) return;
+
+        int tries = 0;
+        boolean collided = true;
+
+        while (collided && tries < 15) {
+            collided = false;
+            Bounds b = entity.getBounds();
+
+            for (GameEntity obs : obstacles) {
+                if (obs != entity && obs.getBounds().intersects(b)) {
+                    collided = true;
+                    entity.getView().setLayoutX(entity.getView().getLayoutX() + 60);
+                    if (entity.getView().getLayoutX() > gameArea.getWidth() - 100) {
+                        entity.getView().setLayoutX(100);
+                        entity.getView().setLayoutY(entity.getView().getLayoutY() + 60);
+                    }
+                    break;
+                }
+            }
+            tries++;
+        }
+    }
+
     private void showGameOverOverlay() {
         if (gameOverShown) return;
         gameOverShown = true;
@@ -1398,10 +1434,8 @@ public class GameController implements ViewLifecycle {
                 goc.setOnRetry(() -> {
                      OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
                      gameOverOverlay = null;
-
-                     // SOLUCIÓN PROBLEMA 2: Recarga completa y señal de inicio
+                     restartPending = true; // FIX: Marcar reinicio
                      SceneRouter.goWithFadeKeepSize("ui/game.fxml");
-                     SceneRouter.whenControllerIs(GameController.class, GameController::signalGameStart);
                 });
                 goc.setOnBackToMenu(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
@@ -1425,10 +1459,8 @@ public class GameController implements ViewLifecycle {
                  goc.setOnRetry(() -> {
                      OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
                      gameOverOverlay = null;
-
-                     // SOLUCIÓN PROBLEMA 2: Recarga completa y señal de inicio
+                     restartPending = true; // FIX: Marcar reinicio
                      SceneRouter.goWithFadeKeepSize("ui/game.fxml");
-                     SceneRouter.whenControllerIs(GameController.class, GameController::signalGameStart);
                 });
                 goc.setOnBackToMenu(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
