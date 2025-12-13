@@ -110,7 +110,7 @@ public class GameController implements ViewLifecycle {
     private boolean paused = false;
     private boolean gameOverShown = false;
 
-    // FIX REINICIO: Bandera estática para indicar que se debe iniciar partida al cargar
+    // Bandera estática para indicar que se debe iniciar partida al cargar (REINICIO)
     private static boolean restartPending = false;
 
     private GameLoop gameLoop;
@@ -384,8 +384,12 @@ public class GameController implements ViewLifecycle {
         startGateOpen = true;
         gameStarted = true;
 
-        // FIX 2: Resetear estadísticas del jugador (Items y stats) al empezar partida nueva
+        // FIX 2: Resetear estadísticas del jugador (Items y stats)
         statsService.resetDefaults();
+
+        // FIX 3: Resetear monedas y puntuación explícitamente al iniciar
+        this.coins = 0; // REINICIO CONFIRMADO
+        this.score = 500;
 
         currentFloor = 1;
         currentWave = 0;
@@ -457,9 +461,6 @@ public class GameController implements ViewLifecycle {
         checkAndPushInteractive(greedButton);
     }
 
-    /**
-     * Elimina cualquier obstáculo (roca) en un radio dado.
-     */
     private void clearAreaAround(double x, double y, double radius) {
         List<GameEntity> toRemove = new ArrayList<>();
         for (GameEntity obs : obstacles) {
@@ -591,7 +592,7 @@ public class GameController implements ViewLifecycle {
         currentWave++;
 
         if (currentWave > wavesPerFloor) {
-            return; // Esperar a activar boss manualmente o lógica boss
+            return;
         }
 
         startWave(currentWave);
@@ -622,18 +623,31 @@ public class GameController implements ViewLifecycle {
         final double finalCy = cy;
 
         shopKeeperEntity = new GameEntity() {
-            StackPane view;
+            Node view;
             {
-                view = new StackPane();
-                Rectangle body = new Rectangle(40, 40, Color.SADDLEBROWN);
-                body.setArcWidth(10); body.setArcHeight(10);
-                body.setStroke(Color.BLACK); body.setStrokeWidth(2);
-                Text label = new Text("SHOP");
-                label.setFill(Color.GOLD);
-                label.setStyle("-fx-font-weight: bold;");
-                view.getChildren().addAll(body, label);
+                // CAMBIO: Cargar imagen shop.png
+                Image shopImg = AssetsManager.loadImage("assets/images/shop.png");
+                if (shopImg != null) {
+                    ImageView iv = new ImageView(shopImg);
+                    iv.setFitWidth(60);
+                    iv.setFitHeight(60);
+                    iv.setPreserveRatio(true);
+                    view = iv;
+                } else {
+                    // Fallback visual
+                    StackPane sp = new StackPane();
+                    Rectangle body = new Rectangle(40, 40, Color.SADDLEBROWN);
+                    body.setArcWidth(10); body.setArcHeight(10);
+                    body.setStroke(Color.BLACK); body.setStrokeWidth(2);
+                    Text label = new Text("SHOP");
+                    label.setFill(Color.GOLD);
+                    label.setStyle("-fx-font-weight: bold;");
+                    sp.getChildren().addAll(body, label);
+                    view = sp;
+                }
 
-                view.setLayoutX(finalCx - 20);
+                // Ajustar posición para centrar
+                view.setLayoutX(finalCx - 30); // 60/2
                 view.setLayoutY(finalCy - 100);
                 view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
             }
@@ -641,9 +655,16 @@ public class GameController implements ViewLifecycle {
                 if (player != null && !paused && !gameOverShown && shopCooldown <= 0) {
                     Bounds b1 = view.getBoundsInParent();
                     Bounds b2 = player.getBounds();
-                    double dist = Math.hypot(b1.getCenterX() - b2.getCenterX(), b1.getCenterY() - b2.getCenterY());
 
-                    if (dist < 30.0) {
+                    // Distancia al centro del objeto
+                    double centerX1 = b1.getMinX() + b1.getWidth() / 2;
+                    double centerY1 = b1.getMinY() + b1.getHeight() / 2;
+                    double centerX2 = b2.getMinX() + b2.getWidth() / 2;
+                    double centerY2 = b2.getMinY() + b2.getHeight() / 2;
+
+                    double dist = Math.hypot(centerX1 - centerX2, centerY1 - centerY2);
+
+                    if (dist < 50.0) {
                         showShopOverlay();
                     }
                 }
