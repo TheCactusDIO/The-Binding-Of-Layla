@@ -359,7 +359,6 @@ public class GameController implements ViewLifecycle {
         }
         maybeSpawnPlayer();
 
-        // FIX REINICIO: Si hay un reinicio pendiente, lanzar juego inmediatamente
         if (restartPending) {
             restartPending = false;
             Platform.runLater(() -> {
@@ -387,14 +386,10 @@ public class GameController implements ViewLifecycle {
         startGateOpen = true;
         gameStarted = true;
 
-        // Resetear estadísticas del jugador
         statsService.resetDefaults();
 
-        // Resetear monedas y puntuación
         this.coins = 0;
         this.score = 500;
-
-        // Resetear precio del corazón a base (2)
         this.currentHeartPrice = 2;
 
         currentFloor = 1;
@@ -418,6 +413,52 @@ public class GameController implements ViewLifecycle {
         AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
     }
 
+    private void changeFloorVisuals() {
+        if (gameArea.getParent() instanceof AnchorPane parent) {
+            gameArea.setStyle("-fx-background-color: transparent;");
+
+            if (backgroundView == null) {
+                backgroundView = new ImageView();
+                AnchorPane.setTopAnchor(backgroundView, 72.0);
+                AnchorPane.setBottomAnchor(backgroundView, 0.0);
+                AnchorPane.setLeftAnchor(backgroundView, 0.0);
+                AnchorPane.setRightAnchor(backgroundView, 0.0);
+                parent.getChildren().add(0, backgroundView);
+            }
+
+            try {
+                String bgName = switch(currentFloor) {
+                    case 1 -> "basement";
+                    case 2 -> "caves";
+                    case 3 -> "depths";
+                    case 4 -> "womb";
+                    default -> "sheol";
+                };
+                String path = "assets/background/" + bgName + ".png";
+                Image img = AssetsManager.loadImage(path);
+                if (img == null) {
+                    img = AssetsManager.loadImage("assets/background/basement.png");
+                    if (img == null) img = new Image(getClass().getResourceAsStream("/assets/background/basement.png"));
+                }
+                backgroundView.setImage(img);
+                backgroundView.setPreserveRatio(false);
+                backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
+                backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
+            } catch (Exception e) {
+                String color = switch(currentFloor) {
+                    case 1 -> "#2b2010";
+                    case 2 -> "#202020";
+                    case 3 -> "#10102b";
+                    case 4 -> "#4a0000";
+                    default -> "#000000";
+                };
+                gameArea.setStyle("-fx-background-color: " + color + ";");
+            }
+            backgroundView.toBack();
+            if (hudBar != null) hudBar.toFront();
+        }
+    }
+
     private void spawnGreedButton() {
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
@@ -431,18 +472,15 @@ public class GameController implements ViewLifecycle {
         double cx = w / 2.0;
         double cy = h / 2.0;
 
-        // Limpiar área central para evitar bloques invisibles
         clearAreaAround(cx, cy, 100);
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
             if (!waveInProgress) {
-                // START
                 if (currentWave <= wavesPerFloor) {
                     btn.setActiveState(true);
                     startNextWave();
                 }
             } else {
-                // STOP
                 if (buttonSafetyTimer > 0) return;
 
                 if (!timerStopped && nextWaveTimer > 0) {
@@ -470,7 +508,7 @@ public class GameController implements ViewLifecycle {
     private void clearAreaAround(double x, double y, double radius) {
         List<GameEntity> toRemove = new ArrayList<>();
         for (GameEntity obs : obstacles) {
-            if (obs == shopKeeperEntity) continue; // PROTEGER TIENDA
+            if (obs == shopKeeperEntity) continue;
 
             Bounds b = obs.getBounds();
             double dist = Math.hypot(b.getCenterX() - x, b.getCenterY() - y);
@@ -631,8 +669,14 @@ public class GameController implements ViewLifecycle {
         shopKeeperEntity = new GameEntity() {
             Node view;
             {
-                // USAR IMAGEN DE LA TIENDA
+                // INTENTO 1: Carga normal
                 Image shopImg = AssetsManager.loadImage("assets/images/shop.png");
+
+                // INTENTO 2: Carga con / si falla
+                if (shopImg == null) {
+                    shopImg = AssetsManager.loadImage("/assets/images/shop.png");
+                }
+
                 if (shopImg != null) {
                     ImageView iv = new ImageView(shopImg);
                     iv.setFitWidth(60);
@@ -640,7 +684,6 @@ public class GameController implements ViewLifecycle {
                     iv.setPreserveRatio(true);
                     view = iv;
                 } else {
-                    // Fallback visual
                     StackPane sp = new StackPane();
                     Rectangle body = new Rectangle(40, 40, Color.SADDLEBROWN);
                     body.setArcWidth(10); body.setArcHeight(10);
@@ -652,8 +695,7 @@ public class GameController implements ViewLifecycle {
                     view = sp;
                 }
 
-                // Ajustar posición para centrar
-                view.setLayoutX(finalCx - 30); // 60/2
+                view.setLayoutX(finalCx - 30);
                 view.setLayoutY(finalCy - 100);
                 view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
             }
@@ -662,7 +704,6 @@ public class GameController implements ViewLifecycle {
                     Bounds b1 = view.getBoundsInParent();
                     Bounds b2 = player.getBounds();
 
-                    // Distancia al centro del objeto
                     double centerX1 = b1.getMinX() + b1.getWidth() / 2;
                     double centerY1 = b1.getMinY() + b1.getHeight() / 2;
                     double centerX2 = b2.getMinX() + b2.getWidth() / 2;
@@ -823,10 +864,8 @@ public class GameController implements ViewLifecycle {
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
 
-        // Orden corregido para no borrar la tienda accidentalmente
         spawnNextFloorButton();
         spawnShopKeeper();
-
         spawnRoomRewardPedestal();
     }
 
@@ -863,7 +902,6 @@ public class GameController implements ViewLifecycle {
 
         clearLevel();
 
-        // Reset precio corazón al cambiar de piso
         currentHeartPrice = 2;
 
         waveInProgress = false;
@@ -1130,52 +1168,6 @@ public class GameController implements ViewLifecycle {
         changeFloorVisuals();
     }
 
-    private void changeFloorVisuals() {
-        if (gameArea.getParent() instanceof AnchorPane parent) {
-            gameArea.setStyle("-fx-background-color: transparent;");
-
-            if (backgroundView == null) {
-                backgroundView = new ImageView();
-                AnchorPane.setTopAnchor(backgroundView, 72.0);
-                AnchorPane.setBottomAnchor(backgroundView, 0.0);
-                AnchorPane.setLeftAnchor(backgroundView, 0.0);
-                AnchorPane.setRightAnchor(backgroundView, 0.0);
-                parent.getChildren().add(0, backgroundView);
-            }
-
-            try {
-                String bgName = switch(currentFloor) {
-                    case 1 -> "basement";
-                    case 2 -> "caves";
-                    case 3 -> "depths";
-                    case 4 -> "womb";
-                    default -> "sheol";
-                };
-                String path = "assets/background/" + bgName + ".png";
-                Image img = AssetsManager.loadImage(path);
-                if (img == null) {
-                    img = AssetsManager.loadImage("assets/background/basement.png");
-                    if (img == null) img = new Image(getClass().getResourceAsStream("/assets/background/basement.png"));
-                }
-                backgroundView.setImage(img);
-                backgroundView.setPreserveRatio(false);
-                backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
-                backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
-            } catch (Exception e) {
-                String color = switch(currentFloor) {
-                    case 1 -> "#2b2010";
-                    case 2 -> "#202020";
-                    case 3 -> "#10102b";
-                    case 4 -> "#4a0000";
-                    default -> "#000000";
-                };
-                gameArea.setStyle("-fx-background-color: " + color + ";");
-            }
-            backgroundView.toBack();
-            if (hudBar != null) hudBar.toFront();
-        }
-    }
-
     private void showShopOverlay() {
         paused = true;
         if (gameLoop != null) gameLoop.stop();
@@ -1194,11 +1186,12 @@ public class GameController implements ViewLifecycle {
                     // Lógica de compra de corazón
                     if (coins >= currentHeartPrice && player.getHealth() < player.getMaxHealth()) {
                         coins -= currentHeartPrice;
-                        player.addHealth(2); // Cura un corazón entero
+                        player.addHealth(2.0);
                         currentHeartPrice += 2;
 
-                        // Actualizar UI
                         updateHudLabels();
+                        if (hud != null) hud.refresh(); // REFRESH VISUAL MANUAL
+
                         c.setCoins(coins);
                         c.setHeartPrice(currentHeartPrice);
                     }
@@ -1238,6 +1231,10 @@ public class GameController implements ViewLifecycle {
             }
         });
         shopOverlay = overlayRef[0];
+
+        // Traer HUD al frente
+        if (hud != null) hud.toFront();
+        if (itemHud != null) itemHud.toFront();
     }
 
     private void spawnRewardCoins(double x, double y, int amount) {
@@ -1304,7 +1301,6 @@ public class GameController implements ViewLifecycle {
 
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
-        // El corazón ya no se añade aquí, se gestiona aparte en el controlador
         List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
         List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
         List<ItemDefinition> pool = new ArrayList<>(shopItems);

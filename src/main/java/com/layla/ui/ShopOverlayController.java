@@ -38,7 +38,7 @@ public class ShopOverlayController {
     public static class ShopOffer {
         public final ItemId itemId;
         public final int price;
-        public boolean sold = false; // Agregado campo sold
+        public boolean sold = false;
 
         public ShopOffer(ItemId itemId, int price) {
             this.itemId = itemId;
@@ -53,12 +53,12 @@ public class ShopOverlayController {
     @FXML private Button rerollButton;
 
     private StatsService statsService;
-    private Player player; // Necesario para curar
+    private Player player;
     private int currentCoins;
     private int rerollBasePrice = 1;
     private List<ShopOffer> offers = new ArrayList<>();
 
-    private IntConsumer onCoinsChanged; // Cambiado a IntConsumer
+    private IntConsumer onCoinsChanged;
     private Runnable onItemsChanged;
     private Consumer<ShopOverlayController> onRerollRequested;
     private Consumer<Integer> onRerollPriceChanged;
@@ -70,6 +70,7 @@ public class ShopOverlayController {
 
     @FXML
     private void initialize() {
+        // FORZAR ESTILO OSCURO PARA EL PANEL DE STATS
         if (statsContainer != null) {
             statsContainer.setStyle("-fx-background-color: rgba(30, 30, 30, 0.95); -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #444; -fx-border-radius: 10; -fx-border-width: 2;");
         }
@@ -122,7 +123,6 @@ public class ShopOverlayController {
         }
     }
 
-    // Métodos para el corazón
     public void setHeartPrice(int price) { this.heartPrice = price; refreshAffordability(); }
     public void setOnHeartBuyRequest(Consumer<ShopOverlayController> callback) { this.onHeartBuyRequest = callback; }
 
@@ -158,10 +158,8 @@ public class ShopOverlayController {
         if (offersContainer == null) return;
         offersContainer.getChildren().clear();
 
-        // 1. Agregar Fila del Corazón
         offersContainer.getChildren().add(createHeartRow());
 
-        // 2. Agregar Filas de Ofertas
         for (ShopOffer offer : offers) {
             offersContainer.getChildren().add(createOfferRow(offer));
         }
@@ -177,7 +175,6 @@ public class ShopOverlayController {
         iconView.setFitWidth(42.0);
         iconView.setFitHeight(42.0);
         iconView.setPreserveRatio(true);
-        // Usar el icono del corazón de salud
         Image icon = AssetsManager.loadImage("assets/images/health_icon.png");
         if (icon != null) iconView.setImage(icon);
 
@@ -204,13 +201,11 @@ public class ShopOverlayController {
 
         buyButton.setOnAction(e -> {
             if (onHeartBuyRequest != null) onHeartBuyRequest.accept(this);
-            // El GameController manejará la lógica y llamará a setCoins/setHeartPrice, lo que refrescará la UI
         });
 
         buyBox.getChildren().addAll(priceLabel, buyButton);
         row.getChildren().addAll(iconView, infoBox, spacer, buyBox);
 
-        // Guardamos referencia al precio para actualizarlo si cambia
         row.setUserData("HEART_ROW");
 
         return row;
@@ -299,7 +294,6 @@ public class ShopOverlayController {
             currentCoins -= rerollBasePrice;
             if (onCoinsChanged != null) onCoinsChanged.accept(currentCoins);
 
-            // Incremento aleatorio entre 1 y 3
             int increment = ThreadLocalRandom.current().nextInt(1, 4);
             rerollBasePrice += increment;
 
@@ -327,7 +321,6 @@ public class ShopOverlayController {
         for (Node node : offersContainer.getChildren()) {
             if (node instanceof HBox row) {
                 if ("HEART_ROW".equals(row.getUserData())) {
-                    // Actualizar fila corazón
                     VBox buyBox = (VBox) row.getChildren().get(row.getChildren().size() - 1);
                     Label priceLbl = (Label) buyBox.getChildren().get(0);
                     Button btn = (Button) buyBox.getChildren().get(1);
@@ -337,31 +330,32 @@ public class ShopOverlayController {
                     boolean canAfford = currentCoins >= heartPrice;
                     boolean healthFull = (player != null && player.getHealth() >= player.getMaxHealth());
 
-                    btn.setDisable(!canAfford || healthFull);
-
                     if (healthFull) {
                         btn.setText("LLENO");
-                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa;");
+                        btn.setDisable(true);
+                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                     } else if (!canAfford) {
                         btn.setText("COMPRAR");
-                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa;");
+                        btn.setDisable(true);
+                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                     } else {
                         btn.setText("COMPRAR");
-                        btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+                        btn.setDisable(false);
+                        btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                     }
                     continue;
                 }
 
-                // Ofertas normales
                 if (!row.getChildren().isEmpty() && row.getChildren().get(row.getChildren().size() - 1) instanceof VBox buyBox) {
                     for (Node n : buyBox.getChildren()) {
                         if (n instanceof Button btn && !btn.getText().equals("VENDIDO")) {
                             Object ud = btn.getUserData();
                             if (ud instanceof ShopOffer offer) {
-                                btn.setDisable(currentCoins < offer.price);
                                 if (currentCoins < offer.price) {
+                                    btn.setDisable(true);
                                     btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                                 } else {
+                                    btn.setDisable(false);
                                     btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                                 }
                             }

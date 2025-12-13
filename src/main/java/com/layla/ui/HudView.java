@@ -30,7 +30,6 @@ public final class HudView extends VBox {
     private final StatsService stats;        // <- fuente de stats (global o inyectada)
     private final Player player;             // usado para salud
     private final DecimalFormat df1 = new DecimalFormat("0.0");
-    private final DecimalFormat df0 = new DecimalFormat("0");
 
     private final Label lblSpeed = new Label();
     private final Label lblTears = new Label();
@@ -47,6 +46,9 @@ public final class HudView extends VBox {
         setSpacing(8);
         setPadding(new Insets(12));
         setAlignment(Pos.TOP_LEFT);
+
+        // FIX: Hacer que el HUD sea transparente al ratón para no bloquear la tienda u otros elementos
+        setMouseTransparent(true);
         setPickOnBounds(false);
 
         // Fondo semi-transparente tipo Repentance
@@ -57,9 +59,9 @@ public final class HudView extends VBox {
 
         getChildren().addAll(
             statLine(icon("speed_icon.png"), "Speed", lblSpeed),
-            statLine(icon("tears_icon.png"), "Fire Rate (shots/s)", lblTears),
+            statLine(icon("tears_icon.png"), "Fire Rate", lblTears),
             statLine(icon("shotspeed_icon.png"), "Shot Spd", lblShotSpeed),
-            statLine(icon("range_icon.png"), "Proj Range (s)", lblRange),
+            statLine(icon("range_icon.png"), "Range", lblRange),
             statLine(icon("damage_icon.png"), "Damage", lblDamage),
             heartLine(icon("health_icon.png"))
         );
@@ -70,7 +72,10 @@ public final class HudView extends VBox {
     private HBox statLine(ImageView iv, String name, Label value) {
         Label title = new Label(name);
         title.getStyleClass().add("hud-title");
+        title.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
+
         value.getStyleClass().add("hud-value");
+        value.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;");
 
         HBox row = new HBox(8, iv, title, value);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -80,6 +85,8 @@ public final class HudView extends VBox {
     private HBox heartLine(ImageView iv) {
         Label title = new Label("Health");
         title.getStyleClass().add("hud-title");
+        title.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
+
         heartsBox.setAlignment(Pos.CENTER_LEFT);
         HBox row = new HBox(8, iv, title, heartsBox);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -87,10 +94,15 @@ public final class HudView extends VBox {
     }
 
     private ImageView icon(String file) {
-        Image img = new Image(Objects.requireNonNull(
-            getClass().getResourceAsStream("/assets/images/" + file),
-            "No se encontró /assets/images/" + file
-        ));
+        Image img = null;
+        try {
+            img = new Image(Objects.requireNonNull(
+                getClass().getResourceAsStream("/assets/images/" + file)
+            ));
+        } catch (Exception e) {
+            // Fallback si no encuentra icono
+        }
+
         ImageView iv = new ImageView(img);
         iv.setFitWidth(18);
         iv.setFitHeight(18);
@@ -99,9 +111,7 @@ public final class HudView extends VBox {
         return iv;
     }
 
-    /** Llamar cada X frames o en un AnimationTimer throttled. */
     public void refresh() {
-        // Stats desde el servicio
         double speed        = stats.getMoveSpeed();
         double fireRate     = stats.getFireRate();
         double shotSpeed    = stats.getProjectileSpeed();
@@ -114,60 +124,34 @@ public final class HudView extends VBox {
         lblRange.setText(df1.format(rangeSeconds));
         lblDamage.setText(df1.format(damage));
 
-        // Hearts:
         updateHearts();
     }
 
-    // ==================== HEART ICONS ====================
+    private static final double HEART_SIZE = 16.0;
 
-    private static final double HEART_SIZE = 12.0;
+    private Node fullHeart() { return createHeartIcon("full_heart_icon.png"); }
+    private Node halfHeart() { return createHeartIcon("half_heart_icon.png"); }
+    private Node emptyHeart() { return createHeartIcon("empty_heart_icon.png"); }
 
-    private Node fullHeart() {
-        Image img = new Image(Objects.requireNonNull(
-            getClass().getResourceAsStream("/assets/images/full_heart_icon.png"),
-            "No se encontró /assets/images/full_heart_icon.png"
-        ));
+    private Node createHeartIcon(String name) {
+        Image img = null;
+        try {
+            img = new Image(getClass().getResourceAsStream("/assets/images/" + name));
+        } catch (Exception e) {}
+
         ImageView iv = new ImageView(img);
         iv.setFitWidth(HEART_SIZE);
         iv.setFitHeight(HEART_SIZE);
-        iv.setSmooth(false);
         iv.setPreserveRatio(true);
         return iv;
     }
 
-    private Node halfHeart() {
-        Image img = new Image(Objects.requireNonNull(
-            getClass().getResourceAsStream("/assets/images/half_heart_icon.png"),
-            "No se encontró /assets/images/half_heart_icon.png"
-        ));
-        ImageView iv = new ImageView(img);
-        iv.setFitWidth(HEART_SIZE);
-        iv.setFitHeight(HEART_SIZE);
-        iv.setSmooth(false);
-        iv.setPreserveRatio(true);
-        return iv;
-    }
-
-    private Node emptyHeart() {
-        Image img = new Image(Objects.requireNonNull(
-            getClass().getResourceAsStream("/assets/images/empty_heart_icon.png"),
-            "No se encontró /assets/images/empty_heart_icon.png"
-        ));
-        ImageView iv = new ImageView(img);
-        iv.setFitWidth(HEART_SIZE);
-        iv.setFitHeight(HEART_SIZE);
-        iv.setSmooth(false);
-        iv.setPreserveRatio(true);
-        return iv;
-    }
-
-    /** Actualiza los corazones del HUD según la salud actual del jugador. */
     private void updateHearts() {
         heartsBox.getChildren().clear();
         if (player == null) return;
 
-        int hp   = (int)Math.round(player.getHealth());      // 2 HP = 1 corazón
-        int max  = (int)Math.round(player.getMaxHealth());
+        int hp   = (int)Math.ceil(player.getHealth());      // 2 HP = 1 corazón
+        int max  = (int)Math.ceil(player.getMaxHealth());
         int slots = Math.max(1, max / 2);
 
         int full = hp / 2;
@@ -175,6 +159,10 @@ public final class HudView extends VBox {
 
         for (int i = 0; i < full && i < slots; i++) heartsBox.getChildren().add(fullHeart());
         if (half && full < slots) heartsBox.getChildren().add(halfHeart());
-        while (heartsBox.getChildren().size() < slots) heartsBox.getChildren().add(emptyHeart());
+
+        // Rellenar con vacíos hasta el máximo
+        while (heartsBox.getChildren().size() < slots) {
+            heartsBox.getChildren().add(emptyHeart());
+        }
     }
 }

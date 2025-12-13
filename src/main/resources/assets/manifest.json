@@ -11,7 +11,10 @@
       "assets/background/basement.png",
       "assets/background/caves.png",
       "assets/background/depths.png",
-      "assets/images/shop.png"
+      "assets/background/womb.png",
+      "assets/background/sheol.png",
+      "assets/images/shop.png",
+      "assets/images/coin.png"
     ],
   "sounds": [
     "assets/sounds/game_start.wav",

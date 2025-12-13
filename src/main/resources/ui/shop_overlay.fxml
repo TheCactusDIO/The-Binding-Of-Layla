@@ -31,6 +31,7 @@
                             <Region HBox.hgrow="ALWAYS"/>
                             <Button fx:id="rerollButton" text="Reroll (5¢)"
                                     styleClass="menu-button"
+                                    onAction="#onReroll"
                                     style="-fx-font-size: 14; -fx-padding: 5 15;"/>
                         </HBox>
 
@@ -42,16 +43,17 @@
                             </content>
                         </ScrollPane>
 
-                        <Button fx:id="continueButton" text="NEXT WAVE >>"
+                        <Button fx:id="continueButton" text="EXIT SHOP"
                                 styleClass="menu-button, btn-success"
+                                onAction="#onClose"
                                 maxWidth="Infinity"/>
                     </VBox>
 
                     <VBox spacing="8" minWidth="280" maxWidth="320"
-                          style="-fx-background-color: #e3dcd2; -fx-background-radius: 4; -fx-padding: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 0);">
+                          style="-fx-background-color: #262626; -fx-background-radius: 12; -fx-padding: 20; -fx-border-color: #4a4a4a; -fx-border-width: 2; -fx-border-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 0, 0);">
 
-                        <Label text="PLAYER STATS" style="-fx-text-fill: #2c2c2c; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24; -fx-alignment: center;"/>
-                        <Separator style="-fx-background-color: #2c2c2c;"/>
+                        <Label text="PLAYER STATS" style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24; -fx-alignment: center;"/>
+                        <Separator style="-fx-opacity: 0.3;"/>
 
                         <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;" VBox.vgrow="ALWAYS" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
                             <content>
