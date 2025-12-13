@@ -384,6 +384,9 @@ public class GameController implements ViewLifecycle {
         startGateOpen = true;
         gameStarted = true;
 
+        // FIX 2: Resetear estadísticas del jugador (Items y stats) al empezar partida nueva
+        statsService.resetDefaults();
+
         currentFloor = 1;
         currentWave = 0;
         enemies.clear();
@@ -451,13 +454,11 @@ public class GameController implements ViewLifecycle {
         });
         greedButton.setActiveState(false);
         gameLoop.addEntity(greedButton);
-        // FIX: Evitar que el botón aparezca sobre el jugador si está ahí
         checkAndPushInteractive(greedButton);
     }
 
     /**
      * Elimina cualquier obstáculo (roca) en un radio dado.
-     * FIX: No borra la tienda (shopKeeperEntity) para evitar que desaparezca.
      */
     private void clearAreaAround(double x, double y, double radius) {
         List<GameEntity> toRemove = new ArrayList<>();
@@ -554,7 +555,6 @@ public class GameController implements ViewLifecycle {
 
             nextWaveTimer = 0;
 
-            // FIX 3: Si se paró el timer, NO lanzar siguiente oleada automáticamente.
             if (timerStopped) {
                 waveInProgress = false;
                 if (greedButton != null) greedButton.setActiveState(false);
@@ -562,19 +562,8 @@ public class GameController implements ViewLifecycle {
                 if (currentWave < wavesPerFloor) {
                     startNextWave();
                 } else {
-                    // Fin de oleadas normales, prepararse para Boss (pero esperar al botón si se quiere)
-                    // O si ya es la ultima antes del boss, lanzarlo?
-                    // Greed mode original lanza todo seguido.
-                    // Si timer no parado, sigue.
-                    // PERO, si currentWave == wavesPerFloor - 1, la siguiente es BOSS.
-                    // startNextWave maneja eso.
-                    if (currentWave < wavesPerFloor) {
-                        startNextWave();
-                    } else {
-                        // Estamos justo antes del boss, o ya lo matamos
-                        waveInProgress = false;
-                        if (greedButton != null) greedButton.setActiveState(false);
-                    }
+                    waveInProgress = false;
+                    if (greedButton != null) greedButton.setActiveState(false);
                 }
             }
         }
@@ -664,8 +653,6 @@ public class GameController implements ViewLifecycle {
         };
         gameLoop.addEntity(shopKeeperEntity);
         obstacles.add(shopKeeperEntity);
-
-        // No chequeamos push para la tienda, asumimos posición fija relativa al botón
     }
 
     private void removeShopKeeper() {
@@ -809,7 +796,7 @@ public class GameController implements ViewLifecycle {
 
         for (Enemy e : new ArrayList<>(enemies)) e.applyDamage(99999);
 
-        // FIX 1: Cambiar orden. Primero limpiar/spawnear botón, luego tienda.
+        // Orden corregido para no borrar la tienda accidentalmente
         spawnNextFloorButton();
         spawnShopKeeper();
 
@@ -828,7 +815,6 @@ public class GameController implements ViewLifecycle {
         double cx = w / 2.0;
         double cy = h / 2.0;
 
-        // FIX 2: Borrar rocas del centro para evitar colisiones fantasmas
         clearAreaAround(cx, cy, 100);
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
@@ -871,9 +857,6 @@ public class GameController implements ViewLifecycle {
         AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
     }
 
-    /**
-     * Limpia completamente el nivel actual.
-     */
     private void clearLevel() {
         for (Enemy e : new ArrayList<>(enemies)) {
             gameLoop.removeEntity(e);
@@ -1235,7 +1218,12 @@ public class GameController implements ViewLifecycle {
         clearAreaAround(cx, cy + 80, 60);
 
         ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
-            e -> { gameLoop.removeEntity(e); if (itemHud != null) itemHud.refresh(); showItemPickupOverlay(itemId); },
+            e -> {
+                gameLoop.removeEntity(e);
+                obstacles.remove(e); // FIX 1: Eliminar de obstáculos para evitar colisión invisible
+                if (itemHud != null) itemHud.refresh();
+                showItemPickupOverlay(itemId);
+            },
             k -> sound.play(k)
         );
         pedestal.setPosition(cx, cy + 80);
