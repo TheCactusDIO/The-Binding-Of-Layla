@@ -32,7 +32,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MAX_HEALTH, 6.0) // Añadir que te cure entero al cogerlo
             )
         ));
-        ICON_PATHS.put(ItemId.THE_WAFER, "assets/images/wafer.png");
+        ICON_PATHS.put(ItemId.THE_WAFER, "/assets/images/wafer.png");
 
         // --- ODD MUSHROOM (THIN) ---
         register(new ItemDefinition(
@@ -46,7 +46,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 0.9) // -10% Daño
             )
         ));
-        ICON_PATHS.put(ItemId.ODD_MUSHROOM_THIN, "assets/images/odd_mushroom_thin.png");
+        ICON_PATHS.put(ItemId.ODD_MUSHROOM_THIN, "/assets/images/odd_mushroom_thin.png");
 
         // --- ODD MUSHROOM (LARGE) ---
         register(new ItemDefinition(
@@ -61,7 +61,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MOVE_SPEED, -20.0)          // Te hace más lento
             )
         ));
-        ICON_PATHS.put(ItemId.ODD_MUSHROOM_LARGE, "assets/images/odd_mushroom_large.png");
+        ICON_PATHS.put(ItemId.ODD_MUSHROOM_LARGE, "/assets/images/odd_mushroom_large.png");
 
         // --- GROWTH HORMONES ---
         register(new ItemDefinition(
@@ -74,7 +74,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0)
             )
         ));
-        ICON_PATHS.put(ItemId.GROWTH_HORMONES, "assets/images/growth_hormones.png");
+        ICON_PATHS.put(ItemId.GROWTH_HORMONES, "/assets/images/growth_hormones.png");
 
         // --- JESUS JUICE ---
         register(new ItemDefinition(
@@ -87,7 +87,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 40.0)
             )
         ));
-        ICON_PATHS.put(ItemId.JESUS_JUICE, "assets/images/jesus_juice.png");
+        ICON_PATHS.put(ItemId.JESUS_JUICE, "/assets/images/jesus_juice.png");
 
         // --- ROID RAGE ---
         register(new ItemDefinition(
@@ -100,7 +100,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 20.0)
             )
         ));
-        ICON_PATHS.put(ItemId.ROID_RAGE, "assets/images/roid_rage.png");
+        ICON_PATHS.put(ItemId.ROID_RAGE, "/assets/images/roid_rage.png");
 
         // --- THE BELT ---
         register(new ItemDefinition(
@@ -112,7 +112,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MOVE_SPEED, 25.0)
             )
         ));
-        ICON_PATHS.put(ItemId.THE_BELT, "assets/images/the_belt.png");
+        ICON_PATHS.put(ItemId.THE_BELT, "/assets/images/the_belt.png");
 
         // --- WOODEN SPOON ---
         register(new ItemDefinition(
@@ -124,7 +124,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MOVE_SPEED, 25.0)
             )
         ));
-        ICON_PATHS.put(ItemId.WOODEN_SPOON, "assets/images/wooden_spoon.png");
+        ICON_PATHS.put(ItemId.WOODEN_SPOON, "/assets/images/wooden_spoon.png");
 
         // ==========================================
         //          ISAAC CLASSICS (WAVE 2)
@@ -141,7 +141,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3)
             )
         ));
-        ICON_PATHS.put(ItemId.STIGMATA, "assets/images/stigmata.png");
+        ICON_PATHS.put(ItemId.STIGMATA, "/assets/images/stigmata.png");
 
         // --- BLUE CAP ---
         register(new ItemDefinition(
@@ -155,7 +155,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 0.8)
             )
         ));
-        ICON_PATHS.put(ItemId.BLUE_CAP, "assets/images/blue_cap.png");
+        ICON_PATHS.put(ItemId.BLUE_CAP, "/assets/images/blue_cap.png");
 
         // --- STEM CELLS ---
         register(new ItemDefinition(
@@ -168,7 +168,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 1.16)
             )
         ));
-        ICON_PATHS.put(ItemId.STEM_CELLS, "assets/images/stem_cells.png");
+        ICON_PATHS.put(ItemId.STEM_CELLS, "/assets/images/stem_cells.png");
 
         // --- SMB SUPER FAN ---
         register(new ItemDefinition(
@@ -183,7 +183,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 0.85)
             )
         ));
-        ICON_PATHS.put(ItemId.SMB_SUPER_FAN, "assets/images/smb_super_fan.png");
+        ICON_PATHS.put(ItemId.SMB_SUPER_FAN, "/assets/images/smb_super_fan.png");
 
         // --- CAPRICORN ---
         register(new ItemDefinition(
@@ -198,7 +198,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 1.0) // +1 segundo de vida
             )
         ));
-        ICON_PATHS.put(ItemId.CAPRICORN, "assets/images/capricorn.png");
+        ICON_PATHS.put(ItemId.CAPRICORN, "/assets/images/capricorn.png");
 
         // ==========================================
         //             GAME CHANGERS
@@ -216,7 +216,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.4) // Dispara muy lento
             )
         ));
-        ICON_PATHS.put(ItemId.POLYPHEMUS, "assets/images/polyphemus.png");
+        ICON_PATHS.put(ItemId.POLYPHEMUS, "/assets/images/polyphemus.png");
 
         // --- SACRED HEART ---
         register(new ItemDefinition(
@@ -232,7 +232,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 0.75)
             )
         ));
-        ICON_PATHS.put(ItemId.SACRED_HEART, "assets/images/sacred_heart.png");
+        ICON_PATHS.put(ItemId.SACRED_HEART, "/assets/images/sacred_heart.png");
 
         // --- 20/20 ---
         register(new ItemDefinition(
@@ -244,7 +244,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 1.0)
             )
         ));
-        ICON_PATHS.put(ItemId.TWENTY_TWENTY, "assets/images/20_20.png");
+        ICON_PATHS.put(ItemId.TWENTY_TWENTY, "/assets/images/20_20.png");
 
         // ==========================================
         //             ISAAC CLASSICS (WAVE 1)
@@ -260,7 +260,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3)
             )
         ));
-        ICON_PATHS.put(ItemId.MEAT, "assets/images/meat.png");
+        ICON_PATHS.put(ItemId.MEAT, "/assets/images/meat.png");
 
         register(new ItemDefinition(
             ItemId.THE_HALO,
@@ -274,7 +274,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MOVE_SPEED, 15.0)
             )
         ));
-        ICON_PATHS.put(ItemId.THE_HALO, "assets/images/halo.png");
+        ICON_PATHS.put(ItemId.THE_HALO, "/assets/images/halo.png");
 
         register(new ItemDefinition(
             ItemId.MAGIC_MUSHROOM,
@@ -288,7 +288,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0)
             )
         ));
-        ICON_PATHS.put(ItemId.MAGIC_MUSHROOM, "assets/images/magic_mushroom.png");
+        ICON_PATHS.put(ItemId.MAGIC_MUSHROOM, "/assets/images/magic_mushroom.png");
 
         register(new ItemDefinition(
             ItemId.BUCKET_OF_LARD,
@@ -300,7 +300,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 0.85)
             )
         ));
-        ICON_PATHS.put(ItemId.BUCKET_OF_LARD, "assets/images/lard.png");
+        ICON_PATHS.put(ItemId.BUCKET_OF_LARD, "/assets/images/lard.png");
 
         register(new ItemDefinition(
             ItemId.CRICKETS_HEAD,
@@ -312,7 +312,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 1.5)
             )
         ));
-        ICON_PATHS.put(ItemId.CRICKETS_HEAD, "assets/images/crickets_head.png");
+        ICON_PATHS.put(ItemId.CRICKETS_HEAD, "/assets/images/crickets_head.png");
 
         register(new ItemDefinition(
             ItemId.SYNTHOIL,
@@ -324,7 +324,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 50.0)
             )
         ));
-        ICON_PATHS.put(ItemId.SYNTHOIL, "assets/images/synthoil.png");
+        ICON_PATHS.put(ItemId.SYNTHOIL, "/assets/images/synthoil.png");
 
         register(new ItemDefinition(
             ItemId.PENTAGRAM,
@@ -335,7 +335,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0)
             )
         ));
-        ICON_PATHS.put(ItemId.PENTAGRAM, "assets/images/pentagram.png");
+        ICON_PATHS.put(ItemId.PENTAGRAM, "/assets/images/pentagram.png");
 
         register(new ItemDefinition(
             ItemId.SOY_MILK,
@@ -347,7 +347,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 0.2)
             )
         ));
-        ICON_PATHS.put(ItemId.SOY_MILK, "assets/images/soy_milk.png");
+        ICON_PATHS.put(ItemId.SOY_MILK, "/assets/images/soy_milk.png");
 
         // ==========================================
         //             SHOT ITEMS
@@ -363,7 +363,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.7)
             )
         ));
-        ICON_PATHS.put(ItemId.TRIPLE_SHOT, "assets/images/tripleshot.png");
+        ICON_PATHS.put(ItemId.TRIPLE_SHOT, "/assets/images/tripleshot.png");
 
         register(new ItemDefinition(
             ItemId.QUAD_SHOT,
@@ -375,7 +375,7 @@ public final class ItemRegistry {
                 StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.55)
             )
         ));
-        ICON_PATHS.put(ItemId.QUAD_SHOT, "assets/images/quadshot.png");
+        ICON_PATHS.put(ItemId.QUAD_SHOT, "/assets/images/quadshot.png");
 
         register(new ItemDefinition(
             ItemId.CUPIDS_ARROW,
@@ -386,7 +386,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_PIERCE, 1.0)
             )
         ));
-        ICON_PATHS.put(ItemId.CUPIDS_ARROW, "assets/images/piercing.png");
+        ICON_PATHS.put(ItemId.CUPIDS_ARROW, "/assets/images/piercing.png");
 
         register(new ItemDefinition(
             ItemId.RUBBER_CEMENT,
@@ -397,7 +397,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_BOUNCE, 1.0)
             )
         ));
-        ICON_PATHS.put(ItemId.RUBBER_CEMENT, "assets/images/bouncing.png");
+        ICON_PATHS.put(ItemId.RUBBER_CEMENT, "/assets/images/bouncing.png");
 
         register(new ItemDefinition(
             ItemId.SPOON_BENDER,
@@ -408,7 +408,7 @@ public final class ItemRegistry {
                 StatModifier.additive(PlayerStatId.PROJECTILE_HOMING, 1.0)
             )
         ));
-        ICON_PATHS.put(ItemId.SPOON_BENDER, "assets/images/homing.png");
+        ICON_PATHS.put(ItemId.SPOON_BENDER, "/assets/images/homing.png");
     }
 
     private ItemRegistry() {}
@@ -425,7 +425,7 @@ public final class ItemRegistry {
 
     public static String getIconPath(ItemId id) {
         if (id == null) return null;
-        return ICON_PATHS.getOrDefault(id, "assets/images/item1.png");
+        return ICON_PATHS.getOrDefault(id, "/assets/images/item1.png");
     }
 
     public static List<ItemDefinition> getUnlockedByPool(ItemPoolType poolType, AchievementService achievements) {

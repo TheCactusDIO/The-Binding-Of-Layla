@@ -864,7 +864,8 @@ public class GameController implements ViewLifecycle {
 
         spawnNextFloorButton();
         spawnShopKeeper();
-        // CAMBIO 1: Usar pool de BOSS explícitamente
+
+        // CORRECCIÓN: Usar el nuevo método que acepta poolType y asegurarse de pedir item de BOSS
         spawnRewardPedestal(ItemPoolType.BOSS);
     }
 
@@ -1246,14 +1247,13 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(coin);
     }
 
-    // CAMBIO: Ahora acepta el poolType como parámetro
+    // --- NUEVO MÉTODO CORREGIDO: Acepta ItemPoolType y añade la vista a la pantalla ---
     private void spawnRewardPedestal(ItemPoolType poolType) {
         if (gameLoop == null || gameArea == null) return;
 
-        // Usar el poolType solicitado en lugar de siempre TREASURE
         List<ItemDefinition> availableItems = ItemRegistry.getUnlockedByPool(poolType, achievements);
 
-        // Fallback a TREASURE si el pool de BOSS estuviera vacío (seguridad)
+        // Fallback a TREASURE si el pool solicitado estuviera vacío
         if (availableItems.isEmpty()) {
             availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
         }
@@ -1283,7 +1283,8 @@ public class GameController implements ViewLifecycle {
         );
         pedestal.setPosition(cx, cy + 80);
 
-        // CAMBIO 2: Añadir explícitamente la vista al área de juego para asegurar visibilidad
+        // --- CORRECCIÓN DE VISIBILIDAD ---
+        // Añadir explícitamente la vista al área de juego para asegurar que se pinte
         if (pedestal.getView() != null && !gameArea.getChildren().contains(pedestal.getView())) {
             gameArea.getChildren().add(pedestal.getView());
         }
