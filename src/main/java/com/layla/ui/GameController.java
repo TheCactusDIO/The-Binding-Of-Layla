@@ -864,7 +864,8 @@ public class GameController implements ViewLifecycle {
 
         spawnNextFloorButton();
         spawnShopKeeper();
-        spawnRoomRewardPedestal();
+        // CAMBIO 1: Usar pool de BOSS explícitamente
+        spawnRewardPedestal(ItemPoolType.BOSS);
     }
 
     private void spawnNextFloorButton() {
@@ -1245,10 +1246,19 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(coin);
     }
 
-    private void spawnRoomRewardPedestal() {
+    // CAMBIO: Ahora acepta el poolType como parámetro
+    private void spawnRewardPedestal(ItemPoolType poolType) {
         if (gameLoop == null || gameArea == null) return;
-        List<ItemDefinition> availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
+
+        // Usar el poolType solicitado en lugar de siempre TREASURE
+        List<ItemDefinition> availableItems = ItemRegistry.getUnlockedByPool(poolType, achievements);
+
+        // Fallback a TREASURE si el pool de BOSS estuviera vacío (seguridad)
+        if (availableItems.isEmpty()) {
+            availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
+        }
         if (availableItems.isEmpty()) return;
+
         ItemDefinition def = availableItems.get(rewardItemCursor % availableItems.size());
         final ItemId itemId = def.getId();
         rewardItemCursor++;
@@ -1264,12 +1274,20 @@ public class GameController implements ViewLifecycle {
             e -> {
                 gameLoop.removeEntity(e);
                 obstacles.remove(e);
+                // Asegurar limpiar la vista al recoger
+                if (e.getView() != null) gameArea.getChildren().remove(e.getView());
                 if (itemHud != null) itemHud.refresh();
                 showItemPickupOverlay(itemId);
             },
             k -> sound.play(k)
         );
         pedestal.setPosition(cx, cy + 80);
+
+        // CAMBIO 2: Añadir explícitamente la vista al área de juego para asegurar visibilidad
+        if (pedestal.getView() != null && !gameArea.getChildren().contains(pedestal.getView())) {
+            gameArea.getChildren().add(pedestal.getView());
+        }
+
         gameLoop.addEntity(pedestal);
 
         checkAndPushInteractive(pedestal);
