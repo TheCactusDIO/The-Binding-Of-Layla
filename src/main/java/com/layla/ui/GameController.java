@@ -11,6 +11,7 @@ import com.layla.core.GameLoop;
 import com.layla.core.InputService;
 import com.layla.db.DatabaseService;
 import com.layla.entities.Boss;
+import com.layla.entities.ChocoCat; // Importar ChocoCat
 import com.layla.entities.Coin;
 import com.layla.entities.GreedButton;
 import com.layla.entities.ItemPedestal;
@@ -79,6 +80,9 @@ public class GameController implements ViewLifecycle {
     // Tendero físico (ShopKeeper)
     private GameEntity shopKeeperEntity;
     private double shopCooldown = 0.0; // Cooldown para evitar re-entrada inmediata
+
+    // Referencia para limpiar a Choco al cambiar de piso
+    private ChocoCat chocoEntity;
 
     // ESTADO PERSISTENTE DE LA TIENDA
     private List<ShopOffer> currentShopOffers = new ArrayList<>();
@@ -377,6 +381,7 @@ public class GameController implements ViewLifecycle {
         waveInProgress = false;
         if (greedButton != null) greedButton = null;
         shopKeeperEntity = null;
+        if (chocoEntity != null) chocoEntity = null; // Limpiar ref
     }
 
     public void signalGameStart() {
@@ -402,6 +407,7 @@ public class GameController implements ViewLifecycle {
 
         spawnGreedButton();
         spawnShopKeeper();
+        spawnChoco(); // AÑADIDO: Spawnear a Choco al inicio
 
         updateHudLabels();
         maybeSpawnPlayer();
@@ -865,7 +871,6 @@ public class GameController implements ViewLifecycle {
         spawnNextFloorButton();
         spawnShopKeeper();
 
-        // CORRECCIÓN: Usar el nuevo método que acepta poolType y asegurarse de pedir item de BOSS
         spawnRewardPedestal(ItemPoolType.BOSS);
     }
 
@@ -915,6 +920,7 @@ public class GameController implements ViewLifecycle {
         spawnRoomLayout();
         spawnGreedButton();
         spawnShopKeeper();
+        spawnChoco(); // AÑADIDO
 
         updateHudLabels();
 
@@ -923,6 +929,37 @@ public class GameController implements ViewLifecycle {
         }
 
         AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
+    }
+
+    // --- NUEVO MÉTODO AÑADIDO PARA SPAWNEAR AL GATO ---
+    private void spawnChoco() {
+        // Limpiar choco anterior si existe
+        if (chocoEntity != null) {
+            gameLoop.removeEntity(chocoEntity);
+            if (chocoEntity.getView() != null) gameArea.getChildren().remove(chocoEntity.getView());
+            chocoEntity = null;
+        }
+
+        if (gameArea == null) return;
+
+        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
+        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
+
+        // Spawnear en una posición aleatoria segura o cerca del centro
+        double x = w / 2.0 + 100;
+        double y = h / 2.0 + 50;
+
+        chocoEntity = new ChocoCat(x, y, gameArea);
+
+        // Añadir vista (Importante para que se vea)
+        if (chocoEntity.getView() != null && !gameArea.getChildren().contains(chocoEntity.getView())) {
+            gameArea.getChildren().add(chocoEntity.getView());
+            // Enviar al fondo para que no tape balas o al jugador, pero encima del suelo
+            chocoEntity.getView().toBack();
+        }
+
+        // Añadir al bucle de juego para que se mueva
+        gameLoop.addEntity(chocoEntity);
     }
 
     private void clearLevel() {
