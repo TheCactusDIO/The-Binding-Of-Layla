@@ -17,25 +17,14 @@ public final class PlayerStats {
     }
 
     public void resetDefaults() {
-        setBase(PlayerStatId.MOVE_SPEED,        160.0);
+        setBase(PlayerStatId.MOVE_SPEED,        300.0);
         setBase(PlayerStatId.MAX_HEALTH,        6.0);
-        setBase(PlayerStatId.FIRE_RATE,         3.0);
+        setBase(PlayerStatId.FIRE_RATE,         15.0);
         setBase(PlayerStatId.PROJECTILE_SPEED,  400.0);
-        setBase(PlayerStatId.PROJECTILE_RANGE,  1.0);
-        setBase(PlayerStatId.PROJECTILE_DAMAGE, 1.0);
+        setBase(PlayerStatId.PROJECTILE_RANGE,  10.0);
+        setBase(PlayerStatId.PROJECTILE_DAMAGE, 3.0);
 
         // Brotato-like stats
-        setBase(PlayerStatId.HP_REGEN,           0.0);
-        setBase(PlayerStatId.LIFESTEAL,          0.0);
-        setBase(PlayerStatId.ARMOR,              0.0);
-        setBase(PlayerStatId.DODGE,              0.0);
-        setBase(PlayerStatId.CRIT_CHANCE,        0.0);
-        setBase(PlayerStatId.CRIT_DAMAGE,        1.5);
-        setBase(PlayerStatId.KNOCKBACK,          0.0);
-        setBase(PlayerStatId.HARVESTING,         0.0);
-        setBase(PlayerStatId.LUCK,               0.0);
-        setBase(PlayerStatId.PICKUP_RANGE,       80.0);
-        setBase(PlayerStatId.SHOP_DISCOUNT,      0.0);
         setBase(PlayerStatId.PROJECTILE_PIERCE,  0.0);
         setBase(PlayerStatId.PROJECTILE_BOUNCE,  0.0);
     }

@@ -14,17 +14,6 @@ public enum PlayerStatId {
     PROJECTILE_COUNT,    // NUEVO: Number of projectiles per shot
 
     // Survivability and combat breadth (Brotato-like)
-    HP_REGEN,            // health per second
-    LIFESTEAL,           // % chance to heal on hit
-    ARMOR,               // flat damage reduction value
-    DODGE,               // % chance to evade damage
-    CRIT_CHANCE,         // % crit chance
-    CRIT_DAMAGE,         // crit damage multiplier (1.5 = 150%)
-    KNOCKBACK,           // knockback force
-    HARVESTING,          // extra resources at wave end
-    LUCK,                // luck for drops/shops
-    PICKUP_RANGE,        // coin pickup radius
-    SHOP_DISCOUNT,       // shop discount multiplier (0.1 = 10%)
     PROJECTILE_PIERCE,   // number of enemies a projectile pierces
     PROJECTILE_BOUNCE,   // number of projectile bounces
     PROJECTILE_HOMING    // Capacidad de perseguir enemigos

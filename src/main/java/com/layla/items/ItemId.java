@@ -1,70 +1,45 @@
 package com.layla.items;
 
-/** Identifier for each passive item. */
+/**
+ * Unique identifiers for every collectible item.
+ */
 public enum ItemId {
-    SWIFT_BOOTS,
-    GLASS_CANNON,
-    TEARS_UP,
-    RANGE_UP,
-    SHOT_SPEED_UP,
-
-    // NUEVOS ÍTEMS
+    // --- SHOT MECHANIC ---
     TRIPLE_SHOT,
     QUAD_SHOT,
-    CUPIDS_ARROW,  // Pierce
-    RUBBER_CEMENT, // Bounce
-    SPOON_BENDER,  // Homing
+    CUPIDS_ARROW,
+    RUBBER_CEMENT,
+    SPOON_BENDER,
 
-    BANDAGE,
-    SMALL_CHESTPLATE,
-    RUNNING_SHOES,
-    PROTEIN_BAR,
-    DUCT_TAPE,
-    LIGHT_BOOTS,
-    ENERGY_DRINK,
-    BROKEN_BULLET,
-    SHARP_ROCK,
-    PRACTICE_TARGET,
-    METAL_SCRAP,
-    RUSTY_SPRING,
-    PEASHOOTER_AMMO,
-    HARDENED_TIP,
-    PIGGY_BANK,
-    LUCKY_CHARM,
-    MAGNET,
-    COUPON,
-    COIN_BAG,
-    SCRAP_METAL,
+    // --- ISAAC CLASSICS (WAVE 1) ---
+    MEAT,           // Vida + Daño
+    THE_HALO,       // All stats
+    MAGIC_MUSHROOM, // All stats + Multiplier
+    BUCKET_OF_LARD, // Vida masiva, lento
+    CRICKETS_HEAD,  // Daño masivo
+    SYNTHOIL,       // Daño + Rango
+    PENTAGRAM,      // Daño
+    SOY_MILK,       // Cadencia extrema
 
-    IRON_PLATE,
-    MEDKIT,
-    REINFORCED_BOOTS,
-    NANO_SHIELD,
-    MEGA_HEART,
-    EXPLOSIVE_ROUNDS,
-    PRECISION_SCOPE,
-    SPIKED_GLOVES,
-    DUAL_SPRINGS,
-    BOUNCING_GEL,
-    TEFLON_AMMO,
-    CRITICAL_EYE,
-    GOLDEN_WALLET,
-    LUCKY_DICE,
-    BIG_MAGNET,
-    VOUCHER,
-    LUCKY_COIN,
-    SHOP_SCANNER,
+    // --- ISAAC CLASSICS (WAVE 2 - HP & UTILITY) ---
+    STIGMATA,       // HP + DMG
+    BLUE_CAP,       // HP + Tears - ShotSpeed
+    STEM_CELLS,     // HP + ShotSpeed
+    SMB_SUPER_FAN,  // HP + All Stats - Speed
+    CAPRICORN,      // All stats balanced
 
-    REACTOR_CORE,
-    ADRENALINE_PUMP,
-    BIO_STEEL_SKIN,
-    GENETIC_UPGRADE,
-    SNIPER_MODULE,
-    BALLISTIC_CPU,
-    PLASMA_ROUNDS,
-    RICOCHET_CORE,
-    DRILL_BIT,
-    GOLDEN_MIND,
-    CHAOS_ENGINE,
-    TITAN_BLOOD
+    // --- GAME CHANGERS ---
+    POLYPHEMUS,     // Huge DMG, Slow Fire
+    SACRED_HEART,   // Homing + Huge DMG Mult
+    TWENTY_TWENTY,  // Double Shot (20/20)
+
+    // --- WAVE 3 (NEW REQUESTS) ---
+    THE_WAFER,          // Tankiness
+    ODD_MUSHROOM_THIN,  // Fire Rate + Speed - Dmg
+    ODD_MUSHROOM_LARGE, // HP + Dmg + Range - Speed
+    GROWTH_HORMONES,    // Dmg + Speed
+    JESUS_JUICE,        // Dmg + Range
+    ROID_RAGE,          // Speed + Range
+    THE_BELT,           // Speed
+    WOODEN_SPOON        // Speed
 }

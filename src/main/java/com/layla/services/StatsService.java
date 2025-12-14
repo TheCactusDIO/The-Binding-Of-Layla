@@ -106,8 +106,7 @@ public final class StatsService {
         return switch (statId) {
             case MOVE_SPEED, FIRE_RATE, PROJECTILE_SPEED,
                  PROJECTILE_RANGE, PROJECTILE_DAMAGE, MAX_HEALTH,
-                 PICKUP_RANGE, CRIT_DAMAGE, PROJECTILE_COUNT,
-                 PROJECTILE_PIERCE, PROJECTILE_BOUNCE, PROJECTILE_HOMING
+                 PROJECTILE_COUNT, PROJECTILE_PIERCE, PROJECTILE_BOUNCE, PROJECTILE_HOMING
                  -> Math.max(0.0, value);
             default -> value;
         };
@@ -119,17 +118,6 @@ public final class StatsService {
     public double getProjectileSpeed()  { return getStat(PlayerStatId.PROJECTILE_SPEED); }
     public double getProjectileRange()  { return getStat(PlayerStatId.PROJECTILE_RANGE); }
     public double getProjectileDamage() { return getStat(PlayerStatId.PROJECTILE_DAMAGE); }
-    public double getHpRegen()          { return getStat(PlayerStatId.HP_REGEN); }
-    public double getLifesteal()        { return getStat(PlayerStatId.LIFESTEAL); }
-    public double getArmor()            { return getStat(PlayerStatId.ARMOR); }
-    public double getDodge()            { return getStat(PlayerStatId.DODGE); }
-    public double getCritChance()       { return getStat(PlayerStatId.CRIT_CHANCE); }
-    public double getCritDamage()       { return getStat(PlayerStatId.CRIT_DAMAGE); }
-    public double getKnockback()        { return getStat(PlayerStatId.KNOCKBACK); }
-    public double getHarvesting()       { return getStat(PlayerStatId.HARVESTING); }
-    public double getLuck()             { return getStat(PlayerStatId.LUCK); }
-    public double getPickupRange()      { return getStat(PlayerStatId.PICKUP_RANGE); }
-    public double getShopDiscount()     { return getStat(PlayerStatId.SHOP_DISCOUNT); }
     public double getProjectilePierce() { return getStat(PlayerStatId.PROJECTILE_PIERCE); }
     public double getProjectileBounce() { return getStat(PlayerStatId.PROJECTILE_BOUNCE); }
     public double getProjectileCount()  { return getStat(PlayerStatId.PROJECTILE_COUNT); }

@@ -344,8 +344,6 @@ public class GameController implements ViewLifecycle {
                 if (e.getCode() == KeyCode.ESCAPE) {
                     if (!gameOverShown && !paused) onPausePressed();
                     else if (paused) resumeFromPause();
-                } else {
-                    handleDebugItemHotkeys(e.getCode());
                 }
             });
             gameArea.requestFocus();
@@ -1314,22 +1312,6 @@ public class GameController implements ViewLifecycle {
         return offers;
     }
 
-    private boolean handleDebugItemHotkeys(KeyCode code) {
-        if (code == null) return false;
-        ItemId itemId = switch (code) {
-            case DIGIT1 -> ItemId.SWIFT_BOOTS;
-            case DIGIT2 -> ItemId.GLASS_CANNON;
-            case DIGIT3 -> ItemId.TEARS_UP;
-            default -> null;
-        };
-        if (itemId != null) {
-            statsService.grantItem(itemId);
-            applyBalanceToRuntimePlayer();
-            return true;
-        }
-        return false;
-    }
-
     private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
         double[] center = getPlayerCenter();
         double enemyCx = ex + ew * 0.5;
@@ -1465,10 +1447,10 @@ public class GameController implements ViewLifecycle {
             if (c instanceof GameOverController goc) {
                 goc.setTitle("GAME OVER");
                 goc.setOnRetry(() -> {
-                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                     gameOverOverlay = null;
-                     restartPending = true; // FIX: Marcar reinicio
-                     SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+                      OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                      gameOverOverlay = null;
+                      restartPending = true; // FIX: Marcar reinicio
+                      SceneRouter.goWithFadeKeepSize("ui/game.fxml");
                 });
                 goc.setOnBackToMenu(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
@@ -1490,10 +1472,10 @@ public class GameController implements ViewLifecycle {
             if (c instanceof GameOverController goc) {
                 goc.setTitle("VICTORY!");
                  goc.setOnRetry(() -> {
-                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                     gameOverOverlay = null;
-                     restartPending = true; // FIX: Marcar reinicio
-                     SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+                      OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                      gameOverOverlay = null;
+                      restartPending = true; // FIX: Marcar reinicio
+                      SceneRouter.goWithFadeKeepSize("ui/game.fxml");
                 });
                 goc.setOnBackToMenu(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);

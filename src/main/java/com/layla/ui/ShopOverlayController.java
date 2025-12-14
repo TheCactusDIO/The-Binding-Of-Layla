@@ -375,13 +375,9 @@ public class ShopOverlayController {
         statsContainer.getChildren().clear();
 
         addStatRow("Max HP",       statsService.getMaxHealth(),       false, "Vida máxima total.");
-        addStatRow("Regeneration", statsService.getHpRegen(),         false, "Vida recuperada cada segundo.");
-        addStatRow("Lifesteal",    statsService.getLifesteal(),       true,  "Probabilidad de curarse al dañar.");
         addStatRow("Damage",       statsService.getProjectileDamage(),false, "Daño por disparo.");
         addStatRow("Fire Rate",    statsService.getFireRate(),        false, "Disparos por segundo.");
         addStatRow("Speed",        statsService.getMoveSpeed(),       false, "Velocidad de movimiento.");
-        addStatRow("Armor",        statsService.getArmor(),           false, "Reducción de daño.");
-        addStatRow("Luck",         statsService.getLuck(),            false, "Suerte en drops.");
     }
 
     private void addStatRow(String name, double value, boolean isPercent, String desc) {
