@@ -33,7 +33,6 @@ import javafx.util.Duration;
 public final class Enemy implements GameEntity {
 
     // ===== Size/scale (OPTION 2: visual + hitbox) =====
-    // Sube o baja este número para hacer enemigos más grandes/pequeños (incluye hitbox).
     private static final double VISUAL_SCALE = 1.5;
 
     private static final double WIDTH  = 22.0 * VISUAL_SCALE;
@@ -95,45 +94,73 @@ public final class Enemy implements GameEntity {
     private static final double SHOOTER_HEAD_X_OFFSET = -5.0 * VISUAL_SCALE;
 
     // ===================== MELEE (melee.png) =====================
-    // Nota: esta sheet no es 32x32. Por cómo está recortada, usamos viewports “a pixel”.
-    // Confirmado por el PNG: 8 columnas de 31px; heads (fila 1) más altos; piernas (filas 2-4) más bajas.
     private static final int MELEE_FRAME_W = 31;
     private static final int MELEE_HEAD_H = 25;
     private static final int MELEE_LEGS_H = 15;
 
-    // Y de inicio de cada “fila útil” dentro del PNG (en píxeles)
     private static final int MELEE_Y_HEAD = 1;
     private static final int MELEE_Y_LEGS_DOWN = 30;
     private static final int MELEE_Y_LEGS_SIDE = 46;
 
     private static final int MELEE_WALK_FRAMES = 6;
-    private static final int MELEE_WALK_DOWN_START_COL = 0; // cols 1..6 (1-based) => 0..5
-    private static final int MELEE_WALK_SIDE_START_COL = 2; // cols 3..8 (1-based) => 2..7
+    private static final int MELEE_WALK_DOWN_START_COL = 0; // cols 1..6 => 0..5
+    private static final int MELEE_WALK_SIDE_START_COL = 2; // cols 3..8 => 2..7
 
     private static final double MELEE_HEAD_Y_OFFSET = -14.0 * VISUAL_SCALE;
-    private static final double MELEE_HEAD_X_OFFSET = VISUAL_SCALE;
+    private static final double MELEE_HEAD_X_OFFSET = -4.0 * VISUAL_SCALE;
 
     private static final double MELEE_FPS = 10.0;
+
     // ===================== KAMIKAZE (kamikaze.png) =====================
-    // Según tu descripción:
-    // - Fila 1 (row 0): Cara 1 = abajo, Cara 4 = arriba
-    // - Fila 2 (row 1): Cara 1 = derecha, Cara 4 = izquierda
-    // Nota: este PNG trae dos variantes (izquierda y derecha) separadas por una barra negra.
-    // Usamos la variante de la izquierda (X0 = 0). Si quisieras la de la derecha, cambia KAMIKAZE_X0.
     private static final int KAMIKAZE_FRAME_W = 48;
     private static final int KAMIKAZE_FRAME_H = 48;
-    private static final int KAMIKAZE_X0 = 0;   // 0 = bloque izquierdo; prueba 300 si quieres el derecho
+    private static final int KAMIKAZE_X0 = 0;
     private static final int KAMIKAZE_Y0 = 0;
 
     private static final int KAMIKAZE_ROW_DOWN_UP = 0;
     private static final int KAMIKAZE_ROW_RIGHT_LEFT = 1;
 
-    private static final int KAMIKAZE_COL_1 = 0; // "Cara 1" (1-based) => 0
-    private static final int KAMIKAZE_COL_4 = 3; // "Cara 4" (1-based) => 3
+    private static final int KAMIKAZE_COL_1 = 0; // Cara 1 (1-based) => 0
+    private static final int KAMIKAZE_COL_4 = 3; // Cara 4 (1-based) => 3
 
     private int kamikazeActiveRow = -1;
     private int kamikazeActiveCol = -1;
 
+    // ===================== TANK (tank.png) =====================
+    // IMPORTANTE: el cuerpo está partido en 2 tiles de 32px por frame -> cuerpo real = 64x32.
+    // Head: row 0 col 0 (32x32)
+    // Body right: row 1, frames 0..5 => x = (frame*2)*32, w=64, h=32
+    // Body down:  row 3, frames 0..5 => x = (frame*2)*32, w=64, h=32
+    private static final int TANK_TILE = 32;
+
+    private static final int TANK_HEAD_W = 32;
+    private static final int TANK_HEAD_H = 32;
+
+    private static final int TANK_BODY_W = 64; // 2 tiles
+    private static final int TANK_BODY_H = 32;
+
+    private static final int TANK_ROW_HEAD = 0;        // row 0
+    private static final int TANK_ROW_BODY_RIGHT = 1;  // row 1
+    private static final int TANK_ROW_BODY_DOWN  = 3;  // row 3
+
+    private static final int TANK_WALK_FRAMES = 6;
+
+    // Ajustes finos (tú los puedes tocar)
+    // - Si la cabeza “flota”, baja menos (menos negativo) o sube el cuerpo (más negativo en BODY_Y).
+    private static final double TANK_HEAD_Y_OFFSET = -25.0 * VISUAL_SCALE;
+    private static final double TANK_HEAD_X_OFFSET = 0.0 * VISUAL_SCALE;
+
+    // Esto corrige el “cuerpo muy abajo” porque dentro del tile hay mucho transparente arriba.
+    private static final double TANK_BODY_Y_OFFSET = -25.0 * VISUAL_SCALE;
+    private static final double TANK_BODY_X_OFFSET = 0.0 * VISUAL_SCALE;
+
+    private static final double TANK_FPS = 10.0;
+    private double tankFrameTimer = 0.0;
+    private int tankFrameIdx = 0;
+    private int tankActiveBodyRow = -1;
+    private boolean tankActiveFlip = false;
+
+    // ===================== Animation timers/caches =====================
     private double meleeFrameTimer = 0.0;
     private int meleeFrameIdx = 0;
     private int meleeActiveLegsY = -1;
@@ -187,9 +214,8 @@ public final class Enemy implements GameEntity {
         this.speedMultiplier = Math.max(0.0, speedMultiplier);
         this.damageMultiplier = Math.max(0.0, damageMultiplier);
 
-        // Visual setup
         debugBox.setStroke(Color.BLACK);
-        debugBox.setFill(getColorForType(type)); // Fallback color
+        debugBox.setFill(getColorForType(type));
 
         Image sheet;
 
@@ -199,11 +225,12 @@ public final class Enemy implements GameEntity {
             sheet = AssetsManager.loadImage("assets/images/melee.png");
         } else if (type == EnemyType.KAMIKAZE) {
             sheet = AssetsManager.loadImage("assets/images/kamikaze.png");
+        } else if (type == EnemyType.TANK) {
+            sheet = AssetsManager.loadImage("assets/images/tank.png");
         } else {
             sheet = AssetsManager.loadImage("assets/images/enemies_sheet.png");
         }
 
-        // Si no hay sheet específico, intentamos cargar iconos individuales como sprites estáticos
         if (sheet == null) {
             sheet = AssetsManager.loadImage("assets/images/enemies/" + type.name() + ".png");
         }
@@ -218,6 +245,9 @@ public final class Enemy implements GameEntity {
             headView.setSmooth(false);
             headView.setMouseTransparent(true);
 
+            debugBox.setFill(Color.TRANSPARENT);
+            debugBox.setStroke(Color.TRANSPARENT);
+
             if (type == EnemyType.SHOOTER) {
                 spriteView.setFitWidth(SHOOTER_FRAME_W * VISUAL_SCALE);
                 spriteView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
@@ -226,16 +256,12 @@ public final class Enemy implements GameEntity {
                 headView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
 
                 headView.setVisible(true);
-                debugBox.setFill(Color.TRANSPARENT);
-                debugBox.setStroke(Color.TRANSPARENT);
 
-                // Inicial: cabeza mirando abajo
                 headView.setTranslateY(SHOOTER_HEAD_Y_OFFSET);
                 applyShooterHeadOffsets(false);
                 headView.setViewport(new Rectangle2D(0, 0, SHOOTER_FRAME_W, SHOOTER_FRAME_H));
 
             } else if (type == EnemyType.MELEE) {
-                // Piernas más bajas, cabeza más alta: tamaños distintos
                 spriteView.setFitWidth(MELEE_FRAME_W * VISUAL_SCALE);
                 spriteView.setFitHeight(MELEE_LEGS_H * VISUAL_SCALE);
 
@@ -243,27 +269,52 @@ public final class Enemy implements GameEntity {
                 headView.setFitHeight(MELEE_HEAD_H * VISUAL_SCALE);
 
                 headView.setVisible(true);
-                debugBox.setFill(Color.TRANSPARENT);
-                debugBox.setStroke(Color.TRANSPARENT);
 
                 headView.setTranslateY(MELEE_HEAD_Y_OFFSET);
                 applyMeleeHeadOffsets(false);
 
-                // Inicial: cabeza abajo, piernas idle abajo frame 0
                 headView.setViewport(new Rectangle2D(0, MELEE_Y_HEAD, MELEE_FRAME_W, MELEE_HEAD_H));
                 spriteView.setViewport(new Rectangle2D(0, MELEE_Y_LEGS_DOWN, MELEE_FRAME_W, MELEE_LEGS_H));
 
+            } else if (type == EnemyType.TANK) {
+                // BODY = 64x32 (2 tiles)
+                spriteView.setFitWidth(TANK_BODY_W * VISUAL_SCALE);
+                spriteView.setFitHeight(TANK_BODY_H * VISUAL_SCALE);
+                spriteView.setTranslateX(TANK_BODY_X_OFFSET);
+                spriteView.setTranslateY(TANK_BODY_Y_OFFSET);
+
+                // HEAD = 32x32 (fijo)
+                headView.setFitWidth(TANK_HEAD_W * VISUAL_SCALE);
+                headView.setFitHeight(TANK_HEAD_H * VISUAL_SCALE);
+
+                headView.setVisible(true);
+                headView.setTranslateX(TANK_HEAD_X_OFFSET);
+                headView.setTranslateY(TANK_HEAD_Y_OFFSET);
+                headView.setScaleX(1);
+
+                // Head fijo: row 0 col 0
+                headView.setViewport(new Rectangle2D(
+                        0,
+                        TANK_ROW_HEAD * TANK_TILE,
+                        TANK_HEAD_W,
+                        TANK_HEAD_H
+                ));
+
+                // Body inicial: row 3 (down), frame 0 => x=0, w=64
+                spriteView.setScaleX(1);
+                spriteView.setViewport(new Rectangle2D(
+                        0,
+                        TANK_ROW_BODY_DOWN * TANK_TILE,
+                        TANK_BODY_W,
+                        TANK_BODY_H
+                ));
+
             } else if (type == EnemyType.KAMIKAZE) {
-                // Kamikaze usa un único sprite (sin piernas/cabeza separadas)
                 spriteView.setFitWidth(KAMIKAZE_FRAME_W * VISUAL_SCALE);
                 spriteView.setFitHeight(KAMIKAZE_FRAME_H * VISUAL_SCALE);
 
                 headView.setVisible(false);
 
-                debugBox.setFill(Color.TRANSPARENT);
-                debugBox.setStroke(Color.TRANSPARENT);
-
-                // Inicial: mirando abajo (fila 1, cara 1)
                 spriteView.setViewport(new Rectangle2D(
                         KAMIKAZE_X0 + (KAMIKAZE_COL_1 * KAMIKAZE_FRAME_W),
                         KAMIKAZE_Y0 + (KAMIKAZE_ROW_DOWN_UP * KAMIKAZE_FRAME_H),
@@ -272,13 +323,9 @@ public final class Enemy implements GameEntity {
                 ));
 
             } else {
-                // Enemigos normales (sheet 32x32)
                 spriteView.setFitWidth(SHOOTER_FRAME_W * VISUAL_SCALE);
                 spriteView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
                 headView.setVisible(false);
-
-                debugBox.setFill(Color.TRANSPARENT);
-                debugBox.setStroke(Color.TRANSPARENT);
             }
 
         } else {
@@ -286,25 +333,20 @@ public final class Enemy implements GameEntity {
             headView.setVisible(false);
         }
 
-        // Animador por defecto:
-        // - Shooter: piernas animadas con SpriteAnimator
-        // - Otros: anim simple
         animator = (type == EnemyType.SHOOTER)
                 ? new SpriteAnimator(SHOOTER_FRAME_W, SHOOTER_FRAME_H, SHOOTER_WALK_FRAMES, 10, SHOOTER_COLUMNS)
                 : new SpriteAnimator(SHOOTER_FRAME_W, SHOOTER_FRAME_H, 2, 6, 10);
 
         viewRoot.getChildren().addAll(debugBox, spriteView);
-        if (type == EnemyType.SHOOTER || type == EnemyType.MELEE) viewRoot.getChildren().add(headView);
+        if (type == EnemyType.SHOOTER || type == EnemyType.MELEE || type == EnemyType.TANK) viewRoot.getChildren().add(headView);
         viewRoot.setManaged(false);
 
-        parent().getChildren().add(viewRoot);
+        boundsPane.getChildren().add(viewRoot);
 
         EnemyProfile profile = AppContext.balance().profile(type);
         this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp * hpMultiplier) : 0.0;
         this.hp = this.maxHealth;
     }
-
-    private Pane parent() { return boundsPane; }
 
     private Color getColorForType(EnemyType t) {
         return switch (t) {
@@ -330,7 +372,6 @@ public final class Enemy implements GameEntity {
         double[] playerCenter = playerCenterSupplier.get();
         aiTime += dt;
 
-        // Anti-Stuck Check
         double distMoved = Math.hypot(viewRoot.getLayoutX() - lastX, viewRoot.getLayoutY() - lastY);
         if (distMoved < 0.5 * dt * 60) {
             stuckTimer += dt;
@@ -355,22 +396,11 @@ public final class Enemy implements GameEntity {
     private void updateAnimation(double dt) {
         if (!hasSprite) return;
 
-        if (type == EnemyType.SHOOTER) {
-            updateShooterAnimation(dt);
-            return;
-        }
+        if (type == EnemyType.SHOOTER) { updateShooterAnimation(dt); return; }
+        if (type == EnemyType.MELEE)  { updateMeleeAnimation(dt);  return; }
+        if (type == EnemyType.KAMIKAZE){ updateKamikazeAnimation(dt); return; }
+        if (type == EnemyType.TANK)   { updateTankAnimation(dt);   return; }
 
-        if (type == EnemyType.MELEE) {
-            updateMeleeAnimation(dt);
-            return;
-        }
-
-        if (type == EnemyType.KAMIKAZE) {
-            updateKamikazeAnimation(dt);
-            return;
-        }
-
-        // Default: enemigos normales
         animator.update(dt);
         spriteView.setViewport(animator.getCurrentViewport());
 
@@ -534,7 +564,6 @@ public final class Enemy implements GameEntity {
 
         boolean flip = (facing == Facing.LEFT);
 
-        // Legs: DOWN uses row2 cols 1..6; SIDE uses row3 cols 3..8; UP reusa DOWN (porque la sheet no trae piernas up claras).
         int legsY;
         int startCol;
         switch (facing) {
@@ -565,7 +594,6 @@ public final class Enemy implements GameEntity {
         int frameCol = startCol + meleeFrameIdx;
         spriteView.setViewport(new Rectangle2D(frameCol * MELEE_FRAME_W, legsY, MELEE_FRAME_W, MELEE_LEGS_H));
 
-        // Head: fila 1 tiene 6 cabezas, usamos 3 primeras: abajo(0), derecha(1), arriba(2)
         int headCol;
         switch (facing) {
             case DOWN -> headCol = 0;
@@ -589,7 +617,83 @@ public final class Enemy implements GameEntity {
         headView.setTranslateY(MELEE_HEAD_Y_OFFSET);
     }
 
+    // ===================== TANK animation =====================
+    private void updateTankAnimation(double dt) {
+        double cx = getCenterX();
+        double cy = getCenterY();
+        if (Double.isNaN(lastAnimCx)) { lastAnimCx = cx; lastAnimCy = cy; }
 
+        double vx = cx - lastAnimCx;
+        double vy = cy - lastAnimCy;
+        lastAnimCx = cx;
+        lastAnimCy = cy;
+
+        double speed = Math.hypot(vx, vy);
+        if (movingAnim) movingAnim = speed > MOVE_STOP;
+        else movingAnim = speed > MOVE_START;
+
+        Facing candidate = facing;
+
+        if (movingAnim) {
+            if (Math.abs(vx) > Math.abs(vy)) candidate = (vx >= 0) ? Facing.RIGHT : Facing.LEFT;
+            else candidate = (vy >= 0) ? Facing.DOWN : Facing.UP;
+        } else {
+            candidate = facing;
+        }
+
+        if (candidate != facing) {
+            if (candidate != pendingFacing) {
+                pendingFacing = candidate;
+                pendingFacingTime = 0.0;
+            } else {
+                pendingFacingTime += dt;
+                if (pendingFacingTime >= FACING_SWITCH_DELAY) {
+                    facing = candidate;
+                    pendingFacingTime = 0.0;
+                }
+            }
+        } else {
+            pendingFacing = candidate;
+            pendingFacingTime = 0.0;
+        }
+
+        boolean flip = (facing == Facing.LEFT);
+        int bodyRow = (facing == Facing.RIGHT || facing == Facing.LEFT) ? TANK_ROW_BODY_RIGHT : TANK_ROW_BODY_DOWN;
+
+        if (!movingAnim) {
+            tankFrameIdx = 0;
+            tankFrameTimer = 0.0;
+        } else {
+            tankFrameTimer += dt;
+            double step = 1.0 / TANK_FPS;
+            while (tankFrameTimer >= step) {
+                tankFrameTimer -= step;
+                tankFrameIdx = (tankFrameIdx + 1) % TANK_WALK_FRAMES;
+            }
+        }
+
+        if (bodyRow != tankActiveBodyRow || flip != tankActiveFlip) {
+            tankActiveBodyRow = bodyRow;
+            tankActiveFlip = flip;
+        }
+
+        // Cada frame empieza en col par: 0,2,4,6,8,10 (x = frame*2*32)
+        int x = (tankFrameIdx * 2) * TANK_TILE;
+
+        spriteView.setScaleX(flip ? -1 : 1);
+        spriteView.setViewport(new Rectangle2D(
+                x,
+                bodyRow * TANK_TILE,
+                TANK_BODY_W,
+                TANK_BODY_H
+        ));
+
+        // Head fijo (no flip)
+        headView.setScaleX(1);
+        headView.setTranslateX(TANK_HEAD_X_OFFSET);
+        headView.setTranslateY(TANK_HEAD_Y_OFFSET);
+        // viewport no se toca (row0 col0)
+    }
 
     // ===================== KAMIKAZE animation =====================
     private void updateKamikazeAnimation(double dt) {
@@ -602,12 +706,10 @@ public final class Enemy implements GameEntity {
         lastAnimCx = cx;
         lastAnimCy = cy;
 
-        // Histéresis de movimiento (igual que shooter/melee)
         double speed = Math.hypot(vx, vy);
         if (movingAnim) movingAnim = speed > MOVE_STOP;
         else movingAnim = speed > MOVE_START;
 
-        // Candidate facing
         Facing candidate = facing;
 
         if (movingAnim) {
@@ -627,7 +729,6 @@ public final class Enemy implements GameEntity {
             }
         }
 
-        // Delay anti-parpadeo para cambiar facing
         if (candidate != facing) {
             if (candidate != pendingFacing) {
                 pendingFacing = candidate;
@@ -644,7 +745,6 @@ public final class Enemy implements GameEntity {
             pendingFacingTime = 0.0;
         }
 
-        // Mapear Facing -> frame
         int row;
         int col;
 
@@ -656,7 +756,6 @@ public final class Enemy implements GameEntity {
             default -> { row = KAMIKAZE_ROW_DOWN_UP; col = KAMIKAZE_COL_1; }
         }
 
-        // No usamos flip, porque la sheet trae derecha e izquierda separadas.
         spriteView.setScaleX(1);
 
         if (row != kamikazeActiveRow || col != kamikazeActiveCol) {
@@ -675,7 +774,6 @@ public final class Enemy implements GameEntity {
     private void handleMovement(EnemyProfile profile, double[] playerCenter, double dt) {
         boolean isStat = profile.stationary && type != EnemyType.SHOOTER && type != EnemyType.MELEE;
 
-        // Si estamos desatascando, forzar movimiento en dirección escape
         if (stuckTimer < 0) {
             stuckTimer += dt;
             moveWithSlide(stuckDirection, profile.speed * speedMultiplier * dt);
@@ -892,7 +990,6 @@ public final class Enemy implements GameEntity {
 
     @Override public Node getView() { return viewRoot; }
 
-    // Para colisiones usamos hitbox (WIDTH/HEIGHT), no bounds visuales (la cabeza sale fuera).
     @Override
     public Bounds getBounds() {
         return new BoundingBox(viewRoot.getLayoutX(), viewRoot.getLayoutY(), WIDTH, HEIGHT);
