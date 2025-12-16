@@ -127,34 +127,38 @@ public final class Enemy implements GameEntity {
     private int kamikazeActiveCol = -1;
 
     // ===================== TANK (tank.png) =====================
-    // IMPORTANTE: el cuerpo está partido en 2 tiles de 32px por frame -> cuerpo real = 64x32.
+    // IMPORTANTE: el cuerpo REAL del tank ocupa 2x2 tiles de 32px => 64x64 por frame.
     // Head: row 0 col 0 (32x32)
-    // Body right: row 1, frames 0..5 => x = (frame*2)*32, w=64, h=32
-    // Body down:  row 3, frames 0..5 => x = (frame*2)*32, w=64, h=32
+    // Body right: top-left en row 1, x = frame*64, y = 1*32, w=64, h=64  (usa rows 1 y 2)
+    // Body down:  top-left en row 3, x = frame*64, y = 3*32, w=64, h=64  (usa rows 3 y 4)
     private static final int TANK_TILE = 32;
 
     private static final int TANK_HEAD_W = 32;
     private static final int TANK_HEAD_H = 32;
 
     private static final int TANK_BODY_W = 64; // 2 tiles
-    private static final int TANK_BODY_H = 32;
+    private static final int TANK_BODY_H = 64; // 2 tiles (para que salgan las “piernas”)
 
-    private static final int TANK_ROW_HEAD = 0;        // row 0
-    private static final int TANK_ROW_BODY_RIGHT = 1;  // row 1
-    private static final int TANK_ROW_BODY_DOWN  = 3;  // row 3
+    private static final int TANK_ROW_HEAD = 0;
+    private static final int TANK_ROW_BODY_RIGHT_TOP = 1;
+    private static final int TANK_ROW_BODY_DOWN_TOP  = 3;
 
     private static final int TANK_WALK_FRAMES = 6;
-
-    // Ajustes finos (tú los puedes tocar)
-    // - Si la cabeza “flota”, baja menos (menos negativo) o sube el cuerpo (más negativo en BODY_Y).
-    private static final double TANK_HEAD_Y_OFFSET = -25.0 * VISUAL_SCALE;
-    private static final double TANK_HEAD_X_OFFSET = 0.0 * VISUAL_SCALE;
-
-    // Esto corrige el “cuerpo muy abajo” porque dentro del tile hay mucho transparente arriba.
-    private static final double TANK_BODY_Y_OFFSET = -25.0 * VISUAL_SCALE;
-    private static final double TANK_BODY_X_OFFSET = 0.0 * VISUAL_SCALE;
-
     private static final double TANK_FPS = 10.0;
+
+    // Ajustes que tú puedes tocar:
+    // - BODY_X/Y mueve el cuerpo entero.
+    // - HEAD_X/Y ajusta la cabeza encima del cuerpo.
+    // Nota: la cabeza la coloco relativa al cuerpo, así no “flota”.
+    private static final double TANK_BODY_X_OFFSET = 0.0 * VISUAL_SCALE;
+    private static final double TANK_BODY_Y_OFFSET = 0.0 * VISUAL_SCALE;
+
+    // separación vertical entre body y head (si la cabeza queda muy alta/baja, toca esto)
+    private static final double TANK_HEAD_GAP_Y = 18.0 * VISUAL_SCALE;
+
+    private static final double TANK_HEAD_X_OFFSET = 0.0 * VISUAL_SCALE;
+    private static final double TANK_HEAD_Y_OFFSET = 20.0 * VISUAL_SCALE;
+
     private double tankFrameTimer = 0.0;
     private int tankFrameIdx = 0;
     private int tankActiveBodyRow = -1;
@@ -277,22 +281,22 @@ public final class Enemy implements GameEntity {
                 spriteView.setViewport(new Rectangle2D(0, MELEE_Y_LEGS_DOWN, MELEE_FRAME_W, MELEE_LEGS_H));
 
             } else if (type == EnemyType.TANK) {
-                // BODY = 64x32 (2 tiles)
+                // Para el TANK colocamos body/head manualmente (sin depender del StackPane),
+                // así no se descuadra y siempre ves el cuerpo completo.
+                spriteView.setManaged(false);
+                headView.setManaged(false);
+
+                // BODY = 64x64 (2x2 tiles)
                 spriteView.setFitWidth(TANK_BODY_W * VISUAL_SCALE);
                 spriteView.setFitHeight(TANK_BODY_H * VISUAL_SCALE);
-                spriteView.setTranslateX(TANK_BODY_X_OFFSET);
-                spriteView.setTranslateY(TANK_BODY_Y_OFFSET);
 
-                // HEAD = 32x32 (fijo)
+                // HEAD = 32x32 (fijo, siempre mirando abajo)
                 headView.setFitWidth(TANK_HEAD_W * VISUAL_SCALE);
                 headView.setFitHeight(TANK_HEAD_H * VISUAL_SCALE);
-
                 headView.setVisible(true);
-                headView.setTranslateX(TANK_HEAD_X_OFFSET);
-                headView.setTranslateY(TANK_HEAD_Y_OFFSET);
                 headView.setScaleX(1);
 
-                // Head fijo: row 0 col 0
+                // Viewports iniciales
                 headView.setViewport(new Rectangle2D(
                         0,
                         TANK_ROW_HEAD * TANK_TILE,
@@ -300,14 +304,16 @@ public final class Enemy implements GameEntity {
                         TANK_HEAD_H
                 ));
 
-                // Body inicial: row 3 (down), frame 0 => x=0, w=64
                 spriteView.setScaleX(1);
                 spriteView.setViewport(new Rectangle2D(
                         0,
-                        TANK_ROW_BODY_DOWN * TANK_TILE,
+                        TANK_ROW_BODY_DOWN_TOP * TANK_TILE,
                         TANK_BODY_W,
                         TANK_BODY_H
                 ));
+
+                // Posicionar: body centrado sobre hitbox; head relativa al body (gap)
+                positionTankParts();
 
             } else if (type == EnemyType.KAMIKAZE) {
                 spriteView.setFitWidth(KAMIKAZE_FRAME_W * VISUAL_SCALE);
@@ -339,13 +345,35 @@ public final class Enemy implements GameEntity {
 
         viewRoot.getChildren().addAll(debugBox, spriteView);
         if (type == EnemyType.SHOOTER || type == EnemyType.MELEE || type == EnemyType.TANK) viewRoot.getChildren().add(headView);
-        viewRoot.setManaged(false);
 
+        viewRoot.setManaged(false);
         boundsPane.getChildren().add(viewRoot);
 
         EnemyProfile profile = AppContext.balance().profile(type);
         this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp * hpMultiplier) : 0.0;
         this.hp = this.maxHealth;
+    }
+
+    private void positionTankParts() {
+        // Body centrado respecto a la hitbox
+        double bodyW = TANK_BODY_W * VISUAL_SCALE;
+        double bodyH = TANK_BODY_H * VISUAL_SCALE;
+
+        double bodyX = (WIDTH - bodyW) * 0.5 + TANK_BODY_X_OFFSET;
+        double bodyY = (HEIGHT - bodyH) * 0.5 + TANK_BODY_Y_OFFSET;
+
+        spriteView.setLayoutX(bodyX);
+        spriteView.setLayoutY(bodyY);
+
+        // Head centrada, pero en Y la colgamos del body (para que no flote)
+        double headW = TANK_HEAD_W * VISUAL_SCALE;
+        double headH = TANK_HEAD_H * VISUAL_SCALE;
+
+        double headX = (WIDTH - headW) * 0.5 + TANK_HEAD_X_OFFSET;
+        double headY = bodyY - TANK_HEAD_GAP_Y + TANK_HEAD_Y_OFFSET;
+
+        headView.setLayoutX(headX);
+        headView.setLayoutY(headY);
     }
 
     private Color getColorForType(EnemyType t) {
@@ -658,7 +686,7 @@ public final class Enemy implements GameEntity {
         }
 
         boolean flip = (facing == Facing.LEFT);
-        int bodyRow = (facing == Facing.RIGHT || facing == Facing.LEFT) ? TANK_ROW_BODY_RIGHT : TANK_ROW_BODY_DOWN;
+        int bodyRowTop = (facing == Facing.RIGHT || facing == Facing.LEFT) ? TANK_ROW_BODY_RIGHT_TOP : TANK_ROW_BODY_DOWN_TOP;
 
         if (!movingAnim) {
             tankFrameIdx = 0;
@@ -672,27 +700,24 @@ public final class Enemy implements GameEntity {
             }
         }
 
-        if (bodyRow != tankActiveBodyRow || flip != tankActiveFlip) {
-            tankActiveBodyRow = bodyRow;
+        if (bodyRowTop != tankActiveBodyRow || flip != tankActiveFlip) {
+            tankActiveBodyRow = bodyRowTop;
             tankActiveFlip = flip;
         }
 
-        // Cada frame empieza en col par: 0,2,4,6,8,10 (x = frame*2*32)
-        int x = (tankFrameIdx * 2) * TANK_TILE;
+        // Frames 0..5 => x = frame * 64
+        int x = tankFrameIdx * TANK_BODY_W;
 
         spriteView.setScaleX(flip ? -1 : 1);
         spriteView.setViewport(new Rectangle2D(
                 x,
-                bodyRow * TANK_TILE,
+                bodyRowTop * TANK_TILE,
                 TANK_BODY_W,
                 TANK_BODY_H
         ));
 
-        // Head fijo (no flip)
-        headView.setScaleX(1);
-        headView.setTranslateX(TANK_HEAD_X_OFFSET);
-        headView.setTranslateY(TANK_HEAD_Y_OFFSET);
-        // viewport no se toca (row0 col0)
+        // La cabeza es fija, pero si cambias offsets, re-posicionamos por si acaso.
+        positionTankParts();
     }
 
     // ===================== KAMIKAZE animation =====================
