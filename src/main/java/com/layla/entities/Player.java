@@ -11,6 +11,7 @@ import com.layla.core.SpriteAnimator;
 import com.layla.model.PlayerStatId;
 import com.layla.services.StatsService;
 
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
@@ -26,6 +27,10 @@ public final class Player implements GameEntity {
     private static final double TAU_ACCEL    = 0.035;
     private static final double TAU_DECEL    = 0.090;
     private static final double TAU_REVERSE  = 0.045;
+
+    // ===== Size/scale (OPTION 2: visual + hitbox) =====
+    // Sube o baja este número para hacer el jugador más grande/pequeño (incluye hitbox).
+    private static final double VISUAL_SCALE = 1.2;
 
     // --- CONFIGURACIÓN DEL SPRITE ---
     private static final int FRAME_W = 32;
@@ -48,16 +53,16 @@ public final class Player implements GameEntity {
 
     // --- AJUSTES VISUALES ---
     // Hitbox lógica (física) reducida para evitar colisiones "falsas" con el aire del sprite
-    private static final double HITBOX_SIZE = 24.0;
+    private static final double HITBOX_SIZE = 24.0 * VISUAL_SCALE;
     // Tamaño visual del sprite
-    private static final double SPRITE_SIZE = 48.0;
+    private static final double SPRITE_SIZE = 48.0 * VISUAL_SCALE;
 
     // Offset para centrar el sprite (48px) sobre la hitbox (24px)
-    // (24 - 48) / 2 = -12
+    // (HITBOX - SPRITE) / 2
     private static final double CENTER_OFFSET = (HITBOX_SIZE - SPRITE_SIZE) / 2.0;
 
     // Offset vertical específico de la cabeza respecto al cuerpo
-    private static final double HEAD_OFFSET_Y = -12.0;
+    private static final double HEAD_OFFSET_Y = -12.0 * VISUAL_SCALE;
 
     // Lógica de disparo
     private static final double SHOOT_FACE_COOLDOWN = 0.25;
@@ -255,7 +260,8 @@ public final class Player implements GameEntity {
 
         boolean showShootFace = (lastShootTime < SHOOT_FACE_COOLDOWN);
 
-        boolean moving = Math.abs(vx) > 5.0 || Math.abs(vy) > 5.0;
+        // Umbral proporcional al tamaño para "moving"
+        boolean moving = Math.abs(vx) > (5.0 * VISUAL_SCALE) || Math.abs(vy) > (5.0 * VISUAL_SCALE);
         if (moving) {
             if (Math.abs(vx) > Math.abs(vy)) moveDir = (vx > 0) ? 1 : 3;
             else moveDir = (vy > 0) ? 0 : 2;
@@ -310,7 +316,12 @@ public final class Player implements GameEntity {
     }
 
     @Override public Node getView() { return viewRoot; }
-    @Override public Bounds getBounds() { return viewRoot.getBoundsInParent(); }
+
+    // Para colisiones usamos hitbox (HITBOX_SIZE), no bounds visuales (la cabeza sale fuera).
+    @Override
+    public Bounds getBounds() {
+        return new BoundingBox(viewRoot.getLayoutX(), viewRoot.getLayoutY(), HITBOX_SIZE, HITBOX_SIZE);
+    }
 
     public void setPosition(double x, double y) {
         viewRoot.setLayoutX(x);

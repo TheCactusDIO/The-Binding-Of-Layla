@@ -19,6 +19,7 @@ import javafx.animation.PauseTransition;
 import javafx.animation.ScaleTransition;
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -31,8 +32,12 @@ import javafx.util.Duration;
 
 public final class Enemy implements GameEntity {
 
-    private static final double WIDTH = 22.0;
-    private static final double HEIGHT = 22.0;
+    // ===== Size/scale (OPTION 2: visual + hitbox) =====
+    // Sube o baja este número para hacer enemigos más grandes/pequeños (incluye hitbox).
+    private static final double VISUAL_SCALE = 1.5;
+
+    private static final double WIDTH  = 22.0 * VISUAL_SCALE;
+    private static final double HEIGHT = 22.0 * VISUAL_SCALE;
     private static final double EPSILON = 1e-6;
 
     private final EnemyType type;
@@ -41,6 +46,7 @@ public final class Enemy implements GameEntity {
     private final StackPane viewRoot = new StackPane();
     private final Rectangle debugBox = new Rectangle(WIDTH, HEIGHT);
     private final ImageView spriteView = new ImageView();
+    private final ImageView headView = new ImageView();
     private final SpriteAnimator animator;
     private final boolean hasSprite;
 
@@ -74,6 +80,90 @@ public final class Enemy implements GameEntity {
     private final double[] tmpDir = new double[2];
     private final double collisionRadius = Math.min(WIDTH, HEIGHT) * 0.5;
 
+    // ===================== SHOOTER (32x32) =====================
+    private static final int SHOOTER_FRAME_W = 32;
+    private static final int SHOOTER_FRAME_H = 32;
+    private static final int SHOOTER_COLUMNS = 8;
+    private static final int SHOOTER_WALK_FRAMES = 6;
+
+    private static final int SHOOTER_ROW_HEAD = 0;
+    private static final int SHOOTER_ROW_WALK_DOWN = 1;
+    private static final int SHOOTER_ROW_WALK_UP = 2;
+    private static final int SHOOTER_ROW_WALK_SIDE = 3;
+
+    private static final double SHOOTER_HEAD_Y_OFFSET = -18.0 * VISUAL_SCALE;
+    private static final double SHOOTER_HEAD_X_OFFSET = -5.0 * VISUAL_SCALE;
+
+    // ===================== MELEE (melee.png) =====================
+    // Nota: esta sheet no es 32x32. Por cómo está recortada, usamos viewports “a pixel”.
+    // Confirmado por el PNG: 8 columnas de 31px; heads (fila 1) más altos; piernas (filas 2-4) más bajas.
+    private static final int MELEE_FRAME_W = 31;
+    private static final int MELEE_HEAD_H = 25;
+    private static final int MELEE_LEGS_H = 15;
+
+    // Y de inicio de cada “fila útil” dentro del PNG (en píxeles)
+    private static final int MELEE_Y_HEAD = 1;
+    private static final int MELEE_Y_LEGS_DOWN = 30;
+    private static final int MELEE_Y_LEGS_SIDE = 46;
+
+    private static final int MELEE_WALK_FRAMES = 6;
+    private static final int MELEE_WALK_DOWN_START_COL = 0; // cols 1..6 (1-based) => 0..5
+    private static final int MELEE_WALK_SIDE_START_COL = 2; // cols 3..8 (1-based) => 2..7
+
+    private static final double MELEE_HEAD_Y_OFFSET = -14.0 * VISUAL_SCALE;
+    private static final double MELEE_HEAD_X_OFFSET = VISUAL_SCALE;
+
+    private static final double MELEE_FPS = 10.0;
+    // ===================== KAMIKAZE (kamikaze.png) =====================
+    // Según tu descripción:
+    // - Fila 1 (row 0): Cara 1 = abajo, Cara 4 = arriba
+    // - Fila 2 (row 1): Cara 1 = derecha, Cara 4 = izquierda
+    // Nota: este PNG trae dos variantes (izquierda y derecha) separadas por una barra negra.
+    // Usamos la variante de la izquierda (X0 = 0). Si quisieras la de la derecha, cambia KAMIKAZE_X0.
+    private static final int KAMIKAZE_FRAME_W = 48;
+    private static final int KAMIKAZE_FRAME_H = 48;
+    private static final int KAMIKAZE_X0 = 0;   // 0 = bloque izquierdo; prueba 300 si quieres el derecho
+    private static final int KAMIKAZE_Y0 = 0;
+
+    private static final int KAMIKAZE_ROW_DOWN_UP = 0;
+    private static final int KAMIKAZE_ROW_RIGHT_LEFT = 1;
+
+    private static final int KAMIKAZE_COL_1 = 0; // "Cara 1" (1-based) => 0
+    private static final int KAMIKAZE_COL_4 = 3; // "Cara 4" (1-based) => 3
+
+    private int kamikazeActiveRow = -1;
+    private int kamikazeActiveCol = -1;
+
+    private double meleeFrameTimer = 0.0;
+    private int meleeFrameIdx = 0;
+    private int meleeActiveLegsY = -1;
+    private int meleeActiveStartCol = -1;
+    private boolean meleeActiveFlip = false;
+    private int meleeActiveHeadCol = -1;
+
+    // ===================== Shared humanoid facing smoothing =====================
+    private enum Facing { DOWN, UP, RIGHT, LEFT }
+    private Facing facing = Facing.DOWN;
+
+    private boolean movingAnim = false;
+    private static final double MOVE_START = 0.35;
+    private static final double MOVE_STOP  = 0.20;
+
+    private static final double FACE_DEADZONE = 6.0 * VISUAL_SCALE;
+    private static final double FACING_SWITCH_DELAY = 0.06;
+    private Facing pendingFacing = Facing.DOWN;
+    private double pendingFacingTime = 0.0;
+
+    private double lastAnimCx = Double.NaN;
+    private double lastAnimCy = Double.NaN;
+
+    // Shooter caches
+    private int activeLegsRow = -1;
+    private int activeLegsFrames = -1;
+    private boolean activeLoop = false;
+    private boolean activeFlip = false;
+    private int activeHeadCol = -1;
+
     public Enemy(EnemyType type,
                  Pane boundsPane,
                  Supplier<double[]> playerCenterSupplier,
@@ -101,37 +191,120 @@ public final class Enemy implements GameEntity {
         debugBox.setStroke(Color.BLACK);
         debugBox.setFill(getColorForType(type)); // Fallback color
 
-        Image sheet = AssetsManager.loadImage("assets/images/enemies_sheet.png");
+        Image sheet;
+
+        if (type == EnemyType.SHOOTER) {
+            sheet = AssetsManager.loadImage("assets/images/shooter.png");
+        } else if (type == EnemyType.MELEE) {
+            sheet = AssetsManager.loadImage("assets/images/melee.png");
+        } else if (type == EnemyType.KAMIKAZE) {
+            sheet = AssetsManager.loadImage("assets/images/kamikaze.png");
+        } else {
+            sheet = AssetsManager.loadImage("assets/images/enemies_sheet.png");
+        }
+
         // Si no hay sheet específico, intentamos cargar iconos individuales como sprites estáticos
         if (sheet == null) {
-             sheet = AssetsManager.loadImage("assets/images/enemies/" + type.name() + ".png");
+            sheet = AssetsManager.loadImage("assets/images/enemies/" + type.name() + ".png");
         }
 
         if (sheet != null) {
             hasSprite = true;
+
             spriteView.setImage(sheet);
-            spriteView.setFitWidth(32);
-            spriteView.setFitHeight(32);
-            debugBox.setFill(Color.TRANSPARENT);
-            debugBox.setStroke(Color.TRANSPARENT);
+            spriteView.setSmooth(false);
+
+            headView.setImage(sheet);
+            headView.setSmooth(false);
+            headView.setMouseTransparent(true);
+
+            if (type == EnemyType.SHOOTER) {
+                spriteView.setFitWidth(SHOOTER_FRAME_W * VISUAL_SCALE);
+                spriteView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
+
+                headView.setFitWidth(SHOOTER_FRAME_W * VISUAL_SCALE);
+                headView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
+
+                headView.setVisible(true);
+                debugBox.setFill(Color.TRANSPARENT);
+                debugBox.setStroke(Color.TRANSPARENT);
+
+                // Inicial: cabeza mirando abajo
+                headView.setTranslateY(SHOOTER_HEAD_Y_OFFSET);
+                applyShooterHeadOffsets(false);
+                headView.setViewport(new Rectangle2D(0, 0, SHOOTER_FRAME_W, SHOOTER_FRAME_H));
+
+            } else if (type == EnemyType.MELEE) {
+                // Piernas más bajas, cabeza más alta: tamaños distintos
+                spriteView.setFitWidth(MELEE_FRAME_W * VISUAL_SCALE);
+                spriteView.setFitHeight(MELEE_LEGS_H * VISUAL_SCALE);
+
+                headView.setFitWidth(MELEE_FRAME_W * VISUAL_SCALE);
+                headView.setFitHeight(MELEE_HEAD_H * VISUAL_SCALE);
+
+                headView.setVisible(true);
+                debugBox.setFill(Color.TRANSPARENT);
+                debugBox.setStroke(Color.TRANSPARENT);
+
+                headView.setTranslateY(MELEE_HEAD_Y_OFFSET);
+                applyMeleeHeadOffsets(false);
+
+                // Inicial: cabeza abajo, piernas idle abajo frame 0
+                headView.setViewport(new Rectangle2D(0, MELEE_Y_HEAD, MELEE_FRAME_W, MELEE_HEAD_H));
+                spriteView.setViewport(new Rectangle2D(0, MELEE_Y_LEGS_DOWN, MELEE_FRAME_W, MELEE_LEGS_H));
+
+            } else if (type == EnemyType.KAMIKAZE) {
+                // Kamikaze usa un único sprite (sin piernas/cabeza separadas)
+                spriteView.setFitWidth(KAMIKAZE_FRAME_W * VISUAL_SCALE);
+                spriteView.setFitHeight(KAMIKAZE_FRAME_H * VISUAL_SCALE);
+
+                headView.setVisible(false);
+
+                debugBox.setFill(Color.TRANSPARENT);
+                debugBox.setStroke(Color.TRANSPARENT);
+
+                // Inicial: mirando abajo (fila 1, cara 1)
+                spriteView.setViewport(new Rectangle2D(
+                        KAMIKAZE_X0 + (KAMIKAZE_COL_1 * KAMIKAZE_FRAME_W),
+                        KAMIKAZE_Y0 + (KAMIKAZE_ROW_DOWN_UP * KAMIKAZE_FRAME_H),
+                        KAMIKAZE_FRAME_W,
+                        KAMIKAZE_FRAME_H
+                ));
+
+            } else {
+                // Enemigos normales (sheet 32x32)
+                spriteView.setFitWidth(SHOOTER_FRAME_W * VISUAL_SCALE);
+                spriteView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
+                headView.setVisible(false);
+
+                debugBox.setFill(Color.TRANSPARENT);
+                debugBox.setStroke(Color.TRANSPARENT);
+            }
+
         } else {
             hasSprite = false;
+            headView.setVisible(false);
         }
 
-        // Animador por defecto (32x32)
-        animator = new SpriteAnimator(32, 32, 2, 6, 10);
+        // Animador por defecto:
+        // - Shooter: piernas animadas con SpriteAnimator
+        // - Otros: anim simple
+        animator = (type == EnemyType.SHOOTER)
+                ? new SpriteAnimator(SHOOTER_FRAME_W, SHOOTER_FRAME_H, SHOOTER_WALK_FRAMES, 10, SHOOTER_COLUMNS)
+                : new SpriteAnimator(SHOOTER_FRAME_W, SHOOTER_FRAME_H, 2, 6, 10);
 
         viewRoot.getChildren().addAll(debugBox, spriteView);
-        viewRoot.setManaged(false); // GameLoop maneja posición
+        if (type == EnemyType.SHOOTER || type == EnemyType.MELEE) viewRoot.getChildren().add(headView);
+        viewRoot.setManaged(false);
 
-        parent().getChildren().add(viewRoot); // Añadir al pane
+        parent().getChildren().add(viewRoot);
 
         EnemyProfile profile = AppContext.balance().profile(type);
         this.maxHealth = profile != null ? Math.max(0.0, profile.baseHp * hpMultiplier) : 0.0;
         this.hp = this.maxHealth;
     }
 
-    private Pane parent() { return boundsPane; } // Helper
+    private Pane parent() { return boundsPane; }
 
     private Color getColorForType(EnemyType t) {
         return switch (t) {
@@ -159,54 +332,352 @@ public final class Enemy implements GameEntity {
 
         // Anti-Stuck Check
         double distMoved = Math.hypot(viewRoot.getLayoutX() - lastX, viewRoot.getLayoutY() - lastY);
-        if (distMoved < 0.5 * dt * 60) { // Si se mueve muy poco
-             stuckTimer += dt;
-             if (stuckTimer > 0.5) { // Medio segundo atascado
-                 // Elegir dirección de escape aleatoria
-                 stuckDirection[0] = ThreadLocalRandom.current().nextDouble(-1, 1);
-                 stuckDirection[1] = ThreadLocalRandom.current().nextDouble(-1, 1);
-                 stuckTimer = -0.5; // Cooldown negativo para mantener la dirección un rato
-             }
+        if (distMoved < 0.5 * dt * 60) {
+            stuckTimer += dt;
+            if (stuckTimer > 0.5) {
+                stuckDirection[0] = ThreadLocalRandom.current().nextDouble(-1, 1);
+                stuckDirection[1] = ThreadLocalRandom.current().nextDouble(-1, 1);
+                stuckTimer = -0.5;
+            }
         } else {
-             stuckTimer = 0;
-             lastX = viewRoot.getLayoutX();
-             lastY = viewRoot.getLayoutY();
+            stuckTimer = 0;
+            lastX = viewRoot.getLayoutX();
+            lastY = viewRoot.getLayoutY();
         }
 
         handleMovement(profile, playerCenter, dt);
         updateAnimation(dt);
 
-        if (type == EnemyType.TURRET) {
-            handleTurretShooting(profile, playerCenter, dt);
-        } else {
-            handleDefaultShooting(profile, playerCenter, dt);
-        }
+        if (type == EnemyType.TURRET) handleTurretShooting(profile, playerCenter, dt);
+        else handleDefaultShooting(profile, playerCenter, dt);
     }
 
     private void updateAnimation(double dt) {
         if (!hasSprite) return;
 
-        // Animación simple: siempre andando
+        if (type == EnemyType.SHOOTER) {
+            updateShooterAnimation(dt);
+            return;
+        }
+
+        if (type == EnemyType.MELEE) {
+            updateMeleeAnimation(dt);
+            return;
+        }
+
+        if (type == EnemyType.KAMIKAZE) {
+            updateKamikazeAnimation(dt);
+            return;
+        }
+
+        // Default: enemigos normales
         animator.update(dt);
         spriteView.setViewport(animator.getCurrentViewport());
 
-        // Flip sprite hacia el jugador
         double[] pc = playerCenterSupplier.get();
         if (pc != null && pc.length >= 1) {
-             double dx = pc[0] - getCenterX();
-             if (Math.abs(dx) > 1.0) {
-                 spriteView.setScaleX(dx > 0 ? 1 : -1);
-             }
+            double dx = pc[0] - getCenterX();
+            if (Math.abs(dx) > 1.0) spriteView.setScaleX(dx > 0 ? 1 : -1);
         }
     }
 
-    // --- MOVIMIENTO (Resumido del original para brevedad, lógica intacta) ---
+    // ===================== SHOOTER animation =====================
+    private void updateShooterAnimation(double dt) {
+        double cx = getCenterX();
+        double cy = getCenterY();
+        if (Double.isNaN(lastAnimCx)) { lastAnimCx = cx; lastAnimCy = cy; }
+
+        double vx = cx - lastAnimCx;
+        double vy = cy - lastAnimCy;
+        lastAnimCx = cx;
+        lastAnimCy = cy;
+
+        double speed = Math.hypot(vx, vy);
+        if (movingAnim) movingAnim = speed > MOVE_STOP;
+        else movingAnim = speed > MOVE_START;
+
+        Facing candidate = facing;
+
+        if (movingAnim) {
+            if (Math.abs(vx) > Math.abs(vy)) candidate = (vx >= 0) ? Facing.RIGHT : Facing.LEFT;
+            else candidate = (vy >= 0) ? Facing.DOWN : Facing.UP;
+        } else {
+            double[] pc = playerCenterSupplier.get();
+            if (pc != null && pc.length >= 2) {
+                double dx = pc[0] - cx;
+                double dy = pc[1] - cy;
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (Math.abs(dx) > FACE_DEADZONE) candidate = (dx >= 0) ? Facing.RIGHT : Facing.LEFT;
+                } else {
+                    if (Math.abs(dy) > FACE_DEADZONE) candidate = (dy >= 0) ? Facing.DOWN : Facing.UP;
+                }
+            }
+        }
+
+        if (candidate != facing) {
+            if (candidate != pendingFacing) {
+                pendingFacing = candidate;
+                pendingFacingTime = 0.0;
+            } else {
+                pendingFacingTime += dt;
+                if (pendingFacingTime >= FACING_SWITCH_DELAY) {
+                    facing = candidate;
+                    pendingFacingTime = 0.0;
+                }
+            }
+        } else {
+            pendingFacing = candidate;
+            pendingFacingTime = 0.0;
+        }
+
+        int legsRow;
+        boolean flip;
+        switch (facing) {
+            case DOWN -> { legsRow = SHOOTER_ROW_WALK_DOWN; flip = false; }
+            case UP -> { legsRow = SHOOTER_ROW_WALK_UP; flip = false; }
+            case RIGHT -> { legsRow = SHOOTER_ROW_WALK_SIDE; flip = false; }
+            case LEFT -> { legsRow = SHOOTER_ROW_WALK_SIDE; flip = true; }
+            default -> { legsRow = SHOOTER_ROW_WALK_DOWN; flip = false; }
+        }
+
+        int legsFrames = movingAnim ? SHOOTER_WALK_FRAMES : 1;
+        boolean loop = movingAnim;
+
+        if (legsRow != activeLegsRow || legsFrames != activeLegsFrames || loop != activeLoop) {
+            animator.setAnimationConfig(legsRow, 0, legsFrames, loop);
+            activeLegsRow = legsRow;
+            activeLegsFrames = legsFrames;
+            activeLoop = loop;
+        }
+
+        if (flip != activeFlip) {
+            spriteView.setScaleX(flip ? -1 : 1);
+            activeFlip = flip;
+        }
+
+        if (movingAnim) animator.update(dt);
+        spriteView.setViewport(animator.getCurrentViewport());
+
+        int headCol;
+        switch (facing) {
+            case DOWN -> headCol = 0;
+            case UP -> headCol = 2;
+            case RIGHT, LEFT -> headCol = 1;
+            default -> headCol = 0;
+        }
+
+        headView.setScaleX(flip ? -1 : 1);
+        applyShooterHeadOffsets(flip);
+
+        if (headCol != activeHeadCol) {
+            headView.setViewport(new Rectangle2D(headCol * SHOOTER_FRAME_W, SHOOTER_ROW_HEAD * SHOOTER_FRAME_H, SHOOTER_FRAME_W, SHOOTER_FRAME_H));
+            activeHeadCol = headCol;
+        }
+    }
+
+    private void applyShooterHeadOffsets(boolean flip) {
+        double sign = flip ? -1 : 1;
+        headView.setTranslateX(sign * SHOOTER_HEAD_X_OFFSET);
+        headView.setTranslateY(SHOOTER_HEAD_Y_OFFSET);
+    }
+
+    // ===================== MELEE animation =====================
+    private void updateMeleeAnimation(double dt) {
+        double cx = getCenterX();
+        double cy = getCenterY();
+        if (Double.isNaN(lastAnimCx)) { lastAnimCx = cx; lastAnimCy = cy; }
+
+        double vx = cx - lastAnimCx;
+        double vy = cy - lastAnimCy;
+        lastAnimCx = cx;
+        lastAnimCy = cy;
+
+        double speed = Math.hypot(vx, vy);
+        if (movingAnim) movingAnim = speed > MOVE_STOP;
+        else movingAnim = speed > MOVE_START;
+
+        Facing candidate = facing;
+
+        if (movingAnim) {
+            if (Math.abs(vx) > Math.abs(vy)) candidate = (vx >= 0) ? Facing.RIGHT : Facing.LEFT;
+            else candidate = (vy >= 0) ? Facing.DOWN : Facing.UP;
+        } else {
+            double[] pc = playerCenterSupplier.get();
+            if (pc != null && pc.length >= 2) {
+                double dx = pc[0] - cx;
+                double dy = pc[1] - cy;
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (Math.abs(dx) > FACE_DEADZONE) candidate = (dx >= 0) ? Facing.RIGHT : Facing.LEFT;
+                } else {
+                    if (Math.abs(dy) > FACE_DEADZONE) candidate = (dy >= 0) ? Facing.DOWN : Facing.UP;
+                }
+            }
+        }
+
+        if (candidate != facing) {
+            if (candidate != pendingFacing) {
+                pendingFacing = candidate;
+                pendingFacingTime = 0.0;
+            } else {
+                pendingFacingTime += dt;
+                if (pendingFacingTime >= FACING_SWITCH_DELAY) {
+                    facing = candidate;
+                    pendingFacingTime = 0.0;
+                }
+            }
+        } else {
+            pendingFacing = candidate;
+            pendingFacingTime = 0.0;
+        }
+
+        boolean flip = (facing == Facing.LEFT);
+
+        // Legs: DOWN uses row2 cols 1..6; SIDE uses row3 cols 3..8; UP reusa DOWN (porque la sheet no trae piernas up claras).
+        int legsY;
+        int startCol;
+        switch (facing) {
+            case RIGHT, LEFT -> { legsY = MELEE_Y_LEGS_SIDE; startCol = MELEE_WALK_SIDE_START_COL; }
+            case UP, DOWN -> { legsY = MELEE_Y_LEGS_DOWN; startCol = MELEE_WALK_DOWN_START_COL; }
+            default -> { legsY = MELEE_Y_LEGS_DOWN; startCol = MELEE_WALK_DOWN_START_COL; }
+        }
+
+        if (!movingAnim) {
+            meleeFrameIdx = 0;
+            meleeFrameTimer = 0.0;
+        } else {
+            meleeFrameTimer += dt;
+            double step = 1.0 / MELEE_FPS;
+            while (meleeFrameTimer >= step) {
+                meleeFrameTimer -= step;
+                meleeFrameIdx = (meleeFrameIdx + 1) % MELEE_WALK_FRAMES;
+            }
+        }
+
+        if (legsY != meleeActiveLegsY || startCol != meleeActiveStartCol || flip != meleeActiveFlip || movingAnim == false) {
+            meleeActiveLegsY = legsY;
+            meleeActiveStartCol = startCol;
+            meleeActiveFlip = flip;
+        }
+
+        spriteView.setScaleX(flip ? -1 : 1);
+        int frameCol = startCol + meleeFrameIdx;
+        spriteView.setViewport(new Rectangle2D(frameCol * MELEE_FRAME_W, legsY, MELEE_FRAME_W, MELEE_LEGS_H));
+
+        // Head: fila 1 tiene 6 cabezas, usamos 3 primeras: abajo(0), derecha(1), arriba(2)
+        int headCol;
+        switch (facing) {
+            case DOWN -> headCol = 0;
+            case UP -> headCol = 2;
+            case RIGHT, LEFT -> headCol = 1;
+            default -> headCol = 0;
+        }
+
+        headView.setScaleX(flip ? -1 : 1);
+        applyMeleeHeadOffsets(flip);
+
+        if (headCol != meleeActiveHeadCol) {
+            headView.setViewport(new Rectangle2D(headCol * MELEE_FRAME_W, MELEE_Y_HEAD, MELEE_FRAME_W, MELEE_HEAD_H));
+            meleeActiveHeadCol = headCol;
+        }
+    }
+
+    private void applyMeleeHeadOffsets(boolean flip) {
+        double sign = flip ? -1 : 1;
+        headView.setTranslateX(sign * MELEE_HEAD_X_OFFSET);
+        headView.setTranslateY(MELEE_HEAD_Y_OFFSET);
+    }
+
+
+
+    // ===================== KAMIKAZE animation =====================
+    private void updateKamikazeAnimation(double dt) {
+        double cx = getCenterX();
+        double cy = getCenterY();
+        if (Double.isNaN(lastAnimCx)) { lastAnimCx = cx; lastAnimCy = cy; }
+
+        double vx = cx - lastAnimCx;
+        double vy = cy - lastAnimCy;
+        lastAnimCx = cx;
+        lastAnimCy = cy;
+
+        // Histéresis de movimiento (igual que shooter/melee)
+        double speed = Math.hypot(vx, vy);
+        if (movingAnim) movingAnim = speed > MOVE_STOP;
+        else movingAnim = speed > MOVE_START;
+
+        // Candidate facing
+        Facing candidate = facing;
+
+        if (movingAnim) {
+            if (Math.abs(vx) > Math.abs(vy)) candidate = (vx >= 0) ? Facing.RIGHT : Facing.LEFT;
+            else candidate = (vy >= 0) ? Facing.DOWN : Facing.UP;
+        } else {
+            double[] pc = playerCenterSupplier.get();
+            if (pc != null && pc.length >= 2) {
+                double dx = pc[0] - cx;
+                double dy = pc[1] - cy;
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (Math.abs(dx) > FACE_DEADZONE) candidate = (dx >= 0) ? Facing.RIGHT : Facing.LEFT;
+                } else {
+                    if (Math.abs(dy) > FACE_DEADZONE) candidate = (dy >= 0) ? Facing.DOWN : Facing.UP;
+                }
+            }
+        }
+
+        // Delay anti-parpadeo para cambiar facing
+        if (candidate != facing) {
+            if (candidate != pendingFacing) {
+                pendingFacing = candidate;
+                pendingFacingTime = 0.0;
+            } else {
+                pendingFacingTime += dt;
+                if (pendingFacingTime >= FACING_SWITCH_DELAY) {
+                    facing = candidate;
+                    pendingFacingTime = 0.0;
+                }
+            }
+        } else {
+            pendingFacing = candidate;
+            pendingFacingTime = 0.0;
+        }
+
+        // Mapear Facing -> frame
+        int row;
+        int col;
+
+        switch (facing) {
+            case DOWN -> { row = KAMIKAZE_ROW_DOWN_UP; col = KAMIKAZE_COL_1; }
+            case UP -> { row = KAMIKAZE_ROW_DOWN_UP; col = KAMIKAZE_COL_4; }
+            case RIGHT -> { row = KAMIKAZE_ROW_RIGHT_LEFT; col = KAMIKAZE_COL_1; }
+            case LEFT -> { row = KAMIKAZE_ROW_RIGHT_LEFT; col = KAMIKAZE_COL_4; }
+            default -> { row = KAMIKAZE_ROW_DOWN_UP; col = KAMIKAZE_COL_1; }
+        }
+
+        // No usamos flip, porque la sheet trae derecha e izquierda separadas.
+        spriteView.setScaleX(1);
+
+        if (row != kamikazeActiveRow || col != kamikazeActiveCol) {
+            spriteView.setViewport(new Rectangle2D(
+                    KAMIKAZE_X0 + (col * KAMIKAZE_FRAME_W),
+                    KAMIKAZE_Y0 + (row * KAMIKAZE_FRAME_H),
+                    KAMIKAZE_FRAME_W,
+                    KAMIKAZE_FRAME_H
+            ));
+            kamikazeActiveRow = row;
+            kamikazeActiveCol = col;
+        }
+    }
+
+    // --- MOVIMIENTO ---
     private void handleMovement(EnemyProfile profile, double[] playerCenter, double dt) {
-        boolean isStat = profile.stationary && type != EnemyType.SHOOTER;
+        boolean isStat = profile.stationary && type != EnemyType.SHOOTER && type != EnemyType.MELEE;
 
         // Si estamos desatascando, forzar movimiento en dirección escape
         if (stuckTimer < 0) {
-            stuckTimer += dt; // Contar hacia 0
+            stuckTimer += dt;
             moveWithSlide(stuckDirection, profile.speed * speedMultiplier * dt);
             return;
         }
@@ -301,20 +772,8 @@ public final class Enemy implements GameEntity {
         double currX = viewRoot.getLayoutX();
         double currY = viewRoot.getLayoutY();
 
-        // Check X axis
-        if (!checkCollision(currX + deltaX, currY)) {
-            currX += deltaX;
-        } else {
-            // Intentar deslizar en Y si X está bloqueado
-            if (!checkCollision(currX, currY + Math.signum(deltaY) * distance * 0.5)) {
-                 // Pequeño empuje lateral para no quedarse clavado
-            }
-        }
-
-        // Check Y axis
-        if (!checkCollision(currX, currY + deltaY)) {
-            currY += deltaY;
-        }
+        if (!checkCollision(currX + deltaX, currY)) currX += deltaX;
+        if (!checkCollision(currX, currY + deltaY)) currY += deltaY;
 
         double maxX = Math.max(0.0, boundsPane.getWidth() - WIDTH);
         double maxY = Math.max(0.0, boundsPane.getHeight() - HEIGHT);
@@ -327,19 +786,16 @@ public final class Enemy implements GameEntity {
         List<GameEntity> obstacles = obstaclesSupplier.get();
         if (obstacles == null || obstacles.isEmpty()) return false;
 
-        BoundingBox myBounds = new BoundingBox(x, y, WIDTH, HEIGHT);
-        double margin = 2.0; // Margen un poco más permisivo
+        double margin = 2.0 * VISUAL_SCALE;
         BoundingBox checkBounds = new BoundingBox(x + margin, y + margin, WIDTH - margin*2, HEIGHT - margin*2);
 
         for (GameEntity obs : obstacles) {
-            // Ignorar entidades pequeñas o pickups que no sean sólidos (como monedas)
-            // Asumimos que la lista de obstáculos contiene Rocas, Tienda y Botón Salida
             if (obs.getBounds().intersects(checkBounds)) return true;
         }
         return false;
     }
 
-    // --- DISPARO (Igual que antes) ---
+    // --- DISPARO ---
     private void handleDefaultShooting(EnemyProfile profile, double[] playerCenter, double dt) {
         if (profile.fireRate > 0.0 && profile.projSpeed > 0.0 && profile.projRange > 0.0) {
             timeSinceShot += dt;
@@ -395,8 +851,11 @@ public final class Enemy implements GameEntity {
 
         Projectile projectile = new Projectile(dir[0], dir[1], projSpeed, lifetime, projDamage,
                 true, boundsPane, onRemove, this, type.name());
-        projectile.getView().setLayoutX(getCenterX() - 4.0);
-        projectile.getView().setLayoutY(getCenterY() - 4.0);
+
+        double projOffset = 4.0 * VISUAL_SCALE;
+        projectile.getView().setLayoutX(getCenterX() - projOffset);
+        projectile.getView().setLayoutY(getCenterY() - projOffset);
+
         onSpawn.accept(projectile);
     }
 
@@ -432,9 +891,13 @@ public final class Enemy implements GameEntity {
     }
 
     @Override public Node getView() { return viewRoot; }
-    @Override public Bounds getBounds() { return viewRoot.getBoundsInParent(); }
 
-    // ... Implementación de onCollision y damage (adaptados para usar viewRoot o helpers) ...
+    // Para colisiones usamos hitbox (WIDTH/HEIGHT), no bounds visuales (la cabeza sale fuera).
+    @Override
+    public Bounds getBounds() {
+        return new BoundingBox(viewRoot.getLayoutX(), viewRoot.getLayoutY(), WIDTH, HEIGHT);
+    }
+
     @Override
     public void onCollision(GameEntity other) {
         if (dead) return;
@@ -456,10 +919,8 @@ public final class Enemy implements GameEntity {
     public double getCenterX() { return viewRoot.getLayoutX() + getWidth() * 0.5; }
     public double getCenterY() { return viewRoot.getLayoutY() + getHeight() * 0.5; }
 
-    // --- MÉTODOS AÑADIDOS PARA SOLUCIONAR ERROR DE COMPILACIÓN ---
     public double getX() { return viewRoot.getLayoutX(); }
     public double getY() { return viewRoot.getLayoutY(); }
-    // -------------------------------------------------------------
 
     public void setPosition(double x, double y) {
         viewRoot.setLayoutX(x);
@@ -476,9 +937,7 @@ public final class Enemy implements GameEntity {
         }
     }
 
-    public boolean isDead() {
-        return dead;
-    }
+    public boolean isDead() { return dead; }
 
     private void die() {
         if (dead) return;
@@ -502,24 +961,29 @@ public final class Enemy implements GameEntity {
         } else hitFlashTimer.stop();
 
         debugBox.setStroke(Color.WHITE);
-        // Podríamos poner un efecto de brillo en el ImageView
         spriteView.setEffect(new javafx.scene.effect.ColorAdjust(0, 0, 0.5, 0));
         hitFlashTimer.playFromStart();
     }
 
     private void spawnDeathFx() {
-        Circle fx = new Circle(6, Color.ORANGERED);
+        Circle fx = new Circle(6 * VISUAL_SCALE, Color.ORANGERED);
         fx.setManaged(false);
         fx.setLayoutX(getCenterX()); fx.setLayoutY(getCenterY());
+
         GameEntity fxEntity = new GameEntity() {
             @Override public void update(double dt) {}
             @Override public Node getView() { return fx; }
         };
+
         onSpawn.accept(fxEntity);
+
         FadeTransition fade = new FadeTransition(Duration.millis(250), fx);
         fade.setFromValue(1.0); fade.setToValue(0.0);
+
         ScaleTransition scale = new ScaleTransition(Duration.millis(250), fx);
-        scale.setFromX(1.0); scale.setFromY(1.0); scale.setToX(1.8); scale.setToY(1.8);
+        scale.setFromX(1.0); scale.setFromY(1.0);
+        scale.setToX(1.8); scale.setToY(1.8);
+
         ParallelTransition pt = new ParallelTransition(fx, fade, scale);
         pt.setOnFinished(e -> onRemove.accept(fxEntity));
         pt.play();
