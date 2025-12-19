@@ -107,7 +107,7 @@ public final class Enemy implements GameEntity {
     private static final int MELEE_WALK_SIDE_START_COL = 2; // cols 3..8 => 2..7
 
     private static final double MELEE_HEAD_Y_OFFSET = -14.0 * VISUAL_SCALE;
-    private static final double MELEE_HEAD_X_OFFSET = -4.0 * VISUAL_SCALE;
+    private static final double MELEE_HEAD_X_OFFSET = 0.0 * VISUAL_SCALE;
 
     private static final double MELEE_FPS = 10.0;
 
@@ -125,6 +125,28 @@ public final class Enemy implements GameEntity {
 
     private int kamikazeActiveRow = -1;
     private int kamikazeActiveCol = -1;
+
+    // ===================== TURRET (turret.png) =====================
+    // Tu mapping:
+    // row 0 col 4 -> down
+    // row 1 col 4 -> up
+    // row 2 col 4 -> right
+    // row 3 col 4 -> left
+    private static final int TURRET_FRAME_W = 32;
+    private static final int TURRET_FRAME_H = 32;
+    private static final int TURRET_COL = 4;
+
+    private static final int TURRET_ROW_DOWN = 0;
+    private static final int TURRET_ROW_UP   = 1;
+    private static final int TURRET_ROW_RIGHT= 2;
+    private static final int TURRET_ROW_LEFT = 3;
+
+    // Fix “cara cortada”: la sheet tiene un pelín de margen/desfase.
+    // Si aún se corta, prueba -2 o 0.
+    private static final int TURRET_X_PAD = 8;
+    private static final int TURRET_Y_PAD = 0;
+
+    private int turretActiveRow = -1;
 
     // ===================== TANK (tank.png) =====================
     // IMPORTANTE: el cuerpo REAL del tank ocupa 2x2 tiles de 32px => 64x64 por frame.
@@ -146,14 +168,9 @@ public final class Enemy implements GameEntity {
     private static final int TANK_WALK_FRAMES = 6;
     private static final double TANK_FPS = 10.0;
 
-    // Ajustes que tú puedes tocar:
-    // - BODY_X/Y mueve el cuerpo entero.
-    // - HEAD_X/Y ajusta la cabeza encima del cuerpo.
-    // Nota: la cabeza la coloco relativa al cuerpo, así no “flota”.
     private static final double TANK_BODY_X_OFFSET = 0.0 * VISUAL_SCALE;
     private static final double TANK_BODY_Y_OFFSET = 0.0 * VISUAL_SCALE;
 
-    // separación vertical entre body y head (si la cabeza queda muy alta/baja, toca esto)
     private static final double TANK_HEAD_GAP_Y = 18.0 * VISUAL_SCALE;
 
     private static final double TANK_HEAD_X_OFFSET = 0.0 * VISUAL_SCALE;
@@ -163,22 +180,6 @@ public final class Enemy implements GameEntity {
     private int tankFrameIdx = 0;
     private int tankActiveBodyRow = -1;
     private boolean tankActiveFlip = false;
-
-    // ===================== TURRET (turret.png) =====================
-    // row 0 col 4 hacia abajo
-    // row 1 col 4 hacia arriba
-    // row 2 col 4 hacia derecha
-    // row 3 col 4 hacia izquierda
-    private static final int TURRET_FRAME_W = 32;
-    private static final int TURRET_FRAME_H = 32;
-
-    private static final int TURRET_COL = 4;
-    private static final int TURRET_ROW_DOWN  = 0;
-    private static final int TURRET_ROW_UP    = 1;
-    private static final int TURRET_ROW_RIGHT = 2;
-    private static final int TURRET_ROW_LEFT  = 3;
-
-    private int turretActiveRow = -1;
 
     // ===================== Animation timers/caches =====================
     private double meleeFrameTimer = 0.0;
@@ -276,7 +277,6 @@ public final class Enemy implements GameEntity {
 
                 headView.setFitWidth(SHOOTER_FRAME_W * VISUAL_SCALE);
                 headView.setFitHeight(SHOOTER_FRAME_H * VISUAL_SCALE);
-
                 headView.setVisible(true);
 
                 headView.setTranslateY(SHOOTER_HEAD_Y_OFFSET);
@@ -289,7 +289,6 @@ public final class Enemy implements GameEntity {
 
                 headView.setFitWidth(MELEE_FRAME_W * VISUAL_SCALE);
                 headView.setFitHeight(MELEE_HEAD_H * VISUAL_SCALE);
-
                 headView.setVisible(true);
 
                 headView.setTranslateY(MELEE_HEAD_Y_OFFSET);
@@ -299,22 +298,17 @@ public final class Enemy implements GameEntity {
                 spriteView.setViewport(new Rectangle2D(0, MELEE_Y_LEGS_DOWN, MELEE_FRAME_W, MELEE_LEGS_H));
 
             } else if (type == EnemyType.TANK) {
-                // Para el TANK colocamos body/head manualmente (sin depender del StackPane),
-                // así no se descuadra y siempre ves el cuerpo completo.
                 spriteView.setManaged(false);
                 headView.setManaged(false);
 
-                // BODY = 64x64 (2x2 tiles)
                 spriteView.setFitWidth(TANK_BODY_W * VISUAL_SCALE);
                 spriteView.setFitHeight(TANK_BODY_H * VISUAL_SCALE);
 
-                // HEAD = 32x32 (fijo, siempre mirando abajo)
                 headView.setFitWidth(TANK_HEAD_W * VISUAL_SCALE);
                 headView.setFitHeight(TANK_HEAD_H * VISUAL_SCALE);
                 headView.setVisible(true);
                 headView.setScaleX(1);
 
-                // Viewports iniciales
                 headView.setViewport(new Rectangle2D(
                         0,
                         TANK_ROW_HEAD * TANK_TILE,
@@ -330,7 +324,6 @@ public final class Enemy implements GameEntity {
                         TANK_BODY_H
                 ));
 
-                // Posicionar: body centrado sobre hitbox; head relativa al body (gap)
                 positionTankParts();
 
             } else if (type == EnemyType.KAMIKAZE) {
@@ -349,14 +342,13 @@ public final class Enemy implements GameEntity {
             } else if (type == EnemyType.TURRET) {
                 spriteView.setFitWidth(TURRET_FRAME_W * VISUAL_SCALE);
                 spriteView.setFitHeight(TURRET_FRAME_H * VISUAL_SCALE);
-
                 headView.setVisible(false);
-                spriteView.setScaleX(1);
 
-                // Inicial: mirando abajo (row 0 col 4)
+                // Inicial mirando abajo (row 0 col 4)
+                spriteView.setScaleX(1);
                 spriteView.setViewport(new Rectangle2D(
-                        TURRET_COL * TURRET_FRAME_W,
-                        TURRET_ROW_DOWN * TURRET_FRAME_H,
+                        TURRET_X_PAD + (TURRET_COL * TURRET_FRAME_W),
+                        TURRET_Y_PAD + (TURRET_ROW_DOWN * TURRET_FRAME_H),
                         TURRET_FRAME_W,
                         TURRET_FRAME_H
                 ));
@@ -389,7 +381,6 @@ public final class Enemy implements GameEntity {
     }
 
     private void positionTankParts() {
-        // Body centrado respecto a la hitbox
         double bodyW = TANK_BODY_W * VISUAL_SCALE;
         double bodyH = TANK_BODY_H * VISUAL_SCALE;
 
@@ -399,8 +390,8 @@ public final class Enemy implements GameEntity {
         spriteView.setLayoutX(bodyX);
         spriteView.setLayoutY(bodyY);
 
-        // Head centrada, pero en Y la colgamos del body (para que no flote)
         double headW = TANK_HEAD_W * VISUAL_SCALE;
+        double headH = TANK_HEAD_H * VISUAL_SCALE;
 
         double headX = (WIDTH - headW) * 0.5 + TANK_HEAD_X_OFFSET;
         double headY = bodyY - TANK_HEAD_GAP_Y + TANK_HEAD_Y_OFFSET;
@@ -457,11 +448,11 @@ public final class Enemy implements GameEntity {
     private void updateAnimation(double dt) {
         if (!hasSprite) return;
 
-        if (type == EnemyType.SHOOTER) { updateShooterAnimation(dt); return; }
-        if (type == EnemyType.MELEE)  { updateMeleeAnimation(dt);  return; }
+        if (type == EnemyType.SHOOTER)  { updateShooterAnimation(dt);  return; }
+        if (type == EnemyType.MELEE)   { updateMeleeAnimation(dt);    return; }
         if (type == EnemyType.KAMIKAZE){ updateKamikazeAnimation(dt); return; }
-        if (type == EnemyType.TANK)   { updateTankAnimation(dt);   return; }
-        if (type == EnemyType.TURRET) { updateTurretAnimation(dt); return; }
+        if (type == EnemyType.TANK)    { updateTankAnimation(dt);     return; }
+        if (type == EnemyType.TURRET)  { updateTurretAnimation(dt);   return; }
 
         animator.update(dt);
         spriteView.setViewport(animator.getCurrentViewport());
@@ -473,7 +464,7 @@ public final class Enemy implements GameEntity {
         }
     }
 
-    // ===================== TURRET animation =====================
+    // ===================== TURRET animation (1 frame per direction) =====================
     private void updateTurretAnimation(double dt) {
         double[] pc = playerCenterSupplier.get();
         if (pc == null || pc.length < 2) return;
@@ -483,40 +474,18 @@ public final class Enemy implements GameEntity {
         double dx = pc[0] - cx;
         double dy = pc[1] - cy;
 
-        Facing candidate;
-        if (Math.abs(dx) > Math.abs(dy)) candidate = (dx >= 0) ? Facing.RIGHT : Facing.LEFT;
-        else candidate = (dy >= 0) ? Facing.DOWN : Facing.UP;
-
-        // Delay anti-parpadeo (reutiliza tus variables)
-        if (candidate != facing) {
-            if (candidate != pendingFacing) {
-                pendingFacing = candidate;
-                pendingFacingTime = 0.0;
-            } else {
-                pendingFacingTime += dt;
-                if (pendingFacingTime >= FACING_SWITCH_DELAY) {
-                    facing = candidate;
-                    pendingFacingTime = 0.0;
-                }
-            }
+        int row;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            row = (dx >= 0) ? TURRET_ROW_RIGHT : TURRET_ROW_LEFT;
         } else {
-            pendingFacing = candidate;
-            pendingFacingTime = 0.0;
+            row = (dy >= 0) ? TURRET_ROW_DOWN : TURRET_ROW_UP;
         }
 
-        int row = switch (facing) {
-            case DOWN  -> TURRET_ROW_DOWN;
-            case UP    -> TURRET_ROW_UP;
-            case RIGHT -> TURRET_ROW_RIGHT;
-            case LEFT  -> TURRET_ROW_LEFT;
-        };
-
-        spriteView.setScaleX(1);
-
         if (row != turretActiveRow) {
+            spriteView.setScaleX(1);
             spriteView.setViewport(new Rectangle2D(
-                    TURRET_COL * TURRET_FRAME_W,
-                    row * TURRET_FRAME_H,
+                    TURRET_X_PAD + (TURRET_COL * TURRET_FRAME_W),
+                    TURRET_Y_PAD + (row * TURRET_FRAME_H),
                     TURRET_FRAME_W,
                     TURRET_FRAME_H
             ));
@@ -790,7 +759,6 @@ public final class Enemy implements GameEntity {
             tankActiveFlip = flip;
         }
 
-        // Frames 0..5 => x = frame * 64
         int x = tankFrameIdx * TANK_BODY_W;
 
         spriteView.setScaleX(flip ? -1 : 1);
