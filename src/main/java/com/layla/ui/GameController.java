@@ -2,6 +2,7 @@ package com.layla.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.layla.AppContext;
@@ -70,6 +71,10 @@ public class GameController implements ViewLifecycle {
 
     private ImageView backgroundView;
 
+    // Background cover (avoid stretching). The gameArea is clipped and the background is scaled to cover it.
+    private Rectangle backgroundClip;
+    private boolean backgroundCoverInitialized = false;
+
     private javafx.scene.Node pauseOverlay;
     private javafx.scene.Node gameOverOverlay;
     private javafx.scene.Node shopOverlay;
@@ -85,6 +90,9 @@ public class GameController implements ViewLifecycle {
     // Referencia para limpiar a Choco al cambiar de piso
     private ChocoCat chocoEntity;
 
+
+    // Spawn indicators (so we can clean them on level transitions)
+    private final List<SpawnIndicator> spawnIndicators = new ArrayList<>();
     // ESTADO PERSISTENTE DE LA TIENDA
     private List<ShopOffer> currentShopOffers = new ArrayList<>();
     private int currentRerollPrice = 1;
@@ -145,7 +153,13 @@ public class GameController implements ViewLifecycle {
 
     // ===== Invisible boundary walls (blocks player/enemies + prevents spawns on the decorative BG wall) =====
     // Tune this until it matches your background wall thickness.
-    private static final double BG_WALL_THICKNESS = 32.0;
+
+    // Invisible walls thickness (match the visual wall in the background).
+    private static final double BG_WALL_THICKNESS_LEFT   = 120.0;
+    private static final double BG_WALL_THICKNESS_RIGHT  = 120.0;
+    private static final double BG_WALL_THICKNESS_TOP    = 30.0;
+    private static final double BG_WALL_THICKNESS_BOTTOM = 50.0;
+
 
     private InvisibleWall wallTop;
     private InvisibleWall wallBottom;
@@ -181,7 +195,10 @@ public class GameController implements ViewLifecycle {
     private void onPausePressed() {
         if (gameOverShown || pauseOverlay != null || paused) return;
         paused = true;
-        Platform.runLater(() -> { if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop(); });
+        Platform.runLater(() -> { if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
+            updateBoundaryWalls();
+            updateBackgroundCover();
+});
 
         pauseOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/pause_overlay.fxml", 0.50, controller -> {
             if (controller instanceof PauseOverlayController poc) {
@@ -422,7 +439,7 @@ public class GameController implements ViewLifecycle {
 
         spawnGreedButton();
         spawnShopKeeper();
-        spawnChoco(); // AÑADIDO: Spawnear a Choco al inicio
+        spawnChocoCat(); // AÑADIDO: Spawnear a Choco al inicio
 
         updateHudLabels();
         maybeSpawnPlayer();
@@ -433,50 +450,105 @@ public class GameController implements ViewLifecycle {
     }
 
     private void changeFloorVisuals() {
-        if (gameArea.getParent() instanceof AnchorPane parent) {
-            gameArea.setStyle("-fx-background-color: transparent;");
+        if (backgroundView == null) {
+            backgroundView = new ImageView();
+            backgroundView.setManaged(false);
+            gameArea.getChildren().add(0, backgroundView);
+        }
 
-            if (backgroundView == null) {
-                backgroundView = new ImageView();
-                AnchorPane.setTopAnchor(backgroundView, 72.0);
-                AnchorPane.setBottomAnchor(backgroundView, 0.0);
-                AnchorPane.setLeftAnchor(backgroundView, 0.0);
-                AnchorPane.setRightAnchor(backgroundView, 0.0);
-                parent.getChildren().add(0, backgroundView);
+        // Try to load a background image per floor. If it fails, fallback to a solid color.
+        try {
+            Image img = new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                    "/assets/background/" + switch (currentFloor) {
+                        case 1 -> "basement.png";
+                        case 2 -> "cellar.png";
+                        case 3 -> "caves.png";
+                        case 4 -> "depths.png";
+                        default -> "basement.png";
+                    }
+            )));
+            backgroundView.setImage(img);
+            gameArea.setStyle(null);
+        } catch (Exception e) {
+            String color = switch (currentFloor) {
+                case 1 -> "#2b2010";
+                case 2 -> "#202020";
+                case 3 -> "#10102b";
+                case 4 -> "#4a0000";
+                default -> "#000000";
+            };
+            backgroundView.setImage(null);
+            gameArea.setStyle("-fx-background-color: " + color + ";");
+        }
+
+        ensureBackgroundCover();
+
+        backgroundView.toBack();
+        if (hudBar != null) hudBar.toFront();
+    }
+
+    private void ensureBackgroundCover() {
+        if (backgroundView == null || backgroundView.getImage() == null) return;
+
+        if (!backgroundCoverInitialized) {
+            backgroundCoverInitialized = true;
+
+            backgroundView.setSmooth(true);
+            backgroundView.setPreserveRatio(true);
+
+            // Clip gameArea so oversized background doesn't bleed outside.
+            if (backgroundClip == null) {
+                backgroundClip = new Rectangle();
+                backgroundClip.setManaged(false);
+                backgroundClip.widthProperty().bind(gameArea.widthProperty());
+                backgroundClip.heightProperty().bind(gameArea.heightProperty());
+                gameArea.setClip(backgroundClip);
             }
 
-            try {
-                String bgName = switch(currentFloor) {
-                    case 1 -> "basement";
-                    case 2 -> "caves";
-                    case 3 -> "depths";
-                    case 4 -> "womb";
-                    default -> "sheol";
-                };
-                String path = "assets/background/" + bgName + ".png";
-                Image img = AssetsManager.loadImage(path);
-                if (img == null) {
-                    img = AssetsManager.loadImage("assets/background/basement.png");
-                    if (img == null) img = new Image(getClass().getResourceAsStream("/assets/background/basement.png"));
-                }
-                backgroundView.setImage(img);
-                backgroundView.setPreserveRatio(false);
-                backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
-                backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
-            } catch (Exception e) {
-                String color = switch(currentFloor) {
-                    case 1 -> "#2b2010";
-                    case 2 -> "#202020";
-                    case 3 -> "#10102b";
-                    case 4 -> "#4a0000";
-                    default -> "#000000";
-                };
-                gameArea.setStyle("-fx-background-color: " + color + ";");
-            }
-            backgroundView.toBack();
-            if (hudBar != null) hudBar.toFront();
+            // Recompute cover on resize or when image changes.
+            gameArea.widthProperty().addListener((obs, o, n) -> updateBackgroundCover());
+            gameArea.heightProperty().addListener((obs, o, n) -> updateBackgroundCover());
+            backgroundView.imageProperty().addListener((obs, o, n) -> updateBackgroundCover());
+        }
+
+        updateBackgroundCover();
+    }
+
+    private void updateBackgroundCover() {
+        if (backgroundView == null) return;
+        Image img = backgroundView.getImage();
+        if (img == null) return;
+
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+        if (w <= 1 || h <= 1) return;
+
+        double iw = img.getWidth();
+        double ih = img.getHeight();
+        if (iw <= 1 || ih <= 1) return;
+
+        double areaAspect = w / h;
+        double imgAspect = iw / ih;
+
+        if (imgAspect >= areaAspect) {
+            // Image is wider -> scale by height (cover)
+            backgroundView.setFitHeight(h);
+            backgroundView.setFitWidth(0);
+            double scale = h / ih;
+            double fitW = iw * scale;
+            backgroundView.setLayoutX((w - fitW) * 0.5);
+            backgroundView.setLayoutY(0);
+        } else {
+            // Image is taller -> scale by width (cover)
+            backgroundView.setFitWidth(w);
+            backgroundView.setFitHeight(0);
+            double scale = w / iw;
+            double fitH = ih * scale;
+            backgroundView.setLayoutX(0);
+            backgroundView.setLayoutY((h - fitH) * 0.5);
         }
     }
+
 
     private void spawnGreedButton() {
         if (greedButton != null) {
@@ -777,13 +849,21 @@ public class GameController implements ViewLifecycle {
 
     private void createSpawnIndicator(double x, double y, EnemyType type, double delay) {
         pendingSpawns++;
+
         SpawnIndicator indicator = new SpawnIndicator(x, y, 1.5 + delay, gameArea, (ind) -> {
+            // Ensure we don't leak indicators between rooms/floors
+            spawnIndicators.remove(ind);
+
             spawnRealEnemy(ind.getX(), ind.getY(), type);
             pendingSpawns--;
         });
+
+        // SpawnIndicator internally calls toBack(); we want it visible above the floor/background.
+        if (indicator.getView() != null) indicator.getView().toFront();
+
+        spawnIndicators.add(indicator);
         gameLoop.addEntity(indicator);
     }
-
     private void spawnRealEnemy(double x, double y, EnemyType type) {
         double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
         if (AppContext.isHardMode()) difficulty *= 1.5;
@@ -936,7 +1016,7 @@ public class GameController implements ViewLifecycle {
         spawnRoomLayout();
         spawnGreedButton();
         spawnShopKeeper();
-        spawnChoco(); // AÑADIDO
+        spawnChocoCat(); // AÑADIDO
 
         updateHudLabels();
 
@@ -948,56 +1028,76 @@ public class GameController implements ViewLifecycle {
     }
 
     // --- NUEVO MÉTODO AÑADIDO PARA SPAWNEAR AL GATO ---
-    private void spawnChoco() {
-        // Limpiar choco anterior si existe
+
+    // Spawns the ChocoCat NPC (kept on top so it doesn't get hidden by other nodes)
+    private void spawnChocoCat() {
+        if (gameArea == null) return;
+
         if (chocoEntity != null) {
             gameLoop.removeEntity(chocoEntity);
             if (chocoEntity.getView() != null) gameArea.getChildren().remove(chocoEntity.getView());
             chocoEntity = null;
         }
 
-        if (gameArea == null) return;
-
-        double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
-        double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
-
-        // Spawnear en una posición aleatoria segura o cerca del centro
-        double x = w / 2.0 + 100;
-        double y = h / 2.0 + 50;
+        double x = gameArea.getWidth() / 2 - 90;
+        double y = gameArea.getHeight() / 2 + 130;
 
         chocoEntity = new ChocoCat(x, y, gameArea);
-
-        // Añadir vista (Importante para que se vea)
-        if (chocoEntity.getView() != null && !gameArea.getChildren().contains(chocoEntity.getView())) {
-            gameArea.getChildren().add(chocoEntity.getView());
-            // Enviar al fondo para que no tape balas o al jugador, pero encima del suelo
-            chocoEntity.getView().toBack();
-        }
-
-        // Añadir al bucle de juego para que se mueva
         gameLoop.addEntity(chocoEntity);
+
+        if (chocoEntity.getView() != null) {
+            chocoEntity.getView().setMouseTransparent(true);
+            chocoEntity.getView().toFront();
+        }
+        if (player != null && player.getView() != null) player.getView().toFront();
     }
 
+    // Backwards-compatible name (older code paths call spawnChoco())
+    private void spawnChoco() {
+        spawnChocoCat();
+    }
+
+
     private void clearLevel() {
+        // Remove enemies
         for (Enemy e : new ArrayList<>(enemies)) {
             gameLoop.removeEntity(e);
             if (e.getView() != null) gameArea.getChildren().remove(e.getView());
         }
         enemies.clear();
 
-        for (GameEntity obs : new ArrayList<>(obstacles)) {
-            if (obs instanceof InvisibleWall) continue;
-            if (obs instanceof Rock rock) rock.destroy();
-            gameLoop.removeEntity(obs);
-            if (obs.getView() != null) gameArea.getChildren().remove(obs.getView());
+        // Remove any pending spawn indicators
+        for (SpawnIndicator ind : new ArrayList<>(spawnIndicators)) {
+            gameLoop.removeEntity(ind);
+            if (ind.getView() != null) gameArea.getChildren().remove(ind.getView());
         }
-        obstacles.removeIf(o -> !(o instanceof InvisibleWall));
+        spawnIndicators.clear();
+        pendingSpawns = 0;
+
+        // Remove the boss, if any
+        if (activeBoss != null) {
+            gameLoop.removeEntity(activeBoss);
+            if (activeBoss.getView() != null) gameArea.getChildren().remove(activeBoss.getView());
+            activeBoss = null;
+        }
+
+        // Remove ChocoCat (it will be respawned where appropriate)
+        if (chocoEntity != null) {
+            gameLoop.removeEntity(chocoEntity);
+            if (chocoEntity.getView() != null) gameArea.getChildren().remove(chocoEntity.getView());
+            chocoEntity = null;
+        }
+
+        // Clear obstacles but keep boundary walls (we re-ensure them below)
+        obstacles.clear();
         ensureBoundaryWalls();
 
-        if (player != null && player.getView() != null) {
-            gameArea.getChildren().removeIf(n -> n != player.getView() && !isBoundaryWallNode(n));
-        } else {
-            gameArea.getChildren().clear();
+        // Remove all nodes except the player and the boundary walls
+        if (gameArea != null) {
+            gameArea.getChildren().removeIf(n ->
+                    (player == null || n != player.getView())
+                            && !isBoundaryWallNode(n)
+            );
         }
     }
 
@@ -1024,7 +1124,16 @@ public class GameController implements ViewLifecycle {
         double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
 
         player = new Player(input, gameArea, statsService);
-        applyBalanceToRuntimePlayer();
+
+        // Prevent the player from entering the background wall border.
+        player.setWorldInset(
+            BG_WALL_THICKNESS_LEFT,
+            BG_WALL_THICKNESS_RIGHT,
+            BG_WALL_THICKNESS_TOP,
+            BG_WALL_THICKNESS_BOTTOM
+        );
+
+applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
 
         player.setPosition(w/2 - 10, h/2 + 100);
@@ -1416,6 +1525,9 @@ public class GameController implements ViewLifecycle {
             boundaryWallsAdded = true;
         }
         updateBoundaryWalls();
+
+        // If we created them before the first layout pass, force a re-sync after layout.
+        Platform.runLater(this::updateBoundaryWalls);
     }
 
     private void addBoundaryWall(InvisibleWall w) {
@@ -1426,18 +1538,28 @@ public class GameController implements ViewLifecycle {
     }
 
     private void updateBoundaryWalls() {
-        if (!boundaryWallsAdded) return;
+        if (wallTop == null || wallBottom == null || wallLeft == null || wallRight == null) return;
+
         double w = gameArea.getWidth();
         double h = gameArea.getHeight();
-        if (!(w > 0 && h > 0)) return;
+        if (w <= 1 || h <= 1) return;
 
-        double t = BG_WALL_THICKNESS;
-        if (t < 1) t = 1;
+        double tL = Math.max(1.0, BG_WALL_THICKNESS_LEFT);
+        double tR = Math.max(1.0, BG_WALL_THICKNESS_RIGHT);
+        double tT = Math.max(1.0, BG_WALL_THICKNESS_TOP);
+        double tB = Math.max(1.0, BG_WALL_THICKNESS_BOTTOM);
 
-        wallTop.setRect(0, 0, w, t);
-        wallBottom.setRect(0, h - t, w, t);
-        wallLeft.setRect(0, 0, t, h);
-        wallRight.setRect(w - t, 0, t, h);
+        // Top
+        wallTop.setRect(0, 0, w, tT);
+
+        // Bottom
+        wallBottom.setRect(0, h - tB, w, tB);
+
+        // Left
+        wallLeft.setRect(0, 0, tL, h);
+
+        // Right
+        wallRight.setRect(w - tR, 0, tR, h);
     }
 
     private boolean isBoundaryWallNode(Node n) {

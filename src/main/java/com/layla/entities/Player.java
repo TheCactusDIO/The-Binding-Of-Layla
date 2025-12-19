@@ -84,6 +84,12 @@ public final class Player implements GameEntity {
     private final Supplier<double[]> moveSupplier;
     private final InputService inputService;
     private final Pane boundsPane;
+    // World insets (used to keep the player away from the background walls)
+    private double worldInsetLeft   = 0.0;
+    private double worldInsetRight  = 0.0;
+    private double worldInsetTop    = 0.0;
+    private double worldInsetBottom = 0.0;
+
     private final StatsService statsService;
 
     private double vx;
@@ -173,6 +179,20 @@ public final class Player implements GameEntity {
 
     public void setLastHitSource(String source) { this.lastHitSource = source; }
     public String getLastHitSource() { return lastHitSource; }
+    /** Keeps the player inside an inner rectangle (useful for invisible background walls). */
+    public void setWorldInset(double left, double right, double top, double bottom) {
+        this.worldInsetLeft = Math.max(0, left);
+        this.worldInsetRight = Math.max(0, right);
+        this.worldInsetTop = Math.max(0, top);
+        this.worldInsetBottom = Math.max(0, bottom);
+    }
+
+    public double getX() { return viewRoot.getLayoutX(); }
+    public double getY() { return viewRoot.getLayoutY(); }
+    public double getCenterX() { return getX() + HITBOX_SIZE * 0.5; }
+    public double getCenterY() { return getY() + HITBOX_SIZE * 0.5; }
+
+
 
     @Override
     public void update(double dt) {
@@ -330,13 +350,6 @@ public final class Player implements GameEntity {
 
     public double getWidth()  { return HITBOX_SIZE; }
     public double getHeight() { return HITBOX_SIZE; }
-
-
-    /** Center X of the collision hitbox (same coordinate space as enemies/projectiles). */
-    public double getCenterX() { return viewRoot.getLayoutX() + getWidth() * 0.5; }
-
-    /** Center Y of the collision hitbox (same coordinate space as enemies/projectiles). */
-    public double getCenterY() { return viewRoot.getLayoutY() + getHeight() * 0.5; }
 
     public double getHealth() { return health; }
     public double getMaxHealth() { return maxHealth; }
