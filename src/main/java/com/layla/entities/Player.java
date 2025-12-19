@@ -331,6 +331,13 @@ public final class Player implements GameEntity {
     public double getWidth()  { return HITBOX_SIZE; }
     public double getHeight() { return HITBOX_SIZE; }
 
+
+    /** Center X of the collision hitbox (same coordinate space as enemies/projectiles). */
+    public double getCenterX() { return viewRoot.getLayoutX() + getWidth() * 0.5; }
+
+    /** Center Y of the collision hitbox (same coordinate space as enemies/projectiles). */
+    public double getCenterY() { return viewRoot.getLayoutY() + getHeight() * 0.5; }
+
     public double getHealth() { return health; }
     public double getMaxHealth() { return maxHealth; }
     public boolean isDead() { return dead; }

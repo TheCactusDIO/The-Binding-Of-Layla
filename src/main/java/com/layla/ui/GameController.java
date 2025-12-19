@@ -36,6 +36,7 @@ import com.layla.ui.ShopOverlayController.ShopOffer;
 import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -141,6 +142,16 @@ public class GameController implements ViewLifecycle {
 
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<GameEntity> obstacles = new ArrayList<>();
+
+    // ===== Invisible boundary walls (blocks player/enemies + prevents spawns on the decorative BG wall) =====
+    // Tune this until it matches your background wall thickness.
+    private static final double BG_WALL_THICKNESS = 32.0;
+
+    private InvisibleWall wallTop;
+    private InvisibleWall wallBottom;
+    private InvisibleWall wallLeft;
+    private InvisibleWall wallRight;
+    private boolean boundaryWallsAdded = false;
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
     private static final double SEPARATION_EPS = 1e-5;
     private static final double MAX_SEPARATION_STEP = 6.0;
@@ -351,6 +362,9 @@ public class GameController implements ViewLifecycle {
                 }
             });
             gameArea.requestFocus();
+            // keep boundary walls in sync with window resize
+            gameArea.widthProperty().addListener((obs, ov, nv) -> updateBoundaryWalls());
+            gameArea.heightProperty().addListener((obs, ov, nv) -> updateBoundaryWalls());
         });
 
         if (gameLoop == null) gameLoop = new GameLoop(gameArea);
@@ -404,6 +418,7 @@ public class GameController implements ViewLifecycle {
         currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
 
         changeFloorVisuals();
+        ensureBoundaryWalls();
 
         spawnGreedButton();
         spawnShopKeeper();
@@ -917,6 +932,7 @@ public class GameController implements ViewLifecycle {
         currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
 
         changeFloorVisuals();
+        ensureBoundaryWalls();
         spawnRoomLayout();
         spawnGreedButton();
         spawnShopKeeper();
@@ -970,14 +986,16 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
 
         for (GameEntity obs : new ArrayList<>(obstacles)) {
+            if (obs instanceof InvisibleWall) continue;
             if (obs instanceof Rock rock) rock.destroy();
             gameLoop.removeEntity(obs);
             if (obs.getView() != null) gameArea.getChildren().remove(obs.getView());
         }
-        obstacles.clear();
+        obstacles.removeIf(o -> !(o instanceof InvisibleWall));
+        ensureBoundaryWalls();
 
         if (player != null && player.getView() != null) {
-            gameArea.getChildren().removeIf(n -> n != player.getView());
+            gameArea.getChildren().removeIf(n -> n != player.getView() && !isBoundaryWallNode(n));
         } else {
             gameArea.getChildren().clear();
         }
@@ -1136,11 +1154,18 @@ public class GameController implements ViewLifecycle {
     }
 
     private void spawnRoomLayout() {
-        for (GameEntity r : obstacles) {
-            if (r instanceof Rock rock) rock.destroy();
+        // Clear existing obstacles (but keep boundary walls)
+        for (GameEntity r : new java.util.ArrayList<>(obstacles)) {
+            if (r instanceof InvisibleWall) continue;
+            if (r instanceof Rock rock) {
+                rock.destroy();
+            } else {
+                if (r.getView() != null) gameArea.getChildren().remove(r.getView());
+            }
             gameLoop.removeEntity(r);
         }
-        obstacles.clear();
+        obstacles.removeIf(o -> !(o instanceof InvisibleWall));
+        ensureBoundaryWalls();
 
         int pattern = enemyRng.nextInt(4);
         double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
@@ -1203,6 +1228,7 @@ public class GameController implements ViewLifecycle {
             if (hudBar != null) hudBar.toFront();
         }
         changeFloorVisuals();
+        ensureBoundaryWalls();
     }
 
     private void showShopOverlay() {
@@ -1368,13 +1394,113 @@ public class GameController implements ViewLifecycle {
         return offers;
     }
 
+
+
+    // ===================== Invisible boundary walls =====================
+    /**
+     * Creates 4 invisible rectangles around the playable area (matching the background wall border)
+     * so neither player nor enemies can cross them, and enemies cannot spawn there.
+     */
+    private void ensureBoundaryWalls() {
+        if (!boundaryWallsAdded) {
+            wallTop = new InvisibleWall();
+            wallBottom = new InvisibleWall();
+            wallLeft = new InvisibleWall();
+            wallRight = new InvisibleWall();
+
+            addBoundaryWall(wallTop);
+            addBoundaryWall(wallBottom);
+            addBoundaryWall(wallLeft);
+            addBoundaryWall(wallRight);
+
+            boundaryWallsAdded = true;
+        }
+        updateBoundaryWalls();
+    }
+
+    private void addBoundaryWall(InvisibleWall w) {
+        // Add to scene graph so it participates in bounds/collision (even if fully transparent)
+        gameArea.getChildren().add(w.getView());
+        obstacles.add(w);
+        if (gameLoop != null) gameLoop.addEntity(w);
+    }
+
+    private void updateBoundaryWalls() {
+        if (!boundaryWallsAdded) return;
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+        if (!(w > 0 && h > 0)) return;
+
+        double t = BG_WALL_THICKNESS;
+        if (t < 1) t = 1;
+
+        wallTop.setRect(0, 0, w, t);
+        wallBottom.setRect(0, h - t, w, t);
+        wallLeft.setRect(0, 0, t, h);
+        wallRight.setRect(w - t, 0, t, h);
+    }
+
+    private boolean isBoundaryWallNode(Node n) {
+        if (!boundaryWallsAdded || n == null) return false;
+        return n == wallTop.getView() || n == wallBottom.getView() || n == wallLeft.getView() || n == wallRight.getView();
+    }
+
+
+    private static final class InvisibleWall implements GameEntity {
+        private final Rectangle r = new Rectangle(1, 1);
+
+        private InvisibleWall() {
+            r.setManaged(false);
+            r.setMouseTransparent(true);
+            r.setFill(Color.TRANSPARENT);
+            r.setStroke(Color.TRANSPARENT);
+            r.setOpacity(0.0);
+        }
+
+        void setRect(double x, double y, double w, double h) {
+            r.setLayoutX(x);
+            r.setLayoutY(y);
+            r.setWidth(Math.max(0, w));
+            r.setHeight(Math.max(0, h));
+        }
+
+        @Override public void update(double dt) { /* static */ }
+        @Override public Node getView() { return r; }
+
+        @Override
+        public Bounds getBounds() {
+            return new BoundingBox(r.getLayoutX(), r.getLayoutY(), r.getWidth(), r.getHeight());
+        }
+    }
     private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
-        double[] center = getPlayerCenter();
-        double enemyCx = ex + ew * 0.5;
-        double enemyCy = ey + eh * 0.5;
-        double dx = center[0] - enemyCx;
-        double dy = center[1] - enemyCy;
-        return Math.hypot(dx, dy) > 200.0;
+        // Keep enemies away from the player AND out of obstacles/walls.
+        if (player != null) {
+            double pcx = player.getCenterX();
+            double pcy = player.getCenterY();
+            double ecx = ex + ew * 0.5;
+            double ecy = ey + eh * 0.5;
+            double dx = ecx - pcx;
+            double dy = ecy - pcy;
+            if (Math.hypot(dx, dy) < 80) return false;
+        }
+
+        Bounds spawn = new BoundingBox(ex, ey, ew, eh);
+
+        // If walls aren't created yet (early init), don't hard-fail.
+        for (GameEntity obs : obstacles) {
+            if (obs == null) continue;
+            Bounds b = obs.getBounds();
+            if (b != null && b.intersects(spawn)) return false;
+        }
+
+        // Also make sure we don't spawn partially outside the pane.
+        double w = gameArea.getWidth();
+        double h = gameArea.getHeight();
+        if (w > 0 && h > 0) {
+            if (ex < 0 || ey < 0 || ex + ew > w || ey + eh > h) return false;
+        }
+
+        return true;
     }
 
     private static double clamp(double v, double min, double max) {
