@@ -10,6 +10,7 @@ import com.layla.items.ItemId;
 import com.layla.items.ItemRegistry;
 import com.layla.services.StatsService;
 
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.image.Image;
@@ -20,6 +21,10 @@ import javafx.scene.layout.FlowPane;
  * HUD lateral de ítems:
  * - 3 iconos por fila (horizontal), luego baja y hace otra fila.
  * - Sólo muestra los últimos N ítems (los más recientes).
+ *
+ * IMPORTANTE:
+ * Este HUD ya NO necesita "polling" (refresh cada frame/segundo).
+ * Se auto-actualiza escuchando cambios en StatsService (ownedItemsVersionProperty()).
  */
 public final class ItemHudView extends FlowPane {
 
@@ -30,6 +35,11 @@ public final class ItemHudView extends FlowPane {
 
     private final StatsService statsService;
     private final Map<ItemId, Image> imageCache = new EnumMap<>(ItemId.class);
+
+    // Anti-spam: si alguien llama refresh() muchas veces, salimos rápido si no cambió nada.
+    private int lastRenderedVersion = Integer.MIN_VALUE;
+
+    private final ChangeListener<Number> versionListener = (obs, oldV, newV) -> refresh();
 
     public ItemHudView(StatsService statsService) {
         this.statsService = Objects.requireNonNull(statsService, "statsService");
@@ -52,6 +62,19 @@ public final class ItemHudView extends FlowPane {
         setPickOnBounds(false);
 
         getStyleClass().add("item-hud");
+
+        // ✅ Trigger-based: cuando cambian los ítems, refrescamos.
+        statsService.ownedItemsVersionProperty().addListener(versionListener);
+
+        // Primera pinta (por si ya venías con ítems)
+        refresh();
+    }
+
+    /**
+     * Si alguna vez destruyes/recreas HUDs en escenas, llama a esto para evitar leaks.
+     */
+    public void dispose() {
+        statsService.ownedItemsVersionProperty().removeListener(versionListener);
     }
 
     /**
@@ -59,10 +82,13 @@ public final class ItemHudView extends FlowPane {
      * Si hay más ítems que espacio, solo muestra los últimos (más recientes).
      */
     public void refresh() {
+        int version = statsService.getOwnedItemsVersion();
+        if (version == lastRenderedVersion) return; // nada cambió
+        lastRenderedVersion = version;
+
         getChildren().clear();
 
         List<ItemId> allItems = statsService.getOwnedItemsStacked();
-        System.out.println("[ItemHudView] refresh, total items=" + allItems.size());
         if (allItems.isEmpty()) return;
 
         int maxIcons = COLUMNS * MAX_ROWS;
@@ -81,8 +107,6 @@ public final class ItemHudView extends FlowPane {
 
             getChildren().add(iv);
         }
-
-        System.out.println("[ItemHudView] children after refresh=" + getChildren().size());
     }
 
     private Image getOrLoadImage(ItemId itemId) {
@@ -90,21 +114,14 @@ public final class ItemHudView extends FlowPane {
         if (cached != null) return cached;
 
         String path = ItemRegistry.getIconPath(itemId);
-        if (path == null) {
-            System.err.println("[ItemHudView] No icon path for item " + itemId);
-            return null;
-        }
+        if (path == null) return null;
 
         try (InputStream in = getClass().getResourceAsStream(path)) {
-            if (in == null) {
-                System.err.println("[ItemHudView] Could not load icon resource " + path);
-                return null;
-            }
+            if (in == null) return null;
             Image img = new Image(in);
             imageCache.put(itemId, img);
             return img;
         } catch (Exception ex) {
-            System.err.println("[ItemHudView] Error loading icon " + path + ": " + ex.getMessage());
             return null;
         }
     }
