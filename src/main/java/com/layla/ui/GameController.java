@@ -33,6 +33,12 @@ import com.layla.services.SoundService;
 import com.layla.services.StatsService;
 import com.layla.ui.ShopOverlayController.ShopOffer;
 
+// Boss
+import java.util.concurrent.ThreadLocalRandom;
+import com.layla.entities.BossSniper;
+import com.layla.entities.BossCharger;
+import com.layla.entities.BossHive;
+
 import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -83,7 +89,6 @@ public class GameController implements ViewLifecycle {
     private Label bossNameLabel;
     private boolean bgStretchBound = false;
     private boolean boundaryWallsInLoop = false;
-
 
     // Tendero físico (ShopKeeper)
     private GameEntity shopKeeperEntity;
@@ -960,9 +965,63 @@ public class GameController implements ViewLifecycle {
             bossNameLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-size: 24px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 4, 1, 0, 0);");
             activeBoss = new com.layla.entities.FinalBoss(bx, by, bossHp, gameArea, this::getPlayerCenter, (deadBoss) -> handleBossDeath(bossId), (proj) -> gameLoop.addEntity(proj), projectileRemover, bossId);
         } else {
-            bossNameLabel.setText("BOSS - FLOOR " + currentFloor);
-            bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
-            activeBoss = new Boss(bx, by, bossHp, gameArea, this::getPlayerCenter, (deadBoss) -> handleBossDeath(bossId), (proj) -> gameLoop.addEntity(proj), projectileRemover, bossId);
+            // Random boss for floors 1-4
+            int roll = ThreadLocalRandom.current().nextInt(4);
+
+            switch (roll) {
+                case 0 -> {
+                    bossNameLabel.setText("THE SPREADER");
+                    bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
+                    activeBoss = new Boss(
+                        bx, by, bossHp,
+                        gameArea,
+                        this::getPlayerCenter,
+                        (deadBoss) -> handleBossDeath(bossId),
+                        (proj) -> gameLoop.addEntity(proj),
+                        projectileRemover,
+                        bossId
+                    );
+                }
+                case 1 -> {
+                    bossNameLabel.setText("THE SENTRY");
+                    bossNameLabel.setStyle("-fx-text-fill: #aaddff; -fx-font-weight: bold; -fx-font-size: 18px;");
+                    activeBoss = new BossSniper(
+                        bx, by, bossHp,
+                        gameArea,
+                        this::getPlayerCenter,
+                        (deadBoss) -> handleBossDeath(bossId),
+                        (proj) -> gameLoop.addEntity(proj),
+                        projectileRemover,
+                        bossId
+                    );
+                }
+                case 2 -> {
+                    bossNameLabel.setText("THE BRUTE");
+                    bossNameLabel.setStyle("-fx-text-fill: #aaffaa; -fx-font-weight: bold; -fx-font-size: 18px;");
+                    activeBoss = new BossCharger(
+                        bx, by, bossHp,
+                        gameArea,
+                        this::getPlayerCenter,
+                        (deadBoss) -> handleBossDeath(bossId),
+                        (proj) -> gameLoop.addEntity(proj),
+                        projectileRemover,
+                        bossId
+                    );
+                }
+                default -> {
+                    bossNameLabel.setText("THE HIVE");
+                    bossNameLabel.setStyle("-fx-text-fill: #ffbbff; -fx-font-weight: bold; -fx-font-size: 18px;");
+                    activeBoss = new BossHive(
+                        bx, by, bossHp,
+                        gameArea,
+                        this::getPlayerCenter,
+                        (deadBoss) -> handleBossDeath(bossId),
+                        (proj) -> gameLoop.addEntity(proj),
+                        projectileRemover,
+                        bossId
+                    );
+                }
+            }
         }
 
         gameLoop.addEntity(activeBoss);
