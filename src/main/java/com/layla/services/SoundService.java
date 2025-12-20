@@ -3,8 +3,9 @@ package com.layla.services;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.layla.core.AssetsManager; // Importante: Usamos el gestor central
+import com.layla.core.AssetsManager;
 
+import javafx.application.Platform;
 import javafx.scene.media.AudioClip;
 
 public final class SoundService {
@@ -30,36 +31,67 @@ public final class SoundService {
         // Obtener del AssetsManager (que ya lo tiene en memoria)
         AudioClip clip = cache.computeIfAbsent(key, this::getFromAssets);
         if (clip != null) {
-            // Opcional: ajustar volumen global si lo tuvieras
-            // clip.setVolume(AssetsManager.getSfxVolume());
-            clip.play();
+            // ✅ usar volumen global (0..1)
+            clip.play(AssetsManager.getSfxVolume());
         }
+    }
+
+    /**
+     * Precarga / "warmup" de clips para reducir el delay (sobre todo la primera vez).
+     * Llamar idealmente al empezar la run (signalGameStart).
+     */
+    public void warmUp(String... keys) {
+        if (keys == null || keys.length == 0) return;
+
+        Platform.runLater(() -> {
+            for (String k : keys) {
+                if (k == null) continue;
+                AudioClip clip = cache.computeIfAbsent(k, this::getFromAssets);
+                if (clip != null) {
+                    // Warmup silencioso: inicia/para con volumen 0
+                    try {
+                        clip.play(0.0);
+                        clip.stop();
+                    } catch (Exception ignore) { }
+                }
+            }
+        });
     }
 
     private long minIntervalFor(String key) {
         return switch (key) {
-            case "hurt"         -> 150_000_000L; // 150ms
-            case "hit"          -> 60_000_000L;
-            case "enemy_death"  -> 100_000_000L;
-            case "player_death" -> 500_000_000L;
-            case "shot"         -> 40_000_000L;
-            case "item"         -> 200_000_000L;
-            case "coin"         -> 5_000_000L; // ⚡ FIX: Bajamos a 5ms para que las monedas suenen fluidas en ráfaga
-            default             -> 0L;
+            case "hurt"           -> 150_000_000L;   // 150ms
+            case "hit"            -> 60_000_000L;
+            case "enemy_death"    -> 80_000_000L;
+            case "player_death"   -> 500_000_000L;
+            case "shot"           -> 40_000_000L;
+            case "item"           -> 200_000_000L;
+            case "coin"           -> 00_000_000L;     // ráfagas de coin
+            case "buy"            -> 120_000_000L;
+            case "boss_death"     -> 500_000_000L;
+            case "enemy_presence" -> 3_000_000_000L; // cada 3s
+            case "victory"        -> 2_000_000_000L;
+            case "trophy"         -> 2_000_000_000L;
+            default               -> 0L;
         };
     }
 
     // Traduce nombres cortos a rutas y pide el recurso PRECARGADO al AssetsManager
     private AudioClip getFromAssets(String key) {
         String path = switch (key) {
-            case "hit"           -> "assets/sounds/hit.mp3";
-            case "hurt"          -> "assets/sounds/hurt.mp3";
-            case "shot"          -> "assets/sounds/shot.mp3";
-            case "enemy_death"   -> "assets/sounds/enemy_death.mp3";
-            case "player_death"  -> "assets/sounds/player_death.mp3";
-            case "dead"          -> "assets/sounds/enemy_death.mp3";
-            case "item"          -> "assets/sounds/item.mp3";
-            case "coin"          -> "assets/sounds/coin.mp3";
+            case "hit"            -> "assets/sounds/hit.wav";
+            case "hurt"           -> "assets/sounds/hurt.wav";
+            case "shot"           -> "assets/sounds/shot.wav";
+            case "enemy_death"    -> "assets/sounds/enemy_death.wav";
+            case "player_death"   -> "assets/sounds/player_death.wav";
+            case "item"           -> "assets/sounds/item.wav";
+            case "coin"           -> "assets/sounds/coin.wav";
+
+            case "buy"            -> "assets/sounds/buy.wav";
+            case "boss_death"     -> "assets/sounds/boss_death.wav";
+            case "enemy_presence" -> "assets/sounds/enemy_presence.wav";
+            case "victory"        -> "assets/sounds/victory.wav";
+
             default -> null;
         };
 

@@ -25,13 +25,30 @@
     "assets/sounds/enemy_death.mp3",
     "assets/sounds/item.mp3",
     "assets/sounds/player_death.mp3",
-    "assets/sounds/coin.mp3"
+    "assets/sounds/coin.mp3",
+    "assets/sounds/buy.wav",
+    "assets/sounds/boss_death.wav",
+    "assets/sounds/enemy_presence.wav"
   ],
   "music": [
     "assets/music/menu.mp3",
     "assets/music/basement1.mp3",
     "assets/music/basement2.mp3",
-    "assets/music/basement3.mp3"
+    "assets/music/basement3.mp3",
+    "assets/music/caves1.mp3",
+    "assets/music/caves2.mp3",
+    "assets/music/depths1.mp3",
+    "assets/music/depths2.mp3",
+    "assets/music/womb1.mp3",
+    "assets/music/womb2.mp3",
+    "assets/music/sheol1.mp3",
+    "assets/music/sheol2.mp3",
+    "assets/music/victory_theme.mp3",
+    "assets/music/charger.mp3",
+    "assets/music/harvester.mp3",
+    "assets/music/hive.mp3",
+    "assets/music/sentry.mp3",
+    "assets/music/spreader.mp3"
   ],
   "videos": [
     "assets/videos/menu.mp4",

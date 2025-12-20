@@ -1,6 +1,7 @@
 package com.layla.ui;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -11,8 +12,11 @@ import com.layla.core.GameLoop;
 import com.layla.core.InputService;
 import com.layla.db.DatabaseService;
 import com.layla.entities.Boss;
+import com.layla.entities.BossCharger;
+import com.layla.entities.BossHive;
+import com.layla.entities.BossSniper;
 import com.layla.entities.ChocoCat;
-import com.layla.entities.Coin; // Importar ChocoCat
+import com.layla.entities.Coin;
 import com.layla.entities.GreedButton;
 import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
@@ -32,12 +36,6 @@ import com.layla.services.ShootingService;
 import com.layla.services.SoundService;
 import com.layla.services.StatsService;
 import com.layla.ui.ShopOverlayController.ShopOffer;
-
-// Boss
-import java.util.concurrent.ThreadLocalRandom;
-import com.layla.entities.BossSniper;
-import com.layla.entities.BossCharger;
-import com.layla.entities.BossHive;
 
 import javafx.animation.FadeTransition;
 import javafx.application.Platform;
@@ -97,7 +95,6 @@ public class GameController implements ViewLifecycle {
     // Referencia para limpiar a Choco al cambiar de piso
     private ChocoCat chocoEntity;
 
-
     // Spawn indicators (so we can clean them on level transitions)
     private final List<SpawnIndicator> spawnIndicators = new ArrayList<>();
     // ESTADO PERSISTENTE DE LA TIENDA
@@ -111,6 +108,17 @@ public class GameController implements ViewLifecycle {
     private boolean musicStarted = false;
     private String currentFloorMusicFile = null; // track elegido para el piso actual
     private String currentBossMusicFile  = null; // track del boss actual (si hay)
+
+    // ===== BOSS NON-REPEAT DECK (floors 1-4) =====
+    private final List<Integer> bossDeck = new ArrayList<>(4); // 0..3
+    // 0 = Spreader, 1 = Sentry, 2 = Brute, 3 = Hive
+
+    // ===== GLOBAL SFX TIMERS =====
+    private static final double ENEMY_PRESENCE_INTERVAL = 3.0;
+    private double enemyPresenceTimer = 0.0;
+
+    private static final double PLAYER_HURT_SFX_COOLDOWN = 0.12;
+    private double playerHurtSfxTimer = 0.0;
 
     private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
@@ -171,15 +179,16 @@ public class GameController implements ViewLifecycle {
     private static final double BG_WALL_THICKNESS_TOP    = 80.0;
     private static final double BG_WALL_THICKNESS_BOTTOM = 100.0;
 
-
     private InvisibleWall wallTop;
     private InvisibleWall wallBottom;
     private InvisibleWall wallLeft;
     private InvisibleWall wallRight;
     private boolean boundaryWallsAdded = false;
+
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
     private static final double SEPARATION_EPS = 1e-5;
     private static final double MAX_SEPARATION_STEP = 6.0;
+
     private static final int SHOP_OFFER_COUNT = 3;
     private static final int SHOP_REROLL_BASE_PRICE = 1; // Precio base inicial
 
@@ -202,14 +211,42 @@ public class GameController implements ViewLifecycle {
     private boolean shootingArmed = false;
     private double shootingArmTimer = 0.6;
 
+    // ---------------------
+    // SFX helpers
+    // ---------------------
+    private void playPlayerHurtSfx() {
+        if (playerHurtSfxTimer > 0.0) return;
+        sound.play("hurt");
+        playerHurtSfxTimer = PLAYER_HURT_SFX_COOLDOWN;
+    }
+
+    private void resetBossDeckForRun() {
+        bossDeck.clear();
+        bossDeck.add(0);
+        bossDeck.add(1);
+        bossDeck.add(2);
+        bossDeck.add(3);
+        Collections.shuffle(bossDeck, enemyRng);
+    }
+
+    private int pickBossTypeForFloor(int floor) {
+        // floors 1-4 unique
+        if (bossDeck.isEmpty()) resetBossDeckForRun();
+        int idx = floor - 1;
+        if (idx < 0) idx = 0;
+        if (idx >= bossDeck.size()) idx = bossDeck.size() - 1;
+        return bossDeck.get(idx);
+    }
+
     @FXML
     private void onPausePressed() {
         if (gameOverShown || pauseOverlay != null || paused) return;
         paused = true;
-        Platform.runLater(() -> { if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
+        Platform.runLater(() -> {
+            if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
             updateBoundaryWalls();
             updateBackgroundCover();
-});
+        });
 
         pauseOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/pause_overlay.fxml", 0.50, controller -> {
             if (controller instanceof PauseOverlayController poc) {
@@ -446,6 +483,9 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         pendingSpawns = 0;
 
+        // bosses sin repetir en floors 1-4
+        resetBossDeckForRun();
+
         currentRerollPrice = SHOP_REROLL_BASE_PRICE;
         currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
 
@@ -464,6 +504,17 @@ public class GameController implements ViewLifecycle {
         currentBossMusicFile = null;
         musicStarted = false; // para forzar música de run nueva
         startFloorMusicIfNeeded();
+
+        sound.warmUp(
+            "coin", "shot", "hurt", "hit",
+            "enemy_death", "player_death",
+            "enemy_presence", "buy", "boss_death"
+        );
+
+
+        // timers sfx
+        enemyPresenceTimer = 0.0;
+        playerHurtSfxTimer = 0.0;
 
         AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
     }
@@ -623,7 +674,7 @@ public class GameController implements ViewLifecycle {
 
                 if (!timerStopped && nextWaveTimer > 0) {
                     player.takeDamage(1.0);
-                    sound.play("hurt");
+                    playPlayerHurtSfx();
 
                     coins = Math.max(0, coins - 5);
                     updateHudLabels();
@@ -633,8 +684,8 @@ public class GameController implements ViewLifecycle {
 
                     AppContext.notifications().showNotification("PAUSED!", "-1 HP, -5 Coins", 2.0);
                 } else if (!timerStopped) {
-                     player.takeDamage(0.5);
-                     sound.play("hurt");
+                    player.takeDamage(0.5);
+                    playPlayerHurtSfx();
                 }
             }
         });
@@ -672,6 +723,7 @@ public class GameController implements ViewLifecycle {
             musicStarted = true;
         }
     }
+
     // =====================
     // MUSIC HELPERS
     // =====================
@@ -967,6 +1019,7 @@ public class GameController implements ViewLifecycle {
         spawnIndicators.add(indicator);
         gameLoop.addEntity(indicator);
     }
+
     private void spawnRealEnemy(double x, double y, EnemyType type) {
         double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
         if (AppContext.isHardMode()) difficulty *= 1.5;
@@ -1044,10 +1097,10 @@ public class GameController implements ViewLifecycle {
                 bossId
             );
         } else {
-            // Random boss for floors 1-4
-            int roll = ThreadLocalRandom.current().nextInt(4);
+            // Bosses 1-4: NO REPEAT in the run
+            int bossType = pickBossTypeForFloor(currentFloor);
 
-            switch (roll) {
+            switch (bossType) {
                 case 0 -> {
                     bossNameLabel.setText("THE SPREADER");
                     bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
@@ -1119,8 +1172,10 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-
     private void handleBossDeath(String bossId) {
+        // Boss death SFX
+        sound.play("boss_death");
+
         if (activeBoss != null) {
             gameLoop.removeEntity(activeBoss);
             activeBoss = null;
@@ -1212,6 +1267,9 @@ public class GameController implements ViewLifecycle {
             player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
         }
 
+        // reset timer presencia
+        enemyPresenceTimer = 0.0;
+
         AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
     }
 
@@ -1244,7 +1302,6 @@ public class GameController implements ViewLifecycle {
     private void spawnChoco() {
         spawnChocoCat();
     }
-
 
     private void clearLevel() {
         // Remove enemies
@@ -1338,7 +1395,7 @@ public class GameController implements ViewLifecycle {
             BG_WALL_THICKNESS_BOTTOM
         );
 
-applyBalanceToRuntimePlayer();
+        applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
 
         player.setPosition(w/2 - 10, h/2 + 100);
@@ -1380,6 +1437,10 @@ applyBalanceToRuntimePlayer();
         ticker = new GameEntity() {
             private final Group view = new Group();
             @Override public void update(double dt) {
+                // timers sfx
+                if (playerHurtSfxTimer > 0.0) playerHurtSfxTimer -= dt;
+                if (enemyPresenceTimer > 0.0) enemyPresenceTimer -= dt;
+
                 if (!shootingArmed) {
                     shootingArmTimer -= dt;
                     if (shootingArmTimer <= 0.0) shootingArmed = true;
@@ -1392,6 +1453,16 @@ applyBalanceToRuntimePlayer();
 
                     if (greedButton != null) greedButton.update(dt);
                     if (shopKeeperEntity != null) shopKeeperEntity.update(dt);
+
+                    // Enemy presence SFX (cada 3s si hay enemigos vivos)
+                    if (activeBoss == null && !enemies.isEmpty()) {
+                        if (enemyPresenceTimer <= 0.0) {
+                            sound.play("enemy_presence");
+                            enemyPresenceTimer = ENEMY_PRESENCE_INTERVAL;
+                        }
+                    } else {
+                        enemyPresenceTimer = 0.0;
+                    }
 
                     scoreTimer += dt;
                     if (scoreTimer >= 1.0) {
@@ -1414,6 +1485,7 @@ applyBalanceToRuntimePlayer();
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
                             player.setLastHitSource("BOSS_FLOOR_" + currentFloor);
                             player.takeDamage(1.0);
+                            playPlayerHurtSfx(); // ✅ player hurt sound
                         }
                     }
                 }
@@ -1429,6 +1501,9 @@ applyBalanceToRuntimePlayer();
                         comboMultiplier = 1.0;
                         comboTimer = 0.0;
                         updateHudLabels();
+
+                        // ✅ player hurt sound also when hp dropped from anything
+                        playPlayerHurtSfx();
                     }
                     lastPlayerHealth = currentHp;
                 }
@@ -1577,6 +1652,8 @@ applyBalanceToRuntimePlayer();
                         player.addHealth(2.0);
                         currentHeartPrice += 2;
 
+                        sound.play("buy"); // ✅ SFX comprar
+
                         updateHudLabels();
                         if (hud != null) hud.refresh(); // REFRESH VISUAL MANUAL
 
@@ -1591,6 +1668,9 @@ applyBalanceToRuntimePlayer();
                 });
                 soc.setOnItemsChanged(() -> {
                     score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
+
+                    sound.play("buy"); // ✅ SFX comprar item
+
                     if (hud != null) hud.refresh();
                     if (itemHud != null) itemHud.refresh();
                     updateHudLabels();
@@ -1603,6 +1683,9 @@ applyBalanceToRuntimePlayer();
                 soc.setOnRerollRequested(c -> {
                     currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
                     c.setOffers(currentShopOffers);
+
+                    // (opcional) sonido de comprar/accion tienda
+                    sound.play("buy");
                 });
                 soc.setOnClose(() -> {
                     coins = soc.getCoins();
@@ -1629,7 +1712,7 @@ applyBalanceToRuntimePlayer();
         Coin coin = new Coin(x, y, amount, gameArea, statsService, player, c -> {
             coins += c.getValue();
             updateHudLabels();
-            sound.play("coin");
+            sound.play("coin"); // ✅ coin.wav (sin delay si está precargado)
             gameLoop.removeEntity(c);
         });
         gameLoop.addEntity(coin);
@@ -1719,8 +1802,6 @@ applyBalanceToRuntimePlayer();
         return offers;
     }
 
-
-
     // ===================== Invisible boundary walls =====================
     /**
      * Creates 4 invisible rectangles around the playable area (matching the background wall border)
@@ -1804,7 +1885,6 @@ applyBalanceToRuntimePlayer();
         return n == wallTop.getView() || n == wallBottom.getView() || n == wallLeft.getView() || n == wallRight.getView();
     }
 
-
     private static final class InvisibleWall implements GameEntity {
         private final Rectangle r = new Rectangle(1, 1);
 
@@ -1831,6 +1911,7 @@ applyBalanceToRuntimePlayer();
             return new BoundingBox(r.getLayoutX(), r.getLayoutY(), r.getWidth(), r.getHeight());
         }
     }
+
     private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
         // Keep enemies away from the player AND out of obstacles/walls.
         if (player != null) {
@@ -1870,13 +1951,14 @@ applyBalanceToRuntimePlayer();
         if (player == null || shootingService == null || input == null) return;
         double[] aim = input.getAimArrowCardinal();
         if (Math.abs(aim[0]) > 0.01 || Math.abs(aim[1]) > 0.01) {
-             shootingService.setAim(aim[0], aim[1]);
-             Bounds bounds = player.getBounds();
-             double originX = bounds.getCenterX();
-             double originY = bounds.getCenterY();
-             shootingService.tryShoot(gameArea, gameLoop, originX, originY, player, proj -> {
-                 // sound.play("shoot.wav");
-             });
+            shootingService.setAim(aim[0], aim[1]);
+            Bounds bounds = player.getBounds();
+            double originX = bounds.getCenterX();
+            double originY = bounds.getCenterY();
+            shootingService.tryShoot(gameArea, gameLoop, originX, originY, player, proj -> {
+                // ✅ Player shoot SFX
+                sound.play("shot");
+            });
         }
     }
 
@@ -1889,7 +1971,7 @@ applyBalanceToRuntimePlayer();
     private void resolveObstacleCollisions(double dt) {
         if (player != null) {
             for (GameEntity obs : obstacles) {
-                 resolveCollision(player, obs);
+                resolveCollision(player, obs);
             }
         }
         for (Enemy e : enemies) {
@@ -1900,33 +1982,33 @@ applyBalanceToRuntimePlayer();
     }
 
     private void resolveCollision(GameEntity dynamic, GameEntity staticEnt) {
-         if (staticEnt == shopKeeperEntity) return;
+        if (staticEnt == shopKeeperEntity) return;
 
-         if (dynamic.getView() == null || staticEnt.getView() == null) return;
+        if (dynamic.getView() == null || staticEnt.getView() == null) return;
 
-         Bounds d = dynamic.getBounds();
-         Bounds s = staticEnt.getBounds();
+        Bounds d = dynamic.getBounds();
+        Bounds s = staticEnt.getBounds();
 
-         if (!d.intersects(s)) return;
+        if (!d.intersects(s)) return;
 
-         double dx = d.getCenterX() - s.getCenterX();
-         double dy = d.getCenterY() - s.getCenterY();
+        double dx = d.getCenterX() - s.getCenterX();
+        double dy = d.getCenterY() - s.getCenterY();
 
-         double halfWidths = (d.getWidth() / 2.0) + (s.getWidth() / 2.0);
-         double halfHeights = (d.getHeight() / 2.0) + (s.getHeight() / 2.0);
+        double halfWidths = (d.getWidth() / 2.0) + (s.getWidth() / 2.0);
+        double halfHeights = (d.getHeight() / 2.0) + (s.getHeight() / 2.0);
 
-         double overlapX = halfWidths - Math.abs(dx);
-         double overlapY = halfHeights - Math.abs(dy);
+        double overlapX = halfWidths - Math.abs(dx);
+        double overlapY = halfHeights - Math.abs(dy);
 
-         if (overlapX > 0 && overlapY > 0) {
-             if (overlapX < overlapY) {
-                 double sign = Math.signum(dx);
-                 dynamic.getView().setLayoutX(dynamic.getView().getLayoutX() + (overlapX * sign));
-             } else {
-                 double sign = Math.signum(dy);
-                 dynamic.getView().setLayoutY(dynamic.getView().getLayoutY() + (overlapY * sign));
-             }
-         }
+        if (overlapX > 0 && overlapY > 0) {
+            if (overlapX < overlapY) {
+                double sign = Math.signum(dx);
+                dynamic.getView().setLayoutX(dynamic.getView().getLayoutX() + (overlapX * sign));
+            } else {
+                double sign = Math.signum(dy);
+                dynamic.getView().setLayoutY(dynamic.getView().getLayoutY() + (overlapY * sign));
+            }
+        }
     }
 
     private void applyEnemySeparation(double dt) {
@@ -1988,10 +2070,10 @@ applyBalanceToRuntimePlayer();
             if (c instanceof GameOverController goc) {
                 goc.setTitle("GAME OVER");
                 goc.setOnRetry(() -> {
-                      OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                      gameOverOverlay = null;
-                      restartPending = true; // FIX: Marcar reinicio
-                      SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+                    restartPending = true; // FIX: Marcar reinicio
+                    SceneRouter.goWithFadeKeepSize("ui/game.fxml");
                 });
                 goc.setOnBackToMenu(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
@@ -2003,8 +2085,17 @@ applyBalanceToRuntimePlayer();
     }
 
     private void showVictoryOverlay() {
-         if (gameOverShown) return;
+        if (gameOverShown) return;
         gameOverShown = true;
+
+        // Para lo que estuviera sonando (piso/boss) y pone victory
+        AssetsManager.stopMusic();
+        AssetsManager.playMusic("victory_theme.mp3", true);
+
+        currentFloorMusicFile = null;
+        currentBossMusicFile = null;
+        musicStarted = true;
+
         if (gameLoop != null) gameLoop.stop();
 
         db.recordRunEndAsync(AppContext.getProfileId(), true, score, currentFloor);
@@ -2012,15 +2103,25 @@ applyBalanceToRuntimePlayer();
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.85, c -> {
             if (c instanceof GameOverController goc) {
                 goc.setTitle("VICTORY!");
-                 goc.setOnRetry(() -> {
-                      OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
-                      gameOverOverlay = null;
-                      restartPending = true; // FIX: Marcar reinicio
-                      SceneRouter.goWithFadeKeepSize("ui/game.fxml");
-                });
-                goc.setOnBackToMenu(() -> {
+
+                goc.setOnRetry(() -> {
+                    // ✅ parar victory ANTES de cambiar escena
+                    AssetsManager.stopMusic();
+
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
                     gameOverOverlay = null;
+
+                    restartPending = true;
+                    SceneRouter.goWithFadeKeepSize("ui/game.fxml");
+                });
+
+                goc.setOnBackToMenu(() -> {
+                    // ✅ parar victory ANTES de cambiar escena
+                    AssetsManager.stopMusic();
+
+                    OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
+                    gameOverOverlay = null;
+
                     backToMenu();
                 });
             }
