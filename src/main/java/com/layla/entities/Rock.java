@@ -1,40 +1,98 @@
 package com.layla.entities;
 
+import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
+
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
+import javafx.geometry.Rectangle2D;
 
-public class Rock implements GameEntity {
+/**
+ * Rock obstacle.
+ *
+ * Uses a 1-row spritesheet (rocks_sheet.png) with 6 columns (32x32 each).
+ * GameController chooses which column to use depending on the floor.
+ */
+public final class Rock implements GameEntity {
 
-    private final Rectangle view;
-    private final Pane parent;
-
-    // Tamaño estándar de la roca
+    // Keep this size for collisions (your level generation uses Rock.SIZE as spacing)
     public static final double SIZE = 40.0;
 
+    private static final int SHEET_COLS = 6;
+    private static final int FRAME_W = 32;
+    private static final int FRAME_H = 32;
+
+    // Cached sheet image (loaded once)
+    private static Image SHEET;
+
+    private final ImageView view = new ImageView();
+    private final Pane parent;
+
+    private int skinCol = 0; // 0..5
+
     public Rock(double x, double y, Pane parent) {
+        this(x, y, parent, 0);
+    }
+
+    public Rock(double x, double y, Pane parent, int skinCol) {
         this.parent = parent;
 
-        this.view = new Rectangle(SIZE, SIZE);
-        this.view.setFill(Color.DARKGREY);
-        this.view.setStroke(Color.BLACK);
-        this.view.setStrokeWidth(2.0);
+        ensureSheetLoaded();
 
-        // Sombra/Efecto visual simple
-        this.view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
+        view.setManaged(false);
+        view.setMouseTransparent(true);
+        view.setSmooth(false); // pixel-art friendly
 
-        this.view.setLayoutX(x);
-        this.view.setLayoutY(y);
+        view.setFitWidth(SIZE);
+        view.setFitHeight(SIZE);
+        view.setPreserveRatio(false);
+
+        if (SHEET != null) {
+            view.setImage(SHEET);
+            setSkinColumn(skinCol);
+        }
+
+        view.setLayoutX(x - SIZE / 2.0);
+        view.setLayoutY(y - SIZE / 2.0);
 
         parent.getChildren().add(view);
     }
 
+    private static void ensureSheetLoaded() {
+        if (SHEET != null) return;
+
+        // Primary expected path (matches your other assets under resources/assets/images)
+        SHEET = AssetsManager.loadImage("assets/images/rocks_sheet.png");
+
+        // Fallback: allow placing it directly under /assets/
+        if (SHEET == null) {
+            SHEET = AssetsManager.loadImage("assets/rocks_sheet.png");
+        }
+    }
+
+    /**
+     * Picks which sprite column to show (0..5).
+     */
+    public void setSkinColumn(int col) {
+        int safe = Math.max(0, Math.min(SHEET_COLS - 1, col));
+        this.skinCol = safe;
+
+        if (SHEET == null) return;
+
+        view.setViewport(new Rectangle2D(safe * FRAME_W, 0, FRAME_W, FRAME_H));
+    }
+
+    public int getSkinColumn() {
+        return skinCol;
+    }
+
     @Override
     public void update(double dt) {
-        // Las rocas no hacen nada, son estáticas
+        // static obstacle
     }
 
     @Override
@@ -44,11 +102,17 @@ public class Rock implements GameEntity {
 
     @Override
     public Bounds getBounds() {
-        return view.getBoundsInParent();
+        // Use view layout + SIZE (consistent for collisions)
+        return new BoundingBox(view.getLayoutX(), view.getLayoutY(), SIZE, SIZE);
     }
 
-    // Método para eliminar la roca (por si añadimos bombas luego)
+    /**
+     * Removes the rock from the scene graph.
+     * GameController can still remove it from gameLoop/obstacles, this just clears the Node safely.
+     */
     public void destroy() {
-        parent.getChildren().remove(view);
+        if (parent != null) {
+            parent.getChildren().remove(view);
+        }
     }
 }

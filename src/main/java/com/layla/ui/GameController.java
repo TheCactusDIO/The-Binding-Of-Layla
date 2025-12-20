@@ -2,7 +2,6 @@ package com.layla.ui;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.layla.AppContext;
@@ -12,8 +11,8 @@ import com.layla.core.GameLoop;
 import com.layla.core.InputService;
 import com.layla.db.DatabaseService;
 import com.layla.entities.Boss;
-import com.layla.entities.ChocoCat; // Importar ChocoCat
-import com.layla.entities.Coin;
+import com.layla.entities.ChocoCat;
+import com.layla.entities.Coin; // Importar ChocoCat
 import com.layla.entities.GreedButton;
 import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
@@ -82,6 +81,9 @@ public class GameController implements ViewLifecycle {
     private VBox bossHealthBox;
     private ProgressBar bossHealthBar;
     private Label bossNameLabel;
+    private boolean bgStretchBound = false;
+    private boolean boundaryWallsInLoop = false;
+
 
     // Tendero físico (ShopKeeper)
     private GameEntity shopKeeperEntity;
@@ -157,8 +159,8 @@ public class GameController implements ViewLifecycle {
     // Invisible walls thickness (match the visual wall in the background).
     private static final double BG_WALL_THICKNESS_LEFT   = 120.0;
     private static final double BG_WALL_THICKNESS_RIGHT  = 120.0;
-    private static final double BG_WALL_THICKNESS_TOP    = 30.0;
-    private static final double BG_WALL_THICKNESS_BOTTOM = 50.0;
+    private static final double BG_WALL_THICKNESS_TOP    = 80.0;
+    private static final double BG_WALL_THICKNESS_BOTTOM = 100.0;
 
 
     private InvisibleWall wallTop;
@@ -456,20 +458,38 @@ public class GameController implements ViewLifecycle {
             gameArea.getChildren().add(0, backgroundView);
         }
 
-        // Try to load a background image per floor. If it fails, fallback to a solid color.
-        try {
-            Image img = new Image(Objects.requireNonNull(getClass().getResourceAsStream(
-                    "/assets/background/" + switch (currentFloor) {
-                        case 1 -> "basement.png";
-                        case 2 -> "cellar.png";
-                        case 3 -> "caves.png";
-                        case 4 -> "depths.png";
-                        default -> "basement.png";
-                    }
-            )));
+        // Reinsert seguro al index 0 (por si algo lo movió)
+        if (!gameArea.getChildren().contains(backgroundView)) {
+            gameArea.getChildren().add(0, backgroundView);
+        } else {
+            gameArea.getChildren().remove(backgroundView);
+            gameArea.getChildren().add(0, backgroundView);
+        }
+
+        String file = switch (currentFloor) {
+            case 1 -> "basement.png";
+            case 2 -> "caves.png";
+            case 3 -> "depths.png";
+            case 4 -> "womb.png";
+            case 5 -> "sheol.png";
+            default -> "basement.png";
+        };
+
+        // 1) Ruta más probable en tu proyecto
+        Image img = AssetsManager.loadImage("assets/background/" + file);
+
+        // 2) Fallback por si lo tienes en otra carpeta
+        if (img == null) img = AssetsManager.loadImage("assets/background/" + file);
+        if (img == null) img = AssetsManager.loadImage("/assets/images/background/" + file);
+        if (img == null) img = AssetsManager.loadImage("/assets/background/" + file);
+
+        if (img != null) {
             backgroundView.setImage(img);
             gameArea.setStyle(null);
-        } catch (Exception e) {
+        } else {
+            System.out.println("[GameController] BG not found for floor=" + currentFloor + " file=" + file);
+            backgroundView.setImage(null);
+
             String color = switch (currentFloor) {
                 case 1 -> "#2b2010";
                 case 2 -> "#202020";
@@ -477,11 +497,10 @@ public class GameController implements ViewLifecycle {
                 case 4 -> "#4a0000";
                 default -> "#000000";
             };
-            backgroundView.setImage(null);
             gameArea.setStyle("-fx-background-color: " + color + ";");
         }
 
-        ensureBackgroundCover();
+        ensureBackgroundStretchNoPreserveRatio();
 
         backgroundView.toBack();
         if (hudBar != null) hudBar.toFront();
@@ -549,6 +568,17 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    private void ensureBackgroundStretchNoPreserveRatio() {
+        if (backgroundView == null) return;
+        if (bgStretchBound) return;
+        bgStretchBound = true;
+
+        backgroundView.setPreserveRatio(false); // como querías
+        backgroundView.fitWidthProperty().bind(gameArea.widthProperty());
+        backgroundView.fitHeightProperty().bind(gameArea.heightProperty());
+        backgroundView.setLayoutX(0);
+        backgroundView.setLayoutY(0);
+    }
 
     private void spawnGreedButton() {
         if (greedButton != null) {
@@ -1081,22 +1111,39 @@ public class GameController implements ViewLifecycle {
             activeBoss = null;
         }
 
-        // Remove ChocoCat (it will be respawned where appropriate)
+        // Remove ChocoCat (it will be respawned)
         if (chocoEntity != null) {
             gameLoop.removeEntity(chocoEntity);
             if (chocoEntity.getView() != null) gameArea.getChildren().remove(chocoEntity.getView());
             chocoEntity = null;
         }
 
-        // Clear obstacles but keep boundary walls (we re-ensure them below)
-        obstacles.clear();
+        // ✅ IMPORTANT: remove ALL non-wall obstacles properly (fix rocks staying in loop but invisible)
+        for (GameEntity obs : new ArrayList<>(obstacles)) {
+            if (obs == null) continue;
+            if (obs instanceof InvisibleWall) continue;
+
+            // Clean rock internals if you have destroy()
+            if (obs instanceof Rock rock) {
+                rock.destroy();
+            }
+
+            gameLoop.removeEntity(obs);
+            if (obs.getView() != null) gameArea.getChildren().remove(obs.getView());
+        }
+
+        // Keep only boundary walls in obstacles
+        obstacles.removeIf(o -> !(o instanceof InvisibleWall));
+
+        // Re-ensure walls exist in obstacles + scene graph (important)
         ensureBoundaryWalls();
 
-        // Remove all nodes except the player and the boundary walls
+        // Finally: remove stray nodes (coins/projectiles/pedestals/etc) but keep BG, player, walls
         if (gameArea != null) {
             gameArea.getChildren().removeIf(n ->
-                    (player == null || n != player.getView())
-                            && !isBoundaryWallNode(n)
+                n != backgroundView
+                && (player == null || n != player.getView())
+                && !isBoundaryWallNode(n)
             );
         }
     }
@@ -1305,7 +1352,8 @@ applyBalanceToRuntimePlayer();
     }
 
     private void spawnRock(double x, double y) {
-        Rock r = new Rock(x, y, gameArea);
+        int skinCol = getRockSkinColumn();
+        Rock r = new Rock(x, y, gameArea, skinCol);
         obstacles.add(r);
         gameLoop.addEntity(r);
     }
@@ -1316,6 +1364,16 @@ applyBalanceToRuntimePlayer();
             if (horizontal) spawnRock(p, fixed);
             else spawnRock(fixed, p);
         }
+    }
+
+    private int getRockSkinColumn() {
+        return switch (currentFloor) {
+            case 1 -> 0; // Basement
+            case 2 -> 5; // Caves
+            case 3 -> 2; // Depths
+            case 4 -> 3; // Womb
+            default -> 2; // Sheol + fallback
+        };
     }
 
     private void resetPlainGameArea() {
@@ -1511,23 +1569,44 @@ applyBalanceToRuntimePlayer();
      * so neither player nor enemies can cross them, and enemies cannot spawn there.
      */
     private void ensureBoundaryWalls() {
-        if (!boundaryWallsAdded) {
+        if (wallTop == null || wallBottom == null || wallLeft == null || wallRight == null) {
             wallTop = new InvisibleWall();
             wallBottom = new InvisibleWall();
             wallLeft = new InvisibleWall();
             wallRight = new InvisibleWall();
-
-            addBoundaryWall(wallTop);
-            addBoundaryWall(wallBottom);
-            addBoundaryWall(wallLeft);
-            addBoundaryWall(wallRight);
-
             boundaryWallsAdded = true;
         }
-        updateBoundaryWalls();
 
-        // If we created them before the first layout pass, force a re-sync after layout.
+        // Re-attach always (important after clearLevel / node cleanup)
+        attachBoundaryWall(wallTop);
+        attachBoundaryWall(wallBottom);
+        attachBoundaryWall(wallLeft);
+        attachBoundaryWall(wallRight);
+
+        // Add to loop only once (avoid duplicates)
+        if (gameLoop != null && !boundaryWallsInLoop) {
+            gameLoop.addEntity(wallTop);
+            gameLoop.addEntity(wallBottom);
+            gameLoop.addEntity(wallLeft);
+            gameLoop.addEntity(wallRight);
+            boundaryWallsInLoop = true;
+        }
+
+        updateBoundaryWalls();
         Platform.runLater(this::updateBoundaryWalls);
+    }
+
+    private void attachBoundaryWall(InvisibleWall w) {
+        if (w == null) return;
+
+        Node v = w.getView();
+        if (v != null && gameArea != null && !gameArea.getChildren().contains(v)) {
+            gameArea.getChildren().add(v);
+        }
+
+        if (!obstacles.contains(w)) {
+            obstacles.add(w);
+        }
     }
 
     private void addBoundaryWall(InvisibleWall w) {
