@@ -217,7 +217,7 @@ public class Boss implements GameEntity {
         patternTimer += dt;
 
         // Ataque base más frecuente (fase 2 más rápido)
-        double baseAttackInterval = (phase == 1 ? 1.25 : 0.85);
+        double baseAttackInterval = (phase == 1 ? 2.5 : 1.5);
         attackTimer += dt;
 
         if (attackTimer >= baseAttackInterval) {
@@ -236,17 +236,17 @@ public class Boss implements GameEntity {
         switch (patternIndex) {
             case 0 -> { // SPIRAL PRESSURE (constante)
                 spiralAngle += dt * (phase == 1 ? 3.2 : 4.6);
-                if (rng.nextDouble() < (phase == 1 ? 0.25 : 0.40)) {
+                if (rng.nextDouble() < (phase == 1 ? 0.12 : 0.20)) {
                     spawnSpiralShot(spiralAngle, 240.0 + phase * 40.0);
                 }
             }
             case 1 -> { // AIMED FAN (burst más dirigido)
-                if (rng.nextDouble() < (phase == 1 ? 0.10 : 0.16)) {
+                if (rng.nextDouble() < (phase == 1 ? 0.05 : 0.16)) {
                     spawnAimedFan(5 + phase * 2, 0.35, 260.0 + phase * 40.0);
                 }
             }
             default -> { // DENIAL RING (zonas)
-                if (rng.nextDouble() < (phase == 1 ? 0.06 : 0.10)) {
+                if (rng.nextDouble() < (phase == 1 ? 0.04 : 0.10)) {
                     spawnRing(12 + phase * 2, 170.0, 3.0, 1.0);
                 }
             }
@@ -283,7 +283,7 @@ public class Boss implements GameEntity {
 
             Projectile p = new Projectile(
                 dirX, dirY,
-                200.0, 3.0, 1.0,
+                200.0, 2.0, 1.0,
                 true,
                 parent,
                 onRemoveProjectile,
