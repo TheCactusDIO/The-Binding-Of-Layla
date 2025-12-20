@@ -331,10 +331,14 @@ public class GameController implements ViewLifecycle {
 
         if (overlayLayer != null) {
             overlayLayer.getChildren().add(bossHealthBox);
-            StackPane.setAlignment(bossHealthBox, Pos.TOP_CENTER);
-            StackPane.setMargin(bossHealthBox, new Insets(80, 0, 0, 0));
-        }
 
+            // Abajo, centrado, con margen inferior
+            StackPane.setAlignment(bossHealthBox, Pos.BOTTOM_CENTER);
+            StackPane.setMargin(bossHealthBox, new Insets(0, 0, 18, 0));
+
+            // Para que no moleste clics
+            bossHealthBox.setMouseTransparent(true);
+        }
         updateHudLabels();
     }
 
