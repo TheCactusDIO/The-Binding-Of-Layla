@@ -107,7 +107,11 @@ public class GameController implements ViewLifecycle {
     // PRECIO DEL CORAZÓN (Escalable)
     private int currentHeartPrice = 2;
 
+    // ===== MUSIC STATE =====
     private boolean musicStarted = false;
+    private String currentFloorMusicFile = null; // track elegido para el piso actual
+    private String currentBossMusicFile  = null; // track del boss actual (si hay)
+
     private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
@@ -455,6 +459,10 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
         maybeSpawnPlayer();
         addTickerIfNeeded();
+
+        currentFloorMusicFile = null;
+        currentBossMusicFile = null;
+        musicStarted = false; // para forzar música de run nueva
         startFloorMusicIfNeeded();
 
         AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
@@ -660,11 +668,67 @@ public class GameController implements ViewLifecycle {
 
     public void startFloorMusicIfNeeded() {
         if (!musicStarted) {
-            try {
-                AssetsManager.playMusic("basement1.mp3", true);
-                musicStarted = true;
-            } catch (Exception ex) { System.err.println("Music error: " + ex.getMessage()); }
+            playFloorMusicForCurrentFloor(true); // fuerza pick random al iniciar run
+            musicStarted = true;
         }
+    }
+    // =====================
+    // MUSIC HELPERS
+    // =====================
+    private void playFloorMusicForCurrentFloor(boolean forceNewPick) {
+        // Si ya hay una elegida para este piso y no quieres cambiarla, reutilízala
+        if (!forceNewPick && currentFloorMusicFile != null) {
+            AssetsManager.playMusic(currentFloorMusicFile, true);
+            return;
+        }
+
+        String pick = pickRandomFloorTrack(currentFloor);
+        currentFloorMusicFile = pick;
+        if (pick != null) {
+            AssetsManager.playMusic(pick, true);
+        }
+    }
+
+    private void playBossMusic(String bossTrack) {
+        if (bossTrack == null || bossTrack.isBlank()) return;
+        currentBossMusicFile = bossTrack;
+        AssetsManager.playMusic(bossTrack, true);
+    }
+
+    private void resumeFloorMusicAfterBoss() {
+        // vuelve a la música del piso (la que ya estaba elegida)
+        if (currentFloorMusicFile == null) {
+            playFloorMusicForCurrentFloor(true);
+        } else {
+            AssetsManager.playMusic(currentFloorMusicFile, true);
+        }
+    }
+
+    private String pickRandomFloorTrack(int floor) {
+        // Basement = 3 tracks, Floors 2-5 = 2 tracks
+        String[] candidates = switch (floor) {
+            case 1 -> new String[]{"basement1.mp3", "basement2.mp3", "basement3.mp3"};
+            case 2 -> new String[]{"caves1.mp3", "caves2.mp3"};
+            case 3 -> new String[]{"depths1.mp3", "depths2.mp3"};
+            case 4 -> new String[]{"womb1.mp3", "womb2.mp3"};
+            default -> new String[]{"sheol1.mp3", "sheol2.mp3"}; // floor 5
+        };
+
+        // Si algún mp3 no existe todavía, lo ignoramos (para que no te pete mientras montas assets)
+        List<String> available = new ArrayList<>();
+        for (String f : candidates) {
+            if (musicExists(f)) available.add(f);
+        }
+
+        if (available.isEmpty()) {
+            // fallback duro: intenta el primero igualmente (AssetsManager ya loguea si no existe)
+            return candidates[0];
+        }
+        return available.get(enemyRng.nextInt(available.size()));
+    }
+
+    private boolean musicExists(String fileName) {
+        return AssetsManager.class.getResource("/assets/music/" + fileName) != null;
     }
 
     private void startWave(int wave) {
@@ -963,11 +1027,22 @@ public class GameController implements ViewLifecycle {
 
         java.util.function.Consumer<GameEntity> projectileRemover = (ent) -> gameLoop.removeEntity(ent);
 
+        String bossTrack = null;
+
         if (currentFloor == 5) {
+            bossTrack = "harvester.mp3";
             bossHp *= 2.0;
             bossNameLabel.setText("THE HARVESTER (FINAL BOSS)");
             bossNameLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-size: 24px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 4, 1, 0, 0);");
-            activeBoss = new com.layla.entities.FinalBoss(bx, by, bossHp, gameArea, this::getPlayerCenter, (deadBoss) -> handleBossDeath(bossId), (proj) -> gameLoop.addEntity(proj), projectileRemover, bossId);
+            activeBoss = new com.layla.entities.FinalBoss(
+                bx, by, bossHp,
+                gameArea,
+                this::getPlayerCenter,
+                (deadBoss) -> handleBossDeath(bossId),
+                (proj) -> gameLoop.addEntity(proj),
+                projectileRemover,
+                bossId
+            );
         } else {
             // Random boss for floors 1-4
             int roll = ThreadLocalRandom.current().nextInt(4);
@@ -985,6 +1060,7 @@ public class GameController implements ViewLifecycle {
                         projectileRemover,
                         bossId
                     );
+                    bossTrack = "spreader.mp3";
                 }
                 case 1 -> {
                     bossNameLabel.setText("THE SENTRY");
@@ -998,6 +1074,7 @@ public class GameController implements ViewLifecycle {
                         projectileRemover,
                         bossId
                     );
+                    bossTrack = "sentry.mp3";
                 }
                 case 2 -> {
                     bossNameLabel.setText("THE BRUTE");
@@ -1011,6 +1088,7 @@ public class GameController implements ViewLifecycle {
                         projectileRemover,
                         bossId
                     );
+                    bossTrack = "charger.mp3";
                 }
                 default -> {
                     bossNameLabel.setText("THE HIVE");
@@ -1024,9 +1102,13 @@ public class GameController implements ViewLifecycle {
                         projectileRemover,
                         bossId
                     );
+                    bossTrack = "hive.mp3";
                 }
             }
         }
+
+        // Boss music
+        if (bossTrack != null) playBossMusic(bossTrack);
 
         gameLoop.addEntity(activeBoss);
         db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.SEEN);
@@ -1037,6 +1119,7 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+
     private void handleBossDeath(String bossId) {
         if (activeBoss != null) {
             gameLoop.removeEntity(activeBoss);
@@ -1045,6 +1128,11 @@ public class GameController implements ViewLifecycle {
             achievements.onBossKilled();
         }
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
+
+        // Volver a música del piso (la misma que estaba asignada)
+        currentBossMusicFile = null;
+        resumeFloorMusicAfterBoss();
+        musicStarted = true;
 
         int bossScore = (int)(1000 * currentFloor * comboMultiplier);
         this.score += bossScore;
@@ -1104,12 +1192,19 @@ public class GameController implements ViewLifecycle {
         currentRerollPrice = SHOP_REROLL_BASE_PRICE;
         currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
 
+        // Parte Audiovisual
         changeFloorVisuals();
+        currentBossMusicFile = null;
+        currentFloorMusicFile = null;
+        playFloorMusicForCurrentFloor(true);
+        musicStarted = true;
+
         ensureBoundaryWalls();
         spawnRoomLayout();
         spawnGreedButton();
         spawnShopKeeper();
-        spawnChocoCat(); // AÑADIDO
+
+        spawnChocoCat();
 
         updateHudLabels();
 
