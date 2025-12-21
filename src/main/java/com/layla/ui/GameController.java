@@ -214,11 +214,7 @@ public class GameController implements ViewLifecycle {
     // ---------------------
     // SFX helpers
     // ---------------------
-    private void playPlayerHurtSfx() {
-        if (playerHurtSfxTimer > 0.0) return;
-        sound.play("hurt");
-        playerHurtSfxTimer = PLAYER_HURT_SFX_COOLDOWN;
-    }
+
 
     private void resetBossDeckForRun() {
         bossDeck.clear();
@@ -674,7 +670,6 @@ public class GameController implements ViewLifecycle {
 
                 if (!timerStopped && nextWaveTimer > 0) {
                     player.takeDamage(1.0);
-                    playPlayerHurtSfx();
 
                     coins = Math.max(0, coins - 5);
                     updateHudLabels();
@@ -685,7 +680,6 @@ public class GameController implements ViewLifecycle {
                     AppContext.notifications().showNotification("PAUSED!", "-1 HP, -5 Coins", 2.0);
                 } else if (!timerStopped) {
                     player.takeDamage(0.5);
-                    playPlayerHurtSfx();
                 }
             }
         });
@@ -1385,7 +1379,7 @@ public class GameController implements ViewLifecycle {
         double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
         double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
 
-        player = new Player(input, gameArea, statsService);
+        player = new Player(input, gameArea, statsService, sound::play);
 
         // Prevent the player from entering the background wall border.
         player.setWorldInset(
@@ -1485,7 +1479,6 @@ public class GameController implements ViewLifecycle {
                         if (player != null && !player.isDead() && activeBoss.getBounds().intersects(player.getBounds())) {
                             player.setLastHitSource("BOSS_FLOOR_" + currentFloor);
                             player.takeDamage(1.0);
-                            playPlayerHurtSfx(); // ✅ player hurt sound
                         }
                     }
                 }
@@ -1501,9 +1494,6 @@ public class GameController implements ViewLifecycle {
                         comboMultiplier = 1.0;
                         comboTimer = 0.0;
                         updateHudLabels();
-
-                        // ✅ player hurt sound also when hp dropped from anything
-                        playPlayerHurtSfx();
                     }
                     lastPlayerHealth = currentHp;
                 }

@@ -1075,14 +1075,22 @@ public final class Enemy implements GameEntity {
     @Override
     public void onCollision(GameEntity other) {
         if (dead) return;
+
         if (other instanceof Player player) {
             EnemyProfile profile = AppContext.balance().profile(type);
             double dmg = (profile != null ? profile.contactDmg : AppContext.balance().enemyContactDamage);
             dmg *= damageMultiplier;
+
             if (dmg > 0.0) {
                 player.setLastHitSource(type.name());
+
+                double before = player.getHealth();
                 player.takeDamage(dmg);
-                playSfx.accept("hurt");
+
+                // ✅ Solo suena si realmente bajó la vida (o sea, no estaba invulnerable)
+                if (player.getHealth() < before) {
+                    playSfx.accept("hurt");
+                }
             }
         }
     }
@@ -1117,6 +1125,7 @@ public final class Enemy implements GameEntity {
         if (dead) return;
         dead = true;
         hp = 0.0;
+        if (playSfx != null) playSfx.accept("enemy_death");
         spawnDeathFx();
         onRemove.accept(this);
     }

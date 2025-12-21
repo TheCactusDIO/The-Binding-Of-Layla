@@ -114,7 +114,7 @@ public final class Player implements GameEntity {
         this(input, boundsPane, statsService, null);
     }
 
-    private Player(InputService input, Pane boundsPane, StatsService statsService, Consumer<String> playSfx) {
+    public Player(InputService input, Pane boundsPane, StatsService statsService, Consumer<String> playSfx) {
         this.inputService = Objects.requireNonNull(input, "input");
         this.moveSupplier = input::getMoveVector;
         this.boundsPane   = Objects.requireNonNull(boundsPane, "boundsPane");
@@ -386,7 +386,7 @@ public final class Player implements GameEntity {
         if (dead) return;
         dead = true;
         health = 0.0;
-        if (playSfx != null) playSfx.accept("dead");
+        if (playSfx != null) playSfx.accept("player_death");
         viewRoot.setOpacity(0.5);
         viewRoot.setRotate(90);
     }
