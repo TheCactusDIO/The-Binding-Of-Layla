@@ -44,7 +44,6 @@ public class HighScoreService {
                     )
                 """;
                 stmt.execute(sql);
-                // System.out.println("[HighScoreService] DB initialized at " + CONNECTION_STRING);
             }
         } catch (Exception e) {
             System.err.println("[HighScoreService] Error initializing DB: " + e.getMessage());

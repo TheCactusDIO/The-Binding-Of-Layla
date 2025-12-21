@@ -3,6 +3,7 @@ package com.layla.ui;
 import java.util.Optional;
 
 import com.layla.AppContext;
+import com.layla.core.AssetsManager;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
@@ -21,6 +22,9 @@ public class ProfileSelectController implements ViewLifecycle {
 
     @Override
     public void onEnter() {
+        // Música del menú: empieza aquí y no se reinicia al pasar a MainMenu
+        AssetsManager.ensureMusic("menu.mp3", true);
+
         refreshSlots();
     }
 
@@ -35,15 +39,15 @@ public class ProfileSelectController implements ViewLifecycle {
 
         // Si el nombre es nulo, consideramos el perfil vacío
         if (summary.name() == null || summary.name().isEmpty()) {
-            nameLbl.setText("EMPTY SLOT");
+            nameLbl.setText("HUECO VACÍO");
             nameLbl.setStyle("-fx-text-fill: #666; -fx-font-weight: bold; -fx-font-size: 22px;");
-            statsLbl.setText("Click to create\nnew run");
+            statsLbl.setText("Pulsa para crear\nuna nueva partida");
             controls.setVisible(false); // No mostrar borrar/renombrar si está vacío
         } else {
             nameLbl.setText(summary.name().toUpperCase());
             nameLbl.setStyle("-fx-text-fill: #ffd54f; -fx-font-weight: bold; -fx-font-size: 22px;");
             statsLbl.setText(String.format(
-                "Runs: %d\nWins: %d\nDeaths: %d\nStreak: %d",
+                "Partidas: %d\nVictorias: %d\nDerrotas: %d\nRacha: %d",
                 summary.runs(), summary.wins(), summary.deaths(), summary.streak()
             ));
             controls.setVisible(true);
@@ -60,7 +64,7 @@ public class ProfileSelectController implements ViewLifecycle {
         var summary = AppContext.db().getProfileSummary(id);
         if (summary.name() == null) {
             // Crear nuevo
-            promptForName(id, "Create New Save", "Enter your name:", true);
+            promptForName(id, "Crear nueva partida", "Introduce tu nombre:", true);
         } else {
             // Cargar existente
             loadProfile(id);
@@ -69,21 +73,21 @@ public class ProfileSelectController implements ViewLifecycle {
 
     private void loadProfile(int id) {
         AppContext.setProfileId(id);
-        System.out.println("[Profile] Selected profile " + id);
+        System.out.println("[Profile] Perfil seleccionado: " + id);
         SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml");
     }
 
     // --- RENOMBRAR ---
 
-    @FXML private void onRenameSlot1() { promptForName(1, "Rename Save", "Enter new name:", false); }
-    @FXML private void onRenameSlot2() { promptForName(2, "Rename Save", "Enter new name:", false); }
-    @FXML private void onRenameSlot3() { promptForName(3, "Rename Save", "Enter new name:", false); }
+    @FXML private void onRenameSlot1() { promptForName(1, "Renombrar partida", "Introduce el nuevo nombre:", false); }
+    @FXML private void onRenameSlot2() { promptForName(2, "Renombrar partida", "Introduce el nuevo nombre:", false); }
+    @FXML private void onRenameSlot3() { promptForName(3, "Renombrar partida", "Introduce el nuevo nombre:", false); }
 
     private void promptForName(int id, String title, String header, boolean autoEnter) {
         TextInputDialog dialog = new TextInputDialog("Layla");
         dialog.setTitle(title);
         dialog.setHeaderText(header);
-        dialog.setContentText("Name:");
+        dialog.setContentText("Nombre:");
 
         // Estilo oscuro básico para el diálogo
         UIStyles.applyDialogStyle(dialog.getDialogPane());
@@ -108,9 +112,9 @@ public class ProfileSelectController implements ViewLifecycle {
 
     private void confirmDelete(int id) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Delete Save File");
-        alert.setHeaderText("Are you sure you want to delete File " + id + "?");
-        alert.setContentText("All progress, unlocks and stats will be lost forever.");
+        alert.setTitle("Borrar partida");
+        alert.setHeaderText("¿Seguro que quieres borrar la ranura " + id + "?");
+        alert.setContentText("Se perderán para siempre los progresos, desbloqueos y estadísticas.");
 
         UIStyles.applyDialogStyle(alert.getDialogPane());
 

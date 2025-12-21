@@ -1,6 +1,10 @@
 package com.layla.ui;
 
 import java.lang.ref.WeakReference;
+import java.util.Set;
+
+import com.layla.core.AssetsManager;
+
 import javafx.animation.FadeTransition;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -14,6 +18,28 @@ public final class SceneRouter {
 
     // Controlador actual (para onExit/onEnter automáticos)
     private static WeakReference<Object> currentController = new WeakReference<>(null);
+
+    // ---------- Música de menú ----------
+    private static final String MENU_MUSIC_FILE = "menu.mp3";
+
+    /**
+     * Escenas "de menú" donde queremos asegurar la música del menú.
+     * (No meto overlays de juego para no activar música de menú encima del gameplay.)
+     */
+    private static final Set<String> MENU_MUSIC_SCENES = Set.of(
+            "profile_select.fxml",
+            "main_menu.fxml",
+            "achievements.fxml",
+            "bestiary.fxml",
+            "collection.fxml",
+            "items.fxml",
+            "ranking.fxml",
+            "run_setup.fxml",
+            "settings.fxml",
+            "stats_panel.fxml",
+            "exit_confirm.fxml",
+            "error.fxml"
+    );
 
     private SceneRouter() {}
 
@@ -64,17 +90,20 @@ public final class SceneRouter {
 
             Scene scene = new Scene(root, width, height);
 
-            // 2) CSS base (global + menu condicional)
+            // 2) CSS base
             applyBaseStyles(scene, root);
 
             primaryStage.setScene(scene);
             primaryStage.show();
             try { primaryStage.requestFocus(); } catch (Exception ignore) {}
 
-            // 3) entrar en la vista nueva (con Scene ya montada)
+            // 2.5) Política de música (antes de onEnter)
+            applySceneAudioPolicy(fxmlPath);
+
+            // 3) entrar en la vista nueva
             rememberAndEnter(controller);
 
-            // 4) notificar a tests que la escena ya está lista
+            // 4) notificar escena lista
             notifySceneReady();
 
             System.out.println("[SceneRouter] Scene set and displayed: " + fxmlPath);
@@ -118,7 +147,10 @@ public final class SceneRouter {
                     // Preparar el nuevo root para fade-in
                     newRoot.setOpacity(0.0);
 
-                    // Recordar controller y notificar onEnter() ANTES del fade-in
+                    // Política de música (antes de onEnter)
+                    applySceneAudioPolicy(fxmlPath);
+
+                    // onEnter antes del fade-in
                     rememberAndEnter(newController);
 
                     // Fade-in del nuevo root
@@ -127,18 +159,21 @@ public final class SceneRouter {
                     fadeIn.setToValue(1.0);
                     fadeIn.setOnFinished(ev -> {
                         try { primaryStage.requestFocus(); } catch (Exception ignore2) {}
-                        // Aviso para los tests: la escena ya es estable/visible
                         notifySceneReady();
                     });
                     fadeIn.play();
                 });
                 fadeOut.play();
             } else {
-                // No había escena previa (primer arranque con fade)
+                // No había escena previa
                 primaryStage.setScene(newScene);
                 primaryStage.show();
 
                 newRoot.setOpacity(0.0);
+
+                // Política de música (antes de onEnter)
+                applySceneAudioPolicy(fxmlPath);
+
                 rememberAndEnter(newController);
 
                 FadeTransition fadeIn = new FadeTransition(FADE_DURATION, newRoot);
@@ -163,11 +198,10 @@ public final class SceneRouter {
         var stage = getStage();
         Scene s = stage.getScene();
         if (s == null) {
-            // Primer arranque: aplica un tamaño por defecto razonable
             goWithFade(fxmlPath, 1280, 720);
             return;
         }
-        double w = s.getWidth();   // conserva el tamaño exacto
+        double w = s.getWidth();
         double h = s.getHeight();
         goWithFade(fxmlPath, w, h);
     }
@@ -189,7 +223,7 @@ public final class SceneRouter {
         var root = stage.getScene().getRoot();
         var ft = new FadeTransition(Duration.millis(ms), root);
         ft.setFromValue(root.getOpacity());
-        ft.setToValue(1.0);
+        ft.setToValue(toOpacity); // FIX: antes siempre iba a 1.0
         ft.play();
     }
 
@@ -232,6 +266,21 @@ public final class SceneRouter {
     // Normaliza rutas con o sin barra inicial
     private static String normalize(String fxmlPath) {
         return fxmlPath.startsWith("/") ? fxmlPath : "/" + fxmlPath;
+    }
+
+    private static String basename(String path) {
+        if (path == null) return "";
+        int i = path.lastIndexOf('/');
+        return (i >= 0) ? path.substring(i + 1) : path;
+    }
+
+    /** Política simple: si es escena de menú, asegura música de menú sin reiniciarla. */
+    private static void applySceneAudioPolicy(String fxmlPath) {
+        String base = basename(normalize(fxmlPath));
+        if (MENU_MUSIC_SCENES.contains(base)) {
+            // No reinicia si ya está sonando esa misma pista.
+            AssetsManager.ensureMusic(MENU_MUSIC_FILE, true);
+        }
     }
 
     /** Devuelve url.toExternalForm() si existe; si no, null y loguea. */
