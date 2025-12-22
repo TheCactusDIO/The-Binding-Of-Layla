@@ -1,10 +1,14 @@
 package com.layla.items;
 
-/** Item pool where a passive item belongs. */
+/**
+ * Pool (origen) al que pertenece un ítem pasivo.
+ *
+ * <p>Se usa para decidir en qué tipo de sala/loot puede aparecer el ítem.</p>
+ */
 public enum ItemPoolType {
-    TREASURE,
+    /** Ítems típicos de recompensa de boss. */
     BOSS,
+
+    /** Ítems disponibles en tienda. */
     SHOP,
-    SECRET,
-    OTHER
 }

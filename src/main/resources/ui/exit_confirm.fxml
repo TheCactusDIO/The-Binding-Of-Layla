@@ -1,22 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/21"
+<VBox fx:id="root"
+      xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.layla.ui.ExitConfirmController"
-      spacing="16" alignment="CENTER"
-      styleClass="game-dialog"
-      stylesheets="@/ui/styles/dialogs.css">
-    <padding><Insets topRightBottomLeft="24"/></padding>
+      spacing="16"
+      alignment="CENTER"
+      styleClass="game-dialog">
+
+    <!-- Carga CSS (mejor que el atributo stylesheets con rutas raras) -->
+    <stylesheets>
+        <java.net.URL value="@styles/dialogs.css"/>
+    </stylesheets>
+
+    <padding>
+        <Insets top="24" right="24" bottom="24" left="24"/>
+    </padding>
 
     <Label text="Are you sure you want to quit?" styleClass="dialog-title"/>
     <Label text="Unsaved progress will be lost." styleClass="dialog-subtitle"/>
 
     <VBox spacing="10" alignment="CENTER">
-        <Button text="Cancel" onAction="#onCancel" fx:id="cancelBtn" />
-        <Button text="Exit"   onAction="#onConfirm" fx:id="confirmBtn" />
+        <Button fx:id="cancelBtn"  text="Cancel" onAction="#onCancel"/>
+        <Button fx:id="confirmBtn" text="Exit"   onAction="#onConfirm"/>
     </VBox>
 </VBox>

@@ -1,5 +1,6 @@
 package com.layla.entities;
 
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.layla.core.AssetsManager;
@@ -12,200 +13,290 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
 
+/**
+ * NPC decorativo (sin colisiones) que pasea, se queda quieto o duerme,
+ * mostrando animación desde un spritesheet.
+ *
+ * <p>Notas de diseño:</p>
+ * <ul>
+ *   <li>Se renderiza en un {@link Canvas} para dibujar frames del spritesheet.</li>
+ *   <li>No interactúa con colisiones: {@link #getBounds()} devuelve un bounds de tamaño 0.</li>
+ *   <li>El movimiento se limita a un área (Pane) usando un margen simple.</li>
+ * </ul>
+ */
 public class ChocoCat implements GameEntity {
 
-    private enum State {
-        IDLE, WALKING, SLEEPING
-    }
+    private enum State { IDLE, WALKING, SLEEPING }
+    private enum Direction { UP, DOWN, LEFT, RIGHT }
 
-    private enum Direction {
-        UP, DOWN, LEFT, RIGHT
-    }
+    private static final ThreadLocalRandom RNG = ThreadLocalRandom.current();
+
+    // Probabilidades de estado
+    private static final double WALK_CHANCE = 0.40;
+    private static final double IDLE_CHANCE = 0.30; // el resto es dormir
+
+    // Límites por defecto si el Pane aún no tiene tamaño (no “layouted”)
+    private static final double DEFAULT_AREA_WIDTH = 1280.0;
+    private static final double DEFAULT_AREA_HEIGHT = 720.0;
+
+    // Margen simple para evitar que se vaya a los bordes
+    private static final double BOUNDS_MARGIN = 20.0;
+
+    // Sprite config
+    private static final int FRAME_WIDTH = 169;
+    private static final int FRAME_HEIGHT = 123;
+    private static final double RENDER_SCALE = 0.35;
+
+    // Movimiento/animación
+    private static final double MOVE_SPEED = 40.0;
+    private static final double ANIM_SPEED_SLEEPING = 1.0; // cambia frame cada ~1s
+    private static final double ANIM_SPEED_DEFAULT = 0.2;  // cambia frame cada ~0.2s
 
     private final Pane gameArea;
     private final Canvas view;
+    private final GraphicsContext gc;
+
     private Image spriteSheet;
 
     private State currentState = State.IDLE;
     private Direction currentDirection = Direction.DOWN;
 
-    private double stateTimer = 0.0;
-    private double moveSpeed = 40.0;
-    private double velX = 0;
-    private double velY = 0;
+    private double stateTimerSeconds = 0.0;
+    private double velX = 0.0;
+    private double velY = 0.0;
 
-    // Dimensiones del sprite según tu descripción
-    private static final int FRAME_WIDTH = 169;
-    private static final int FRAME_HEIGHT = 123;
-    private static final double RENDER_SCALE = 0.35; // Escala reducida para que no sea gigante
+    private double animTimeSeconds = 0.0;
 
-    private double animTime = 0;
-
+    /**
+     * Crea el ChocoCat en la posición inicial y carga el spritesheet.
+     *
+     * @param startX   X inicial (layoutX)
+     * @param startY   Y inicial (layoutY)
+     * @param gameArea pane donde se moverá y se dibujará
+     * @throws NullPointerException si {@code gameArea} es null
+     */
     public ChocoCat(double startX, double startY, Pane gameArea) {
-        this.gameArea = gameArea;
+        this.gameArea = Objects.requireNonNull(gameArea, "gameArea");
 
         this.view = new Canvas(FRAME_WIDTH * RENDER_SCALE, FRAME_HEIGHT * RENDER_SCALE);
         this.view.setLayoutX(startX);
         this.view.setLayoutY(startY);
 
-        // --- INTENTO DE CARGA ROBUSTA ---
-        // Probamos rutas comunes para asegurar que la encuentre
-        this.spriteSheet = AssetsManager.loadImage("/assets/images/choco_sheet.png");
-        if (this.spriteSheet == null) {
-            this.spriteSheet = AssetsManager.loadImage("assets/images/choco_sheet.png");
-        }
+        this.gc = view.getGraphicsContext2D();
 
-        // Si sigue siendo null, imprimir error en consola para depurar
+        this.spriteSheet = loadSpriteSheet();
         if (this.spriteSheet == null) {
-            System.err.println("!!! ERROR CRÍTICO: No se pudo cargar choco_sheet.png en ninguna ruta conocida.");
+            System.err.println("[ChocoCat] ERROR: No se pudo cargar choco_sheet.png (fallback visual activado).");
         }
 
         pickNextState();
+        drawCurrentFrame(); // pinta algo desde el frame 0
     }
 
+    /**
+     * Tick del NPC:
+     * <ul>
+     *   <li>Cambia de estado cuando el timer expira</li>
+     *   <li>Si camina, se mueve y evita salirse del área</li>
+     *   <li>Actualiza la animación y dibuja el frame</li>
+     * </ul>
+     *
+     * @param dt delta time en segundos
+     */
     @Override
     public void update(double dt) {
-        stateTimer -= dt;
+        if (dt <= 0) {
+            return;
+        }
 
-        if (stateTimer <= 0) {
+        stateTimerSeconds -= dt;
+        if (stateTimerSeconds <= 0.0) {
             pickNextState();
         }
 
         if (currentState == State.WALKING) {
-            double nextX = view.getLayoutX() + velX * dt;
-            double nextY = view.getLayoutY() + velY * dt;
-
-            // Límites simples (evitar salirse del gameArea)
-            double margin = 20;
-            double rightLimit = (gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280) - margin;
-            double bottomLimit = (gameArea.getHeight() > 0 ? gameArea.getHeight() : 720) - margin;
-
-            if (nextX < margin || nextX > rightLimit || nextY < margin || nextY > bottomLimit) {
-                pickNextState(); // Cambiar dirección si choca
-            } else {
-                view.setLayoutX(nextX);
-                view.setLayoutY(nextY);
-            }
+            updateWalking(dt);
         }
 
         updateAnimation(dt);
     }
 
-    private void pickNextState() {
-        double roll = ThreadLocalRandom.current().nextDouble();
+    /**
+     * Devuelve el nodo visual del NPC (Canvas).
+     */
+    @Override
+    public Node getView() {
+        return view;
+    }
 
-        // 40% Caminar, 30% Quieto, 30% Dormir
-        if (roll < 0.4) {
+    /**
+     * Devuelve bounds de tamaño 0 para que sea “fantasma” (sin colisiones).
+     * Se posiciona en el layout del Canvas por consistencia.
+     */
+    @Override
+    public Bounds getBounds() {
+        return new BoundingBox(view.getLayoutX(), view.getLayoutY(), 0, 0);
+    }
+
+    /**
+     * Actualiza el movimiento cuando el estado es WALKING, respetando límites simples.
+     */
+    private void updateWalking(double dt) {
+        double nextX = view.getLayoutX() + velX * dt;
+        double nextY = view.getLayoutY() + velY * dt;
+
+        double areaW = (gameArea.getWidth() > 0) ? gameArea.getWidth() : DEFAULT_AREA_WIDTH;
+        double areaH = (gameArea.getHeight() > 0) ? gameArea.getHeight() : DEFAULT_AREA_HEIGHT;
+
+        double rightLimit = areaW - BOUNDS_MARGIN;
+        double bottomLimit = areaH - BOUNDS_MARGIN;
+
+        if (nextX < BOUNDS_MARGIN || nextX > rightLimit || nextY < BOUNDS_MARGIN || nextY > bottomLimit) {
+            // Mantengo tu comportamiento: al “chocar”, cambia a un estado aleatorio (no solo girar).
+            pickNextState();
+            return;
+        }
+
+        view.setLayoutX(nextX);
+        view.setLayoutY(nextY);
+    }
+
+    /**
+     * Elige el siguiente estado con probabilidades:
+     * <ul>
+     *   <li>40% caminar</li>
+     *   <li>30% idle</li>
+     *   <li>30% dormir</li>
+     * </ul>
+     */
+    private void pickNextState() {
+        double roll = RNG.nextDouble();
+
+        if (roll < WALK_CHANCE) {
             startWalking();
-        } else if (roll < 0.7) {
+        } else if (roll < WALK_CHANCE + IDLE_CHANCE) {
             startIdle();
         } else {
             startSleeping();
         }
     }
 
+    /**
+     * Entra en estado WALKING con dirección aleatoria y duración aleatoria.
+     */
     private void startWalking() {
         currentState = State.WALKING;
-        stateTimer = ThreadLocalRandom.current().nextDouble(2.0, 5.0);
+        stateTimerSeconds = RNG.nextDouble(2.0, 5.0);
 
-        int dir = ThreadLocalRandom.current().nextInt(4);
+        int dir = RNG.nextInt(4);
         switch (dir) {
-            case 0 -> { currentDirection = Direction.UP;    velX = 0; velY = -moveSpeed; }
-            case 1 -> { currentDirection = Direction.DOWN;  velX = 0; velY = moveSpeed; }
-            case 2 -> { currentDirection = Direction.LEFT;  velX = -moveSpeed; velY = 0; }
-            case 3 -> { currentDirection = Direction.RIGHT; velX = moveSpeed; velY = 0; }
+            case 0 -> { currentDirection = Direction.UP;    velX = 0.0;        velY = -MOVE_SPEED; }
+            case 1 -> { currentDirection = Direction.DOWN;  velX = 0.0;        velY =  MOVE_SPEED; }
+            case 2 -> { currentDirection = Direction.LEFT;  velX = -MOVE_SPEED; velY = 0.0;        }
+            default -> { currentDirection = Direction.RIGHT; velX =  MOVE_SPEED; velY = 0.0;        }
         }
     }
 
+    /**
+     * Entra en estado IDLE con duración aleatoria.
+     */
     private void startIdle() {
         currentState = State.IDLE;
-        stateTimer = ThreadLocalRandom.current().nextDouble(1.5, 3.5);
-        velX = 0;
-        velY = 0;
+        stateTimerSeconds = RNG.nextDouble(1.5, 3.5);
+        velX = 0.0;
+        velY = 0.0;
     }
 
+    /**
+     * Entra en estado SLEEPING con duración aleatoria.
+     */
     private void startSleeping() {
         currentState = State.SLEEPING;
-        stateTimer = ThreadLocalRandom.current().nextDouble(5.0, 10.0);
-        velX = 0;
-        velY = 0;
+        stateTimerSeconds = RNG.nextDouble(5.0, 10.0);
+        velX = 0.0;
+        velY = 0.0;
     }
 
+    /**
+     * Avanza el tiempo de animación y dibuja el frame correcto según:
+     * <ul>
+     *   <li>Fila 0: UP (0-1) y RIGHT (2-3)</li>
+     *   <li>Fila 1: DOWN (0-1) y LEFT (2-3)</li>
+     *   <li>Fila 2: SLEEP (0-1)</li>
+     * </ul>
+     */
     private void updateAnimation(double dt) {
-        animTime += dt;
+        animTimeSeconds += dt;
+        drawCurrentFrame();
+    }
 
-        int row = 0;
-        int col = 0;
+    /**
+     * Calcula row/col actuales y dibuja el frame.
+     */
+    private void drawCurrentFrame() {
+        int row;
+        int col;
 
-        // LÓGICA DE SPRITES PERSONALIZADA
-        // Fila 0 (índice 0): Arriba (cols 0,1) | Derecha (cols 2,3)
-        // Fila 1 (índice 1): Abajo (cols 0,1) | Izquierda (cols 2,3)
-        // Fila 2 (índice 2): Dormir (cols 0,1)
-
-        double speedFactor = (currentState == State.SLEEPING) ? 1.0 : 0.2; // Velocidad de la animación
-        int frameStep = (int)(animTime / speedFactor) % 2; // Siempre alterna entre 0 y 1
+        double speedFactor = (currentState == State.SLEEPING) ? ANIM_SPEED_SLEEPING : ANIM_SPEED_DEFAULT;
+        int frameStep = ((int) (animTimeSeconds / speedFactor)) % 2; // 0..1
 
         if (currentState == State.SLEEPING) {
-            row = 2; // Fila 3
-            col = frameStep; // Alterna col 0 y 1 (Dormir 1 y 2)
+            row = 2;
+            col = frameStep;
         } else {
-            // IDLE o WALKING
-            // Si está IDLE, forzamos el primer frame de la pareja (el "quieto")
             if (currentState == State.IDLE) {
-                frameStep = 0;
+                frameStep = 0; // quieto: primer frame de la pareja
             }
-
             switch (currentDirection) {
-                case UP:
-                    row = 0;
-                    col = 0 + frameStep; // Cols 0 y 1
-                    break;
-                case RIGHT:
-                    row = 0;
-                    col = 2 + frameStep; // Cols 2 y 3
-                    break;
-                case DOWN:
-                    row = 1;
-                    col = 0 + frameStep; // Cols 0 y 1
-                    break;
-                case LEFT:
-                    row = 1;
-                    col = 2 + frameStep; // Cols 2 y 3
-                    break;
+                case UP    -> { row = 0; col = 0 + frameStep; }
+                case RIGHT -> { row = 0; col = 2 + frameStep; }
+                case DOWN  -> { row = 1; col = 0 + frameStep; }
+                case LEFT  -> { row = 1; col = 2 + frameStep; }
+                default    -> { row = 1; col = 0; }
             }
         }
 
         drawFrame(row, col);
     }
 
+    /**
+     * Dibuja un frame concreto del spritesheet en el Canvas.
+     *
+     * @param row fila del spritesheet
+     * @param col columna del spritesheet
+     */
     private void drawFrame(int row, int col) {
-        GraphicsContext gc = view.getGraphicsContext2D();
         gc.clearRect(0, 0, view.getWidth(), view.getHeight());
 
-        if (spriteSheet != null) {
-            double sx = col * FRAME_WIDTH;
-            double sy = row * FRAME_HEIGHT;
-
-            gc.drawImage(spriteSheet, sx, sy, FRAME_WIDTH, FRAME_HEIGHT,
-                         0, 0, FRAME_WIDTH * RENDER_SCALE, FRAME_HEIGHT * RENDER_SCALE);
-        } else {
-            // Fallback visual (círculo naranja) si falla la carga
-            gc.setFill(javafx.scene.paint.Color.ORANGE);
+        if (spriteSheet == null) {
+            // Fallback visual si falla la carga
+            gc.setFill(Color.ORANGE);
             gc.fillOval(0, 0, 30, 30);
+            return;
         }
+
+        double sx = (double) col * FRAME_WIDTH;
+        double sy = (double) row * FRAME_HEIGHT;
+
+        gc.drawImage(
+                spriteSheet,
+                sx, sy, FRAME_WIDTH, FRAME_HEIGHT,
+                0, 0, FRAME_WIDTH * RENDER_SCALE, FRAME_HEIGHT * RENDER_SCALE
+        );
     }
 
-    // --- MÉTODOS DE INTERFAZ GameEntity ---
+    /**
+     * Carga el spritesheet probando rutas típicas.
+     *
+     * @return la imagen o {@code null} si falla.
+     */
+    private Image loadSpriteSheet() {
+        Image img = AssetsManager.loadImage("/assets/images/choco_sheet.png");
+        if (img != null) return img;
 
-    @Override
-    public Node getView() {
-        return view;
-    }
-
-    @Override
-    public Bounds getBounds() {
-        // Bounds vacíos para ser un fantasma (sin colisiones)
-        return new BoundingBox(view.getLayoutX(), view.getLayoutY(), 0, 0);
+        img = AssetsManager.loadImage("assets/images/choco_sheet.png");
+        return img;
     }
 }

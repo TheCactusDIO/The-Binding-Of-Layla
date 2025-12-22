@@ -5,7 +5,12 @@ import java.util.Objects;
 
 import com.layla.model.StatModifier;
 
-/** Immutable metadata that describes a passive item. */
+/**
+ * Metadatos inmutables que describen un ítem pasivo.
+ *
+ * <p>Incluye su identificador, nombre/descripcion, el pool al que pertenece y los modificadores
+ * de stats que aplica. Opcionalmente puede requerir un logro para estar disponible.</p>
+ */
 public final class ItemDefinition {
 
     private final ItemId id;
@@ -14,15 +19,30 @@ public final class ItemDefinition {
     private final ItemPoolType poolType;
     private final List<StatModifier> modifiers;
 
-    // NUEVO: ID del logro necesario para desbloquear este ítem (null = desbloqueado por defecto)
+    /**
+     * ID del logro necesario para desbloquear este ítem.
+     * <p>Si es {@code null}, el ítem está desbloqueado por defecto.</p>
+     */
     private final String requiredAchievementId;
 
-    public ItemDefinition(ItemId id,
-                          String name,
-                          String description,
-                          ItemPoolType poolType,
-                          List<StatModifier> modifiers,
-                          String requiredAchievementId) { // Constructor completo
+    /**
+     * Constructor completo.
+     *
+     * @param id identificador del ítem (no null)
+     * @param name nombre visible (no null)
+     * @param description descripción visible (no null)
+     * @param poolType pool al que pertenece el ítem (no null)
+     * @param modifiers lista de modificadores que aplica (no null; se copia a lista inmutable)
+     * @param requiredAchievementId id del logro requerido, o {@code null} si no requiere logro
+     */
+    public ItemDefinition(
+            ItemId id,
+            String name,
+            String description,
+            ItemPoolType poolType,
+            List<StatModifier> modifiers,
+            String requiredAchievementId
+    ) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
         this.description = Objects.requireNonNull(description, "description");
@@ -31,23 +51,61 @@ public final class ItemDefinition {
         this.requiredAchievementId = requiredAchievementId;
     }
 
-    // Constructor de conveniencia (para ítems sin requisitos)
-    public ItemDefinition(ItemId id,
-                          String name,
-                          String description,
-                          ItemPoolType poolType,
-                          List<StatModifier> modifiers) {
+    /**
+     * Constructor de conveniencia para ítems sin requisito de logro.
+     *
+     * @param id identificador del ítem (no null)
+     * @param name nombre visible (no null)
+     * @param description descripción visible (no null)
+     * @param poolType pool al que pertenece el ítem (no null)
+     * @param modifiers lista de modificadores que aplica (no null; se copia a lista inmutable)
+     */
+    public ItemDefinition(
+            ItemId id,
+            String name,
+            String description,
+            ItemPoolType poolType,
+            List<StatModifier> modifiers
+    ) {
         this(id, name, description, poolType, modifiers, null);
     }
 
-    public ItemId getId() { return id; }
-    public String getName() { return name; }
-    public String getDescription() { return description; }
-    public ItemPoolType getPoolType() { return poolType; }
-    public List<StatModifier> getModifiers() { return modifiers; }
+    /** @return el identificador del ítem. */
+    public ItemId getId() {
+        return id;
+    }
 
-    // NUEVO Getter
-    public String getRequiredAchievementId() { return requiredAchievementId; }
+    /** @return el nombre visible del ítem. */
+    public String getName() {
+        return name;
+    }
 
-    public boolean isUnlockedByDefault() { return requiredAchievementId == null; }
+    /** @return la descripción visible del ítem. */
+    public String getDescription() {
+        return description;
+    }
+
+    /** @return el pool al que pertenece el ítem. */
+    public ItemPoolType getPoolType() {
+        return poolType;
+    }
+
+    /** @return lista inmutable de modificadores del ítem. */
+    public List<StatModifier> getModifiers() {
+        return modifiers;
+    }
+
+    /**
+     * @return el id del logro requerido, o {@code null} si no requiere logro.
+     */
+    public String getRequiredAchievementId() {
+        return requiredAchievementId;
+    }
+
+    /**
+     * @return {@code true} si el ítem está desbloqueado por defecto (no requiere logro).
+     */
+    public boolean isUnlockedByDefault() {
+        return requiredAchievementId == null;
+    }
 }

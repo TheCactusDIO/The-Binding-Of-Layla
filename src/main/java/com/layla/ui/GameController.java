@@ -61,6 +61,9 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 
+/**
+ * Main gameplay controller that manages the game loop, UI overlays, and run lifecycle events.
+ */
 public class GameController implements ViewLifecycle {
 
     // =====================
@@ -1946,6 +1949,7 @@ public class GameController implements ViewLifecycle {
                 });
 
                 soc.setOnItemsChanged(() -> {
+                    handleShopItemPurchase();
                     score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
 
                     sound.play("buy");
@@ -1987,6 +1991,16 @@ public class GameController implements ViewLifecycle {
         if (itemHud != null) itemHud.toFront();
     }
 
+    /**
+     * Handles a confirmed shop item purchase and triggers the achievement check.
+     * Call once per successful item purchase (coins deducted and item granted).
+     */
+    private void handleShopItemPurchase() {
+        achievements.onItemBought();
+        System.out.println("[Achievements] Shop purchase confirmed for profile " + AppContext.getProfileId()
+                + "; onItemBought fired.");
+    }
+
     // =====================================================================
     // REWARDS: COINS / PEDESTAL / ITEM PICKUP
     // =====================================================================
@@ -2014,7 +2028,7 @@ public class GameController implements ViewLifecycle {
 
         // Fallback a TREASURE si el pool solicitado estuviera vacío
         if (availableItems.isEmpty()) {
-            availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
+            availableItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
         }
         if (availableItems.isEmpty()) return;
 
@@ -2082,17 +2096,12 @@ public class GameController implements ViewLifecycle {
     }
 
     /**
-     * Genera ofertas de tienda (mezcla SHOP + TREASURE) con precio basado en wave.
+     * Genera ofertas de tienda (solo pool SHOP) con precio basado en wave.
      */
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
 
-        List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
-        List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
-
-        List<ItemDefinition> pool = new ArrayList<>(shopItems);
-        pool.addAll(treasureItems);
-
+        List<ItemDefinition> pool = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
         if (pool.isEmpty()) return offers;
 
         for (int i = 0; i < count; i++) {
@@ -2104,7 +2113,8 @@ public class GameController implements ViewLifecycle {
         return offers;
     }
 
-    // =====================================================================
+
+    // =================================================================
     // PAREDES INVISIBLES (BOUNDARY WALLS)
     // =====================================================================
 
@@ -2436,6 +2446,20 @@ public class GameController implements ViewLifecycle {
     // =====================================================================
 
     /**
+     * Registra una muerte del jugador y dispara el trigger de logros con el total persistido.
+     * Debe llamarse una sola vez por muerte real.
+     */
+    private void registerPlayerDeath() {
+        int profileId = AppContext.getProfileId();
+        db.recordRunEndAsyncWithDeathTotal(profileId, false, score, currentFloor)
+            .thenAccept(totalDeaths -> {
+                System.out.println("[Achievements] Death registered for profile " + profileId
+                        + " (total deaths=" + totalDeaths + ").");
+                achievements.onDeath(totalDeaths);
+            });
+    }
+
+    /**
      * Muestra el overlay de Game Over, detiene el loop y guarda run.
      */
     private void showGameOverOverlay() {
@@ -2443,7 +2467,7 @@ public class GameController implements ViewLifecycle {
         gameOverShown = true;
 
         if (gameLoop != null) gameLoop.stop();
-        db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
+        registerPlayerDeath();
 
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.85, c -> {
             if (c instanceof GameOverController goc) {

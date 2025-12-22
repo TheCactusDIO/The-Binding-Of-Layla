@@ -140,9 +140,11 @@ public final class ProfileSelectController implements ViewLifecycle {
 
     /**
      * Selecciona el perfil en AppContext y pasa al menú principal.
+     * Recarga el estado de logros para el perfil seleccionado.
      */
     private void loadProfile(int id) {
         AppContext.setProfileId(id);
+        AppContext.achievements().reloadForCurrentProfile();
         System.out.println("[Profile] Perfil seleccionado: " + id);
         SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml");
     }

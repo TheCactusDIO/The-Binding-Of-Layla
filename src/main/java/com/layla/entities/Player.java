@@ -22,17 +22,25 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
+/**
+ * Entidad del jugador.
+ * <ul>
+ *   <li>Movimiento suavizado (aceleración/deceleración) con velocidad máxima desde {@link StatsService}.</li>
+ *   <li>Render con sprite sheet (cuerpo + cabeza) y animación.</li>
+ *   <li>Hitbox separada del tamaño visual del sprite.</li>
+ *   <li>Vida, invulnerabilidad temporal tras recibir daño y feedback visual (parpadeo).</li>
+ * </ul>
+ */
 public final class Player implements GameEntity {
 
-    private static final double TAU_ACCEL    = 0.035;
-    private static final double TAU_DECEL    = 0.090;
-    private static final double TAU_REVERSE  = 0.045;
+    private static final double TAU_ACCEL   = 0.035;
+    private static final double TAU_DECEL   = 0.090;
+    private static final double TAU_REVERSE = 0.045;
 
-    // ===== Size/scale (OPTION 2: visual + hitbox) =====
-    // Sube o baja este número para hacer el jugador más grande/pequeño (incluye hitbox).
+    /** Escala global del jugador (sprite + hitbox). */
     private static final double VISUAL_SCALE = 1.2;
 
-    // --- CONFIGURACIÓN DEL SPRITE ---
+    // Sprite sheet config
     private static final int FRAME_W = 32;
     private static final int FRAME_H = 32;
     private static final int COLUMNS_IN_SHEET = 10;
@@ -43,7 +51,7 @@ public final class Player implements GameEntity {
     private static final int ROW_WALK_SIDE = 2;
     private static final int ROW_WALK_UP = 3;
 
-    // Frames Cabeza
+    // Frames cabeza
     private static final int HEAD_IDX_AIM_DOWN   = 0;
     private static final int HEAD_IDX_SHOOT_DOWN = 1;
     private static final int HEAD_IDX_AIM_SIDE   = 2;
@@ -51,80 +59,82 @@ public final class Player implements GameEntity {
     private static final int HEAD_IDX_AIM_UP     = 4;
     private static final int HEAD_IDX_SHOOT_UP   = 5;
 
-    // --- AJUSTES VISUALES ---
-    // Hitbox lógica (física) reducida para evitar colisiones "falsas" con el aire del sprite
+    // Hitbox y sprite
     private static final double HITBOX_SIZE = 24.0 * VISUAL_SCALE;
-    // Tamaño visual del sprite
     private static final double SPRITE_SIZE = 48.0 * VISUAL_SCALE;
-
-    // Offset para centrar el sprite (48px) sobre la hitbox (24px)
-    // (HITBOX - SPRITE) / 2
     private static final double CENTER_OFFSET = (HITBOX_SIZE - SPRITE_SIZE) / 2.0;
-
-    // Offset vertical específico de la cabeza respecto al cuerpo
     private static final double HEAD_OFFSET_Y = -12.0 * VISUAL_SCALE;
 
-    // Lógica de disparo
+    // Shooting face
     private static final double SHOOT_FACE_COOLDOWN = 0.25;
     private double lastShootTime = 99.0;
     private int latchedShootDir = -1;
     private int currentShootDir = -1;
 
-    // View Components
-    private final StackPane viewRoot = new StackPane();
-    // La caja física (Hitbox) - Transparente pero define el tamaño del GameEntity
-    private final Rectangle debugBox = new Rectangle(HITBOX_SIZE, HITBOX_SIZE, Color.TRANSPARENT);
+    private static final double INVULN_DURATION = 1.0;
+    private static final Consumer<String> NO_OP_SFX = k -> {};
 
+    // View
+    private final StackPane viewRoot = new StackPane();
+    private final Rectangle debugBox = new Rectangle(HITBOX_SIZE, HITBOX_SIZE, Color.TRANSPARENT);
     private final ImageView bodyView = new ImageView();
     private final ImageView headView = new ImageView();
 
     private final SpriteAnimator bodyAnimator;
     private final boolean hasSprite;
 
+    // Inputs / deps
     private final Supplier<double[]> moveSupplier;
     private final InputService inputService;
     private final Pane boundsPane;
-    // World insets (used to keep the player away from the background walls)
+    private final StatsService statsService;
+    private final Consumer<String> playSfx;
+
+    // Insets de mundo (paredes invisibles)
     private double worldInsetLeft   = 0.0;
     private double worldInsetRight  = 0.0;
     private double worldInsetTop    = 0.0;
     private double worldInsetBottom = 0.0;
 
-    private final StatsService statsService;
-
+    // Movement state
     private double vx;
     private double vy;
-
     private int moveDir = 0; // 0=Abajo, 1=Derecha, 2=Arriba, 3=Izquierda
 
+    // Head animation state
     private boolean isShootingFrame = false;
     private double shootFrameTimer = 0.0;
 
+    // Health
     private double health = 6.0;
     private double maxHealth = 6.0;
     private boolean dead = false;
-
     private double invulnTimer = 0.0;
-    private static final double INVULN_DURATION = 1.0;
 
-    private final Consumer<String> playSfx;
     private String lastHitSource = null;
 
     public Player(InputService input, Pane boundsPane, StatsService statsService) {
         this(input, boundsPane, statsService, null);
     }
 
+    /**
+     * @param input servicio de input (movimiento y dirección de disparo)
+     * @param boundsPane pane usado como límites del mundo (clamp del movimiento)
+     * @param statsService servicio de stats (velocidad, vida máxima, etc.). Si es null, usa AppContext.stats().
+     * @param playSfx callback para reproducir SFX por key (si es null, se ignora)
+     */
     public Player(InputService input, Pane boundsPane, StatsService statsService, Consumer<String> playSfx) {
         this.inputService = Objects.requireNonNull(input, "input");
         this.moveSupplier = input::getMoveVector;
-        this.boundsPane   = Objects.requireNonNull(boundsPane, "boundsPane");
+        this.boundsPane = Objects.requireNonNull(boundsPane, "boundsPane");
         this.statsService = (statsService != null) ? statsService : com.layla.AppContext.stats();
-        this.playSfx      = (playSfx != null ? playSfx : k -> {});
+        this.playSfx = (playSfx != null) ? playSfx : NO_OP_SFX;
+
+        // Arranca con un pelín de invulnerabilidad (como buffer de spawn)
         this.invulnTimer = 1.0;
 
         debugBox.setStroke(Color.BLACK);
         debugBox.setStrokeWidth(1);
-        // Si quieres ver la hitbox real para depurar, cambia esto a Color.RED
         debugBox.setFill(Color.TRANSPARENT);
 
         Image sheet = AssetsManager.loadImage("assets/images/player_sheet.png");
@@ -136,15 +146,12 @@ public final class Player implements GameEntity {
             hasSprite = true;
             debugBox.setStroke(Color.TRANSPARENT);
 
-            // Configurar vistas
             setupImageView(bodyView, sheet);
             setupImageView(headView, sheet);
 
-            // IMPORTANTE: Unmanaged para que el StackPane no crezca al tamaño de la imagen
             bodyView.setManaged(false);
             headView.setManaged(false);
 
-            // Centrar manualmente las imágenes respecto a la hitbox (0,0 es esquina sup izq de hitbox)
             bodyView.setLayoutX(CENTER_OFFSET);
             bodyView.setLayoutY(CENTER_OFFSET);
 
@@ -162,7 +169,6 @@ public final class Player implements GameEntity {
         viewRoot.setLayoutX(200);
         viewRoot.setLayoutY(200);
 
-        // Forzar tamaño del root al de la hitbox
         viewRoot.setMinSize(HITBOX_SIZE, HITBOX_SIZE);
         viewRoot.setMaxSize(HITBOX_SIZE, HITBOX_SIZE);
 
@@ -177,14 +183,23 @@ public final class Player implements GameEntity {
         v.setPreserveRatio(true);
     }
 
-    public void setLastHitSource(String source) { this.lastHitSource = source; }
-    public String getLastHitSource() { return lastHitSource; }
-    /** Keeps the player inside an inner rectangle (useful for invisible background walls). */
+    public void setLastHitSource(String source) {
+        this.lastHitSource = source;
+    }
+
+    public String getLastHitSource() {
+        return lastHitSource;
+    }
+
+    /**
+     * Mantiene al jugador dentro de un rectángulo interior, dejando "paredes" invisibles.
+     * Los valores negativos se clipean a 0.
+     */
     public void setWorldInset(double left, double right, double top, double bottom) {
-        this.worldInsetLeft = Math.max(0, left);
-        this.worldInsetRight = Math.max(0, right);
-        this.worldInsetTop = Math.max(0, top);
-        this.worldInsetBottom = Math.max(0, bottom);
+        this.worldInsetLeft = Math.max(0.0, left);
+        this.worldInsetRight = Math.max(0.0, right);
+        this.worldInsetTop = Math.max(0.0, top);
+        this.worldInsetBottom = Math.max(0.0, bottom);
     }
 
     public double getX() { return viewRoot.getLayoutX(); }
@@ -192,14 +207,16 @@ public final class Player implements GameEntity {
     public double getCenterX() { return getX() + HITBOX_SIZE * 0.5; }
     public double getCenterY() { return getY() + HITBOX_SIZE * 0.5; }
 
-
-
     @Override
     public void update(double dt) {
-        if (dt <= 0 || dead) return;
+        if (dt <= 0.0 || dead) {
+            return;
+        }
 
-        if (invulnTimer > 0.0) invulnTimer = Math.max(0.0, invulnTimer - dt);
-        viewRoot.setOpacity(invulnTimer > 0 && (invulnTimer % 0.15 > 0.07) ? 0.4 : 1.0);
+        if (invulnTimer > 0.0) {
+            invulnTimer = Math.max(0.0, invulnTimer - dt);
+        }
+        viewRoot.setOpacity(invulnTimer > 0.0 && (invulnTimer % 0.15 > 0.07) ? 0.4 : 1.0);
 
         syncMaxHealthFromStats();
         handleMovement(dt);
@@ -218,11 +235,12 @@ public final class Player implements GameEntity {
 
         double ax = 1.0 - Math.exp(-dt / tauX);
         double ay = 1.0 - Math.exp(-dt / tauY);
+
         vx += (targetVx - vx) * ax;
         vy += (targetVy - vy) * ay;
 
         double speed = Math.hypot(vx, vy);
-        if (speed > maxSpeed && speed > 0) {
+        if (speed > maxSpeed && speed > 0.0) {
             double s = maxSpeed / speed;
             vx *= s;
             vy *= s;
@@ -231,11 +249,15 @@ public final class Player implements GameEntity {
         double nextX = viewRoot.getLayoutX() + vx * dt;
         double nextY = viewRoot.getLayoutY() + vy * dt;
 
-        double maxX = Math.max(0.0, boundsPane.getWidth()  - getWidth());
-        double maxY = Math.max(0.0, boundsPane.getHeight() - getHeight());
+        // Clamp con insets
+        double minX = worldInsetLeft;
+        double minY = worldInsetTop;
 
-        if (nextX < 0.0) nextX = 0.0; else if (nextX > maxX) nextX = maxX;
-        if (nextY < 0.0) nextY = 0.0; else if (nextY > maxY) nextY = maxY;
+        double maxX = Math.max(minX, boundsPane.getWidth() - getWidth() - worldInsetRight);
+        double maxY = Math.max(minY, boundsPane.getHeight() - getHeight() - worldInsetBottom);
+
+        if (nextX < minX) nextX = minX; else if (nextX > maxX) nextX = maxX;
+        if (nextY < minY) nextY = minY; else if (nextY > maxY) nextY = maxY;
 
         viewRoot.setLayoutX(nextX);
         viewRoot.setLayoutY(nextY);
@@ -245,15 +267,12 @@ public final class Player implements GameEntity {
         if (!hasSprite) return;
 
         double[] aim = inputService.getAimArrowCardinal();
-        boolean isShootingInput = (aim[0] != 0 || aim[1] != 0);
+        boolean isShootingInput = (aim[0] != 0.0 || aim[1] != 0.0);
 
         int newShootDir = -1;
         if (isShootingInput) {
-            if (Math.abs(aim[0]) > Math.abs(aim[1])) {
-                newShootDir = (aim[0] > 0) ? 1 : 3;
-            } else {
-                newShootDir = (aim[1] > 0) ? 0 : 2;
-            }
+            if (Math.abs(aim[0]) > Math.abs(aim[1])) newShootDir = (aim[0] > 0) ? 1 : 3;
+            else newShootDir = (aim[1] > 0) ? 0 : 2;
         }
 
         if (isShootingInput) {
@@ -266,7 +285,7 @@ public final class Player implements GameEntity {
                 shootFrameTimer = 0.15;
             } else {
                 shootFrameTimer -= dt;
-                if (shootFrameTimer <= 0) {
+                if (shootFrameTimer <= 0.0) {
                     isShootingFrame = !isShootingFrame;
                     shootFrameTimer = 0.15;
                 }
@@ -280,7 +299,6 @@ public final class Player implements GameEntity {
 
         boolean showShootFace = (lastShootTime < SHOOT_FACE_COOLDOWN);
 
-        // Umbral proporcional al tamaño para "moving"
         boolean moving = Math.abs(vx) > (5.0 * VISUAL_SCALE) || Math.abs(vy) > (5.0 * VISUAL_SCALE);
         if (moving) {
             if (Math.abs(vx) > Math.abs(vy)) moveDir = (vx > 0) ? 1 : 3;
@@ -290,16 +308,16 @@ public final class Player implements GameEntity {
         int headDir = showShootFace ? latchedShootDir : moveDir;
         if (headDir == -1) headDir = moveDir;
 
-        // --- ANIMAR CUERPO ---
+        // ---- Cuerpo ----
         int bodyRowTarget = ROW_WALK_DOWN;
         int bodyFrames = 8;
         boolean bodyFlip = false;
 
         switch (moveDir) {
-            case 0: bodyRowTarget = ROW_WALK_DOWN; bodyFrames = 8; break;
-            case 2: bodyRowTarget = ROW_WALK_UP;   bodyFrames = 2; break;
-            case 1: bodyRowTarget = ROW_WALK_SIDE; bodyFrames = 8; bodyFlip = false; break;
-            case 3: bodyRowTarget = ROW_WALK_SIDE; bodyFrames = 8; bodyFlip = true;  break;
+            case 0 -> { bodyRowTarget = ROW_WALK_DOWN; bodyFrames = 8; }
+            case 2 -> { bodyRowTarget = ROW_WALK_UP;   bodyFrames = 2; }
+            case 1 -> { bodyRowTarget = ROW_WALK_SIDE; bodyFrames = 8; bodyFlip = false; }
+            case 3 -> { bodyRowTarget = ROW_WALK_SIDE; bodyFrames = 8; bodyFlip = true; }
         }
 
         if (moving) {
@@ -312,17 +330,17 @@ public final class Player implements GameEntity {
         bodyView.setScaleX(bodyFlip ? -1 : 1);
         bodyView.setViewport(bodyAnimator.getCurrentViewport());
 
-        // --- ANIMAR CABEZA ---
+        // ---- Cabeza ----
         int headFrameIdx = HEAD_IDX_AIM_DOWN;
         boolean headFlip = false;
 
         boolean useShootFrame = isShootingInput && isShootingFrame;
 
         switch (headDir) {
-            case 0: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_DOWN : HEAD_IDX_AIM_DOWN; break;
-            case 2: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_UP   : HEAD_IDX_AIM_UP;   break;
-            case 1: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_SIDE : HEAD_IDX_AIM_SIDE; headFlip = false; break;
-            case 3: headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_SIDE : HEAD_IDX_AIM_SIDE; headFlip = true;  break;
+            case 0 -> headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_DOWN : HEAD_IDX_AIM_DOWN;
+            case 2 -> headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_UP : HEAD_IDX_AIM_UP;
+            case 1 -> { headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_SIDE : HEAD_IDX_AIM_SIDE; headFlip = false; }
+            case 3 -> { headFrameIdx = useShootFrame ? HEAD_IDX_SHOOT_SIDE : HEAD_IDX_AIM_SIDE; headFlip = true; }
         }
 
         headView.setScaleX(headFlip ? -1 : 1);
@@ -335,9 +353,14 @@ public final class Player implements GameEntity {
         return TAU_ACCEL;
     }
 
-    @Override public Node getView() { return viewRoot; }
+    @Override
+    public Node getView() {
+        return viewRoot;
+    }
 
-    // Para colisiones usamos hitbox (HITBOX_SIZE), no bounds visuales (la cabeza sale fuera).
+    /**
+     * Hitbox lógica (no usa bounds visuales porque la cabeza sale fuera).
+     */
     @Override
     public Bounds getBounds() {
         return new BoundingBox(viewRoot.getLayoutX(), viewRoot.getLayoutY(), HITBOX_SIZE, HITBOX_SIZE);
@@ -378,17 +401,20 @@ public final class Player implements GameEntity {
             die();
         } else {
             invulnTimer = INVULN_DURATION;
-            if (playSfx != null) playSfx.accept("hurt");
+            playSfx.accept("hurt");
         }
     }
 
     private void die() {
         if (dead) return;
+
         dead = true;
         health = 0.0;
-        if (playSfx != null) playSfx.accept("player_death");
+
+        playSfx.accept("player_death");
+
         viewRoot.setOpacity(0.5);
-        viewRoot.setRotate(90);
+        viewRoot.setRotate(90.0);
     }
 
     private void syncMaxHealthFromStats() {

@@ -1,7 +1,6 @@
 package com.layla.entities;
 
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -16,22 +15,36 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
+/**
+ * Boss "Sniper":
+ * - Mantiene distancia del jugador (huye si estás cerca, se acerca si estás lejos).
+ * - En rango medio, hace strafe/orbita lateral.
+ * - Ataque principal: ráfaga apuntada.
+ * - Cada 3 ataques: lanza un orbe lento que explota en anillo.
+ */
 public class BossSniper extends Boss {
 
-    private final ThreadLocalRandom rng = ThreadLocalRandom.current();
+    // Distancias deseadas respecto al jugador.
+    private static final double DESIRED_MIN_DIST = 220.0;
+    private static final double DESIRED_MAX_DIST = 360.0;
 
-    // Mantiene distancia
-    private double desiredMinDist = 220.0;
-    private double desiredMaxDist = 360.0;
+    // Timing del ataque.
+    private static final double ATTACK_INTERVAL_SEC = 1.7;
 
+    // Contador de ataques para alternar comportamiento y patrón.
     private int attackCount = 0;
 
-    public BossSniper(double x, double y, double maxHp, Pane parent,
-                      Supplier<double[]> playerPos,
-                      Consumer<Boss> onDeath,
-                      Consumer<GameEntity> onSpawnProjectile,
-                      Consumer<GameEntity> onRemoveProjectile,
-                      String bossId) {
+    public BossSniper(
+            double x,
+            double y,
+            double maxHp,
+            Pane parent,
+            Supplier<double[]> playerPos,
+            Consumer<Boss> onDeath,
+            Consumer<GameEntity> onSpawnProjectile,
+            Consumer<GameEntity> onRemoveProjectile,
+            String bossId
+    ) {
         super(x, y, maxHp, parent, playerPos, onDeath, onSpawnProjectile, onRemoveProjectile, bossId);
 
         // Look distinto
@@ -44,70 +57,117 @@ public class BossSniper extends Boss {
         this.speed = 35.0;
     }
 
+    /**
+     * Update principal:
+     * - Robusto: si hp cae a 0 por cualquier vía, muere.
+     * - Movimiento según distancia.
+     * - Ataque por timer.
+     */
     @Override
     public void update(double dt) {
-        if (dead || hp <= 0) return;
+        if (dead) return;
 
-        // Movimiento: se aleja si estás muy cerca, si no “orbita” ligeramente
+        // Robustez: evita quedar "zombie" si hp llega a 0 fuera de takeDamage()
+        if (hp <= 0.0) {
+            die();
+            return;
+        }
+
+        updateMovement(dt);
+        updateAttackTimer(dt);
+    }
+
+    /**
+     * Movimiento:
+     * - Si está muy cerca: se aleja.
+     * - Si está muy lejos: se acerca.
+     * - Si está en rango: orbita/strafe (perpendicular al vector hacia el jugador).
+     */
+    private void updateMovement(double dt) {
         double[] p = playerPos.get();
+
         double bx = view.getLayoutX();
         double by = view.getLayoutY();
+
         double dx = p[0] - bx;
         double dy = p[1] - by;
-        double dist = Math.sqrt(dx*dx + dy*dy);
+
+        double dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 0.001) dist = 0.001;
 
-        double moveX = 0.0;
-        double moveY = 0.0;
+        double ndx = dx / dist;
+        double ndy = dy / dist;
 
-        if (dist < desiredMinDist) {
+        double moveX;
+        double moveY;
+
+        if (dist < DESIRED_MIN_DIST) {
             // huye
-            moveX = -(dx / dist);
-            moveY = -(dy / dist);
-        } else if (dist > desiredMaxDist) {
+            moveX = -ndx;
+            moveY = -ndy;
+        } else if (dist > DESIRED_MAX_DIST) {
             // se acerca un poco para no quedarse fuera
-            moveX = (dx / dist);
-            moveY = (dy / dist);
+            moveX = ndx;
+            moveY = ndy;
         } else {
             // strafe/orbita: perpendicular al vector al player
-            double px = -(dy / dist);
-            double py = (dx / dist);
-            // alterna dirección a veces
+            double px = -ndy;
+            double py = ndx;
+
+            // alterna dirección según el número de ataques ya hechos (patrón simple)
             double dir = (attackCount % 2 == 0) ? 1.0 : -1.0;
+
             moveX = px * dir;
             moveY = py * dir;
         }
 
         view.setLayoutX(bx + moveX * speed * dt);
         view.setLayoutY(by + moveY * speed * dt);
+    }
 
-        // Ataque
+    /**
+     * Suma el timer y dispara cuando toca.
+     */
+    private void updateAttackTimer(double dt) {
         attackTimer += dt;
-        if (attackTimer > 1.7) {
+        if (attackTimer > ATTACK_INTERVAL_SEC) {
             performAttack();
             attackTimer = 0.0;
         }
     }
 
+    /**
+     * Ataque del sniper:
+     * - Cada 3 ataques: orbe lento que explota en anillo.
+     * - Si no: ráfaga apuntada con leve spread.
+     */
     @Override
     protected void performAttack() {
         if (dead) return;
 
         attackCount++;
 
-        // 1 de cada 3 ataques: dispara un "orb" lento que explota en anillo
+        // 1 de cada 3 ataques
         if (attackCount % 3 == 0) {
             spawnExplodingOrb();
             return;
         }
 
-        // Ráfaga apuntada
+        spawnAimedBurst();
+    }
+
+    /**
+     * Ráfaga apuntada al jugador, con spread.
+     */
+    private void spawnAimedBurst() {
         double[] p = playerPos.get();
         double bx = view.getLayoutX();
         double by = view.getLayoutY();
+
         double dx = p[0] - bx;
         double dy = p[1] - by;
-        double dist = Math.sqrt(dx*dx + dy*dy);
+
+        double dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 0.001) dist = 0.001;
 
         double aimX = dx / dist;
@@ -116,104 +176,150 @@ public class BossSniper extends Boss {
         int burst = (phase == 1) ? 3 : 5;
         double spreadDeg = (phase == 1) ? 8.0 : 12.0;
 
+        int mid = burst / 2; // burst 3 -> 1, burst 5 -> 2
+
         for (int i = 0; i < burst; i++) {
-            // offsets: -2,-1,0,1,2 (para burst=5) o -1,0,1 (para burst=3)
-            int mid = burst / 2;
             int off = i - mid;
 
             double a = Math.toRadians(off * spreadDeg);
 
-            // Rotar vector aim por ángulo a
+            // Rotar (aimX, aimY) por ángulo a
             double rx = aimX * Math.cos(a) - aimY * Math.sin(a);
             double ry = aimX * Math.sin(a) + aimY * Math.cos(a);
 
-            Projectile proj = new Projectile(
-                rx, ry,
-                330.0, 3.0, 1.0,
-                true,
-                parent,
-                onRemoveProjectile,
-                this,
-                bossId
-            );
-            proj.getView().setLayoutX(bx);
-            proj.getView().setLayoutY(by);
-            onSpawnProjectile.accept(proj);
+            spawnProjectile(rx, ry, 330.0, 3.0, 1.0, bx, by, this);
         }
     }
 
+    /**
+     * Spawnea el orbe que explota en anillo tras un delay.
+     */
     private void spawnExplodingOrb() {
         double[] p = playerPos.get();
         double bx = view.getLayoutX();
         double by = view.getLayoutY();
+
         double dx = p[0] - bx;
         double dy = p[1] - by;
-        double dist = Math.sqrt(dx*dx + dy*dy);
+
+        double dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 0.001) dist = 0.001;
 
         double dirX = dx / dist;
         double dirY = dy / dist;
 
         ExplodingOrb orb = new ExplodingOrb(
-            bx, by,
-            dirX, dirY,
-            110.0,
-            (phase == 1) ? 0.9 : 0.7, // delay hasta explotar
-            (phase == 1) ? 10 : 14,    // balas
-            (phase == 1) ? 190.0 : 220.0,
-            parent,
-            onSpawnProjectile,
-            onRemoveProjectile,
-            this,
-            bossId
+                bx, by,
+                dirX, dirY,
+                110.0,
+                (phase == 1) ? 0.9 : 0.7,   // delay hasta explotar
+                (phase == 1) ? 10 : 14,     // balas
+                (phase == 1) ? 190.0 : 220.0,
+                parent,
+                onSpawnProjectile,
+                onRemoveProjectile,
+                this,
+                bossId
         );
 
         onSpawnProjectile.accept(orb);
     }
 
+    /**
+     * Helper centralizado para crear y spawnear proyectiles.
+     */
+    private void spawnProjectile(
+            double dirX,
+            double dirY,
+            double speed,
+            double radius,
+            double damage,
+            double x,
+            double y,
+            Boss owner
+    ) {
+        Projectile proj = new Projectile(
+                dirX, dirY,
+                speed,
+                radius, damage,
+                true,
+                parent,
+                onRemoveProjectile,
+                owner,
+                bossId
+        );
+        proj.getView().setLayoutX(x);
+        proj.getView().setLayoutY(y);
+        onSpawnProjectile.accept(proj);
+    }
+
+    /**
+     * Color normal tras daño.
+     */
     @Override
     protected void updateColor() {
         view.setFill(Color.DARKSLATEBLUE);
     }
 
-    // === Orb que explota en anillo ===
+    // =========================================================
+    // Orb que explota en anillo
+    // =========================================================
+
+    /**
+     * Orbe:
+     * - Se mueve hacia delante.
+     * - Tras un delay, explota en anillo y se destruye.
+     *
+     * Importante: destrucción idempotente para evitar dobles onRemove().
+     */
     private static final class ExplodingOrb implements GameEntity {
+
         private final Pane parent;
         private final Circle view;
+
         private final Consumer<GameEntity> onSpawn;
         private final Consumer<GameEntity> onRemove;
+
         private final Boss owner;
         private final String bossId;
 
-        private final double dirX, dirY;
+        private final double dirX;
+        private final double dirY;
         private final double speed;
+
         private double timeLeft;
+
         private final int ringCount;
         private final double ringSpeed;
 
-        ExplodingOrb(double x, double y,
-                     double dirX, double dirY,
-                     double speed,
-                     double delay,
-                     int ringCount,
-                     double ringSpeed,
-                     Pane parent,
-                     Consumer<GameEntity> onSpawn,
-                     Consumer<GameEntity> onRemove,
-                     Boss owner,
-                     String bossId) {
+        private boolean destroyed = false;
 
-            this.parent = Objects.requireNonNull(parent);
-            this.onSpawn = Objects.requireNonNull(onSpawn);
-            this.onRemove = Objects.requireNonNull(onRemove);
-            this.owner = Objects.requireNonNull(owner);
-            this.bossId = Objects.requireNonNull(bossId);
+        ExplodingOrb(
+                double x,
+                double y,
+                double dirX,
+                double dirY,
+                double speed,
+                double delay,
+                int ringCount,
+                double ringSpeed,
+                Pane parent,
+                Consumer<GameEntity> onSpawn,
+                Consumer<GameEntity> onRemove,
+                Boss owner,
+                String bossId
+        ) {
+            this.parent = Objects.requireNonNull(parent, "parent");
+            this.onSpawn = Objects.requireNonNull(onSpawn, "onSpawn");
+            this.onRemove = Objects.requireNonNull(onRemove, "onRemove");
+            this.owner = Objects.requireNonNull(owner, "owner");
+            this.bossId = Objects.requireNonNull(bossId, "bossId");
 
             this.dirX = dirX;
             this.dirY = dirY;
             this.speed = speed;
-            this.timeLeft = delay;
 
+            this.timeLeft = delay;
             this.ringCount = ringCount;
             this.ringSpeed = ringSpeed;
 
@@ -223,11 +329,14 @@ public class BossSniper extends Boss {
             this.view.setEffect(new DropShadow(14, Color.DEEPSKYBLUE));
             this.view.setLayoutX(x);
             this.view.setLayoutY(y);
+
             parent.getChildren().add(this.view);
         }
 
         @Override
         public void update(double dt) {
+            if (destroyed) return;
+
             // mover
             view.setLayoutX(view.getLayoutX() + dirX * speed * dt);
             view.setLayoutY(view.getLayoutY() + dirY * speed * dt);
@@ -239,38 +348,55 @@ public class BossSniper extends Boss {
             }
         }
 
+        /**
+         * Explota en anillo (proyectiles radiales).
+         */
         private void explode() {
+            double x = view.getLayoutX();
+            double y = view.getLayoutY();
+
             for (int i = 0; i < ringCount; i++) {
-                double a = (2 * Math.PI / ringCount) * i;
+                double a = (2.0 * Math.PI / ringCount) * i;
                 double vx = Math.cos(a);
                 double vy = Math.sin(a);
 
                 Projectile p = new Projectile(
-                    vx, vy,
-                    ringSpeed, 3.0, 1.0,
-                    true,
-                    parent,
-                    onRemove,
-                    owner,
-                    bossId
+                        vx, vy,
+                        ringSpeed, 3.0, 1.0,
+                        true,
+                        parent,
+                        onRemove,
+                        owner,
+                        bossId
                 );
-                p.getView().setLayoutX(view.getLayoutX());
-                p.getView().setLayoutY(view.getLayoutY());
+                p.getView().setLayoutX(x);
+                p.getView().setLayoutY(y);
                 onSpawn.accept(p);
             }
         }
 
+        /**
+         * Destruye el orbe de forma segura e idempotente.
+         */
         private void destroy() {
+            if (destroyed) return;
+            destroyed = true;
+
             parent.getChildren().remove(view);
             onRemove.accept(this);
         }
 
-        @Override public Node getView() { return view; }
+        @Override
+        public Node getView() {
+            return view;
+        }
 
         @Override
         public Bounds getBounds() {
-            return new BoundingBox(view.getLayoutX() - view.getRadius(), view.getLayoutY() - view.getRadius(),
-                    view.getRadius() * 2, view.getRadius() * 2);
+            double r = view.getRadius();
+            double x = view.getLayoutX();
+            double y = view.getLayoutY();
+            return new BoundingBox(x - r, y - r, r * 2, r * 2);
         }
     }
 }

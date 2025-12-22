@@ -9,6 +9,9 @@ import com.layla.db.DatabaseService;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
@@ -19,17 +22,16 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
 
 public class BestiaryController implements ViewLifecycle {
 
     // =========================
     // FXML
     // =========================
-
     @FXML private FlowPane gridPane;
     @FXML private VBox detailsPanel;
 
-    // Panel de detalles
     @FXML private ImageView detailImage;
     @FXML private Label detailName;
     @FXML private Label statSeen, statKills, statDeaths;
@@ -38,47 +40,46 @@ public class BestiaryController implements ViewLifecycle {
     // =========================
     // ESTADO
     // =========================
-
     private Map<String, DatabaseService.EnemyStatEntry> statsMap;
+    private StackPane selectedIcon = null;
 
     // =========================
     // CONSTANTES UI
     // =========================
-
     private static final double ICON_BOX_SIZE = 64.0;
     private static final double ICON_IMAGE_SIZE = 48.0;
     private static final double FALLBACK_RECT_SIZE = 40.0;
+
+    private static final double DETAIL_WIDTH = 380.0;
 
     private static final String STYLE_ICON_NORMAL =
             "-fx-background-color: #333; -fx-background-radius: 8; -fx-border-color: #555; -fx-border-radius: 8; -fx-cursor: hand;";
     private static final String STYLE_ICON_HOVER =
             "-fx-background-color: #444; -fx-background-radius: 8; -fx-border-color: #ffd54f; -fx-border-radius: 8; -fx-cursor: hand;";
+    private static final String STYLE_ICON_SELECTED =
+            "-fx-background-color: #444; -fx-background-radius: 8; -fx-border-color: #ffd54f; -fx-border-width: 2; -fx-border-radius: 8; -fx-cursor: hand;";
 
     private static final String STYLE_UNKNOWN_LABEL =
             "-fx-text-fill: #555; -fx-font-size: 24px; -fx-font-weight: bold;";
 
     private static final String TXT_NO_DESCUBIERTO = "Sin descubrir";
 
-    // IDs de jefes (se mantienen tal cual para que coincidan con imágenes/estadísticas)
     private static final List<String> BOSS_IDS = List.of(
             "BOSS_FLOOR_1", "BOSS_FLOOR_2", "BOSS_FLOOR_3", "BOSS_FLOOR_4", "BOSS_FLOOR_5"
     );
 
     @Override
     public void onEnter() {
-        // Al entrar, recargamos datos por si cambiaron estadísticas con otra partida/perfil.
         loadData();
     }
 
-    /**
-     * Carga las estadísticas del perfil actual y reconstruye el grid de enemigos/jefes.
-     */
     private void loadData() {
         int profileId = AppContext.getProfileId();
         statsMap = AppContext.db().getAllEnemyStats(profileId);
 
         gridPane.getChildren().clear();
-        hideDetailsPanel();
+        selectedIcon = null;
+        hideDetailsPanelImmediately();
 
         // Enemigos normales
         for (EnemyType type : EnemyType.values()) {
@@ -91,22 +92,20 @@ public class BestiaryController implements ViewLifecycle {
         }
     }
 
-    /**
-     * Crea un icono en el grid. Si el enemigo no ha sido visto, se muestra un "?" con tooltip.
-     *
-     * @param id     identificador (EnemyType.name() o BOSS_FLOOR_X)
-     * @param isBoss true si es un jefe
-     */
     private void createEnemyIcon(String id, boolean isBoss) {
-        DatabaseService.EnemyStatEntry entry = statsMap != null ? statsMap.get(id) : null;
-        boolean seen = entry != null && entry.seen() > 0;
+        DatabaseService.EnemyStatEntry entry = (statsMap != null) ? statsMap.get(id) : null;
+
+        int seenCount   = (entry != null) ? entry.seen()     : 0;
+        int killedCount = (entry != null) ? entry.killed()   : 0;
+        int deathsBy    = (entry != null) ? entry.killedBy() : 0;
+
+        boolean seen = seenCount > 0;
 
         StackPane iconRoot = new StackPane();
         iconRoot.setPrefSize(ICON_BOX_SIZE, ICON_BOX_SIZE);
         iconRoot.setStyle(STYLE_ICON_NORMAL);
 
         if (seen) {
-            // Si está descubierto, intentamos mostrar imagen. Si no existe, fallback a un rectángulo de color.
             Image img = loadEnemyImage(id);
 
             if (img != null && !img.isError()) {
@@ -120,18 +119,22 @@ public class BestiaryController implements ViewLifecycle {
                 iconRoot.getChildren().add(new Rectangle(FALLBACK_RECT_SIZE, FALLBACK_RECT_SIZE, c));
             }
 
-            // Hover
-            iconRoot.setOnMouseEntered(e -> iconRoot.setStyle(STYLE_ICON_HOVER));
-            iconRoot.setOnMouseExited(e -> iconRoot.setStyle(STYLE_ICON_NORMAL));
+            // Hover (sin pisar selección)
+            iconRoot.setOnMouseEntered(e -> {
+                if (iconRoot != selectedIcon) iconRoot.setStyle(STYLE_ICON_HOVER);
+            });
+            iconRoot.setOnMouseExited(e -> {
+                if (iconRoot != selectedIcon) iconRoot.setStyle(STYLE_ICON_NORMAL);
+            });
 
-            // Click -> detalles (entry debería ser != null aquí, pero nos protegemos por si acaso)
-            DatabaseService.EnemyStatEntry safeEntry =
-                    (entry != null) ? entry : new DatabaseService.EnemyStatEntry(0, 0, 0);
-
-            iconRoot.setOnMouseClicked(e -> showDetails(id, safeEntry, isBoss));
+            // Click -> detalles
+            iconRoot.setOnMouseClicked(e -> {
+                selectIcon(iconRoot);
+                showDetails(id, isBoss, seenCount, killedCount, deathsBy);
+                openDetailsPanelAnimated();
+            });
 
         } else {
-            // No descubierto -> "?"
             Label q = new Label("?");
             q.setStyle(STYLE_UNKNOWN_LABEL);
             iconRoot.getChildren().add(q);
@@ -141,41 +144,37 @@ public class BestiaryController implements ViewLifecycle {
         gridPane.getChildren().add(iconRoot);
     }
 
-    /**
-     * Muestra el panel de detalles para un enemigo/jefe.
-     * Para jefes, algunas stats se ocultan o se dejan fijas para evitar depender de un EnemyType inexistente.
-     */
-    private void showDetails(String id, DatabaseService.EnemyStatEntry entry, boolean isBoss) {
-        detailsPanel.setVisible(true);
+    private void selectIcon(StackPane icon) {
+        if (selectedIcon != null) {
+            selectedIcon.setStyle(STYLE_ICON_NORMAL);
+        }
+        selectedIcon = icon;
+        selectedIcon.setStyle(STYLE_ICON_SELECTED);
+    }
 
-        // Nombre simple (no inventamos traducciones para no “añadir contenido”)
+    private void showDetails(String id, boolean isBoss, int seen, int kills, int deathsBy) {
         detailName.setText(id.replace("_", " "));
 
-        // Imagen del detalle (si existe)
+        // Imagen detalle
         Image img = loadEnemyImage(id);
         if (img != null && !img.isError()) {
             detailImage.setImage(img);
-            detailImage.setVisible(true);
         } else {
             detailImage.setImage(null);
         }
 
-        // Stats de la DB
-        statSeen.setText(String.valueOf(entry.seen()));
-        statKills.setText(String.valueOf(entry.killed()));
-        statDeaths.setText(String.valueOf(entry.killedBy()));
+        // Stats DB
+        statSeen.setText(String.valueOf(seen));
+        statKills.setText(String.valueOf(kills));
+        statDeaths.setText(String.valueOf(deathsBy));
 
-        // Atributos (balance)
+        // Atributos balance
         if (isBoss) {
-            // No tenemos EnemyType para jefes (están por ID), así que no accedemos a profile(...)
-            attrHp.setText("???");
-            attrDmg.setText("1.0");
-            attrSpeed.setText("45");
-            attrProjDmg.setText("1.0");
+            // No inventamos stats si no tenemos perfil por ID
+            setAttrs("-", "-", "-", "-");
             return;
         }
 
-        // Enemigos normales: leer EnemyProfile desde balance
         try {
             EnemyProfile profile = AppContext.balance().profile(EnemyType.valueOf(id));
             if (profile != null) {
@@ -183,17 +182,23 @@ public class BestiaryController implements ViewLifecycle {
                 attrDmg.setText(String.format("%.1f", profile.contactDmg));
                 attrSpeed.setText(String.format("%.0f", profile.speed));
                 attrProjDmg.setText(String.format("%.1f", profile.projDamage));
+            } else {
+                setAttrs("-", "-", "-", "-");
             }
         } catch (Exception ignore) {
-            // Si algo falla, dejamos lo que hubiera (o vacío). Preferible a crashear la UI.
+            setAttrs("-", "-", "-", "-");
         }
     }
 
-    /**
-     * Carga la imagen de un enemigo/jefe desde resources.
-     * Si no existe, devuelve null para permitir fallback.
-     */
+    private void setAttrs(String hp, String dmg, String proj, String speed) {
+        attrHp.setText(hp);
+        attrDmg.setText(dmg);
+        attrProjDmg.setText(proj);
+        attrSpeed.setText(speed);
+    }
+
     private Image loadEnemyImage(String id) {
+        // Mantengo tu naming: assets/images/enemies/<ID>.png
         String path = "assets/images/enemies/" + id + ".png";
         try {
             return AssetsManager.loadImage(path);
@@ -202,9 +207,6 @@ public class BestiaryController implements ViewLifecycle {
         }
     }
 
-    /**
-     * Color de fallback por tipo de enemigo (solo para EnemyType válidos).
-     */
     private Color getColorForType(String id) {
         try {
             return switch (EnemyType.valueOf(id)) {
@@ -220,11 +222,59 @@ public class BestiaryController implements ViewLifecycle {
         }
     }
 
-    /**
-     * Oculta el panel de detalles (sin animaciones).
-     */
-    private void hideDetailsPanel() {
+    private void openDetailsPanelAnimated() {
+        if (detailsPanel.isVisible() && detailsPanel.getPrefWidth() >= DETAIL_WIDTH) return;
+
+        detailsPanel.setVisible(true);
+        detailsPanel.setManaged(true);
+
+        Timeline t = new Timeline(
+                new KeyFrame(Duration.millis(220),
+                        new KeyValue(detailsPanel.prefWidthProperty(), DETAIL_WIDTH),
+                        new KeyValue(detailsPanel.opacityProperty(), 1.0)
+                )
+        );
+        t.play();
+    }
+
+    private void closeDetailsPanelAnimated() {
+        Timeline t = new Timeline(
+                new KeyFrame(Duration.millis(200),
+                        new KeyValue(detailsPanel.prefWidthProperty(), 0),
+                        new KeyValue(detailsPanel.opacityProperty(), 0.0)
+                )
+        );
+
+        t.setOnFinished(e -> {
+            detailsPanel.setVisible(false);
+            detailsPanel.setManaged(false);
+
+            if (selectedIcon != null) {
+                selectedIcon.setStyle(STYLE_ICON_NORMAL);
+                selectedIcon = null;
+            }
+        });
+
+        t.play();
+    }
+
+    private void hideDetailsPanelImmediately() {
         detailsPanel.setVisible(false);
+        detailsPanel.setManaged(false);
+        detailsPanel.setPrefWidth(0);
+        detailsPanel.setOpacity(0.0);
+
+        detailImage.setImage(null);
+        detailName.setText("SELECT AN ENEMY");
+        statSeen.setText("0");
+        statKills.setText("0");
+        statDeaths.setText("0");
+        setAttrs("-", "-", "-", "-");
+    }
+
+    @FXML
+    private void onCloseDetails() {
+        closeDetailsPanelAnimated();
     }
 
     @FXML

@@ -18,138 +18,333 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
+/**
+ * Pantalla "Items" dentro de Collection.
+ *
+ * Objetivo:
+ *  - Mostrar un grid de items (desbloqueados / bloqueados).
+ *  - Al hacer click, mostrar un panel de detalles.
+ *
+ * Nota de limpieza:
+ *  - Evitamos inline-style duplicado usando constantes.
+ *  - Arreglamos un detalle importante de layout: si el panel está invisible pero "managed",
+ *    sigue ocupando espacio. Aquí lo gestionamos con setManaged(false/true).
+ */
 public class ItemsController implements ViewLifecycle {
 
+    // =========================
+    // FXML
+    // =========================
     @FXML private FlowPane gridPane;
     @FXML private VBox detailsPanel;
 
-    // UI Detalles
+    // Panel detalles
     @FXML private ImageView detailImage;
     @FXML private Label detailName;
     @FXML private Label detailDescription;
     @FXML private Label detailStats;
     @FXML private Label detailPool;
 
+    // =========================
+    // Servicios
+    // =========================
     private final AchievementService achievements = AppContext.achievements();
 
+    // =========================
+    // Constantes UI
+    // =========================
+    private static final double ICON_BOX_SIZE = 64.0;
+    private static final double ICON_IMAGE_SIZE = 48.0;
+
+    private static final String STYLE_ICON_NORMAL =
+            "-fx-background-color: #333; -fx-background-radius: 8; -fx-border-color: #555; -fx-border-radius: 8; -fx-cursor: hand;";
+    private static final String STYLE_ICON_HOVER =
+            "-fx-background-color: #444; -fx-background-radius: 8; -fx-border-color: #ffd54f; -fx-border-radius: 8; -fx-cursor: hand;";
+
+    private static final String STYLE_UNKNOWN_LABEL =
+            "-fx-text-fill: #555; -fx-font-size: 24px; -fx-font-weight: bold;";
+
+    // Estilos del panel detalle (temporal, luego lo pasarás a CSS)
+    private static final String STYLE_TITLE_UNLOCKED =
+            "-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24px;";
+    private static final String STYLE_TITLE_LOCKED =
+            "-fx-text-fill: #aa0000; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24px;";
+
+    private static final String TXT_LOCKED_ITEM = "LOCKED ITEM";
+    private static final String TXT_POOL_UNKNOWN = "Pool: ???";
+
+    // Comparación segura para multiplicadores
+    private static final double EPS = 1e-9;
+
+    /**
+     * Lifecycle: se llama al entrar en la pestaña.
+     * Recarga el grid por si han cambiado logros/desbloqueos.
+     */
     @Override
     public void onEnter() {
-        loadData();
+        reloadGrid();
+        hideDetailsPanel();
     }
 
-    public void loadData() {
+    /**
+     * Reconstruye el grid completo de items.
+     * Mantenerlo simple reduce estados raros (items antiguos, listeners duplicados, etc.).
+     */
+    private void reloadGrid() {
+        if (gridPane == null) return;
+
         gridPane.getChildren().clear();
-        detailsPanel.setVisible(false);
 
         List<ItemDefinition> allItems = ItemRegistry.allDefinitions();
+        if (allItems == null || allItems.isEmpty()) {
+            return;
+        }
 
         for (ItemDefinition def : allItems) {
-            createItemIcon(def);
+            if (def == null) continue;
+            gridPane.getChildren().add(createItemIcon(def));
         }
     }
 
-    private void createItemIcon(ItemDefinition def) {
+    /**
+     * Crea un icono clicable para el item:
+     *  - Si está desbloqueado: muestra imagen.
+     *  - Si está bloqueado: muestra "?".
+     *  - Hover común.
+     *  - Click abre detalles (tanto locked como unlocked).
+     */
+    private StackPane createItemIcon(ItemDefinition def) {
         boolean unlocked = isUnlocked(def);
 
         StackPane iconRoot = new StackPane();
-        iconRoot.setPrefSize(64, 64);
-        iconRoot.setStyle("-fx-background-color: #333; -fx-background-radius: 8; -fx-border-color: #555; -fx-border-radius: 8; -fx-cursor: hand;");
+        iconRoot.setPrefSize(ICON_BOX_SIZE, ICON_BOX_SIZE);
+        iconRoot.setStyle(STYLE_ICON_NORMAL);
 
         if (unlocked) {
-            try {
-                String path = ItemRegistry.getIconPath(def.getId());
-                if (path != null) {
-                    String cleanPath = path.startsWith("/") ? path.substring(1) : path;
-                    Image img = AssetsManager.loadImage(cleanPath);
-                    if (img != null) {
-                        ImageView iv = new ImageView(img);
-                        iv.setFitWidth(48); iv.setFitHeight(48);
-                        iv.setPreserveRatio(true);
-                        iconRoot.getChildren().add(iv);
-                    }
-                }
-            } catch (Exception e) { /* Fallback */ }
+            Image img = loadItemIcon(def);
+            if (img != null && !img.isError()) {
+                ImageView iv = new ImageView(img);
+                iv.setFitWidth(ICON_IMAGE_SIZE);
+                iv.setFitHeight(ICON_IMAGE_SIZE);
+                iv.setPreserveRatio(true);
+                iconRoot.getChildren().add(iv);
+            } else {
+                // Fallback: si no carga icono, mostramos "?"
+                iconRoot.getChildren().add(createUnknownLabel());
+            }
         } else {
-            // Ítem bloqueado: Signo de interrogación
-            Label q = new Label("?");
-            q.setStyle("-fx-text-fill: #555; -fx-font-size: 24px; -fx-font-weight: bold;");
-            iconRoot.getChildren().add(q);
+            iconRoot.getChildren().add(createUnknownLabel());
         }
 
-        // Efecto hover común
-        iconRoot.setOnMouseEntered(e -> iconRoot.setStyle("-fx-background-color: #444; -fx-background-radius: 8; -fx-border-color: #ffd54f; -fx-border-radius: 8; -fx-cursor: hand;"));
-        iconRoot.setOnMouseExited(e -> iconRoot.setStyle("-fx-background-color: #333; -fx-background-radius: 8; -fx-border-color: #555; -fx-border-radius: 8; -fx-cursor: hand;"));
+        // Hover (sin tocar CSS todavía)
+        iconRoot.setOnMouseEntered(e -> iconRoot.setStyle(STYLE_ICON_HOVER));
+        iconRoot.setOnMouseExited(e -> iconRoot.setStyle(STYLE_ICON_NORMAL));
 
-        // Clic para ver detalles (funciona tanto bloqueado como desbloqueado)
+        // Click -> detalles
         iconRoot.setOnMouseClicked(e -> showDetails(def));
 
-        gridPane.getChildren().add(iconRoot);
+        return iconRoot;
     }
 
+    /**
+     * Determina si un item está desbloqueado:
+     *  - Si se desbloquea por defecto => true.
+     *  - Si requiere logro => consultamos AchievementService.
+     *
+     * IMPORTANTE: requiredAchievementId puede ser null; lo tratamos como "bloqueado"
+     * (o si prefieres, podrías tratarlo como "desbloqueado" según tu diseño).
+     */
     private boolean isUnlocked(ItemDefinition def) {
+        if (def == null) return false;
         if (def.isUnlockedByDefault()) return true;
-        return achievements.isUnlocked(def.getRequiredAchievementId());
+
+        String achId = def.getRequiredAchievementId();
+        if (achId == null || achId.isBlank()) return false;
+
+        return achievements.isUnlocked(achId);
     }
 
+    /**
+     * Muestra el panel de detalles del item:
+     *  - Si unlocked: muestra nombre, descripción, pool, imagen, stats.
+     *  - Si locked: oculta datos sensibles y muestra condición basada en el logro requerido.
+     */
     private void showDetails(ItemDefinition def) {
-        detailsPanel.setVisible(true);
+        if (def == null) return;
+
+        showDetailsPanel();
+
         boolean unlocked = isUnlocked(def);
-
         if (unlocked) {
-            // --- ITEM DESBLOQUEADO ---
-            detailName.setText(def.getName());
-            detailName.setStyle("-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24px;");
-
-            detailDescription.setText(def.getDescription());
-            detailDescription.setStyle("-fx-text-fill: white; -fx-font-style: italic;");
-
-            detailPool.setText("Pool: " + def.getPoolType().name());
-
-            // Imagen
-            try {
-                String path = ItemRegistry.getIconPath(def.getId());
-                String cleanPath = path.startsWith("/") ? path.substring(1) : path;
-                detailImage.setImage(AssetsManager.loadImage(cleanPath));
-            } catch (Exception e) { detailImage.setImage(null); }
-
-            // Stats
-            StringBuilder statsText = new StringBuilder();
-            for (StatModifier mod : def.getModifiers()) {
-                if (mod.getAdditive() != 0) {
-                    String sign = mod.getAdditive() > 0 ? "+" : "";
-                    statsText.append(String.format("%s%.1f %s\n", sign, mod.getAdditive(), mod.getStatId().name()));
-                }
-                if (mod.getMultiplicative() != 1.0) {
-                    statsText.append(String.format("x%.2f %s\n", mod.getMultiplicative(), mod.getStatId().name()));
-                }
-            }
-            detailStats.setText(statsText.toString());
-
+            renderUnlockedDetails(def);
         } else {
-            // --- ITEM BLOQUEADO ---
-            detailName.setText("LOCKED ITEM");
-            detailName.setStyle("-fx-text-fill: #aa0000; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24px;");
+            renderLockedDetails(def);
+        }
+    }
 
-            detailPool.setText("Pool: ???");
-            detailImage.setImage(null); // Se quita la imagen o se podría poner un candado
+    /**
+     * Render del panel de detalles para item desbloqueado.
+     */
+    private void renderUnlockedDetails(ItemDefinition def) {
+        // Título
+        if (detailName != null) {
+            detailName.setText(safe(def.getName()));
+            detailName.setStyle(STYLE_TITLE_UNLOCKED);
+        }
+
+        // Descripción
+        if (detailDescription != null) {
+            detailDescription.setText(safe(def.getDescription()));
+            detailDescription.setStyle("-fx-text-fill: white; -fx-font-style: italic;");
+        }
+
+        // Pool
+        if (detailPool != null) {
+            String pool = (def.getPoolType() != null) ? def.getPoolType().name() : "???";
+            detailPool.setText("Pool: " + pool);
+        }
+
+        // Imagen
+        if (detailImage != null) {
+            Image img = loadItemIcon(def);
+            detailImage.setImage(img);
+        }
+
+        // Stats
+        if (detailStats != null) {
+            detailStats.setText(buildStatsText(def));
+        }
+    }
+
+    /**
+     * Render del panel de detalles para item bloqueado.
+     * Aquí intentamos NO filtrar información del item y centrarnos en la condición.
+     */
+    private void renderLockedDetails(ItemDefinition def) {
+        if (detailName != null) {
+            detailName.setText(TXT_LOCKED_ITEM);
+            detailName.setStyle(STYLE_TITLE_LOCKED);
+        }
+
+        if (detailPool != null) {
+            detailPool.setText(TXT_POOL_UNKNOWN);
+        }
+
+        if (detailImage != null) {
+            detailImage.setImage(null);
+        }
+
+        if (detailStats != null) {
             detailStats.setText("");
+        }
 
-            // Construir texto de condición basado en el logro requerido
-            String achId = def.getRequiredAchievementId();
-            if (achId != null) {
-                AchievementDefinition achDef = achievements.getDefinition(achId);
-                if (achDef != null) {
-                    String text = "UNLOCK CONDITION:\n\n" +
-                                  "Achievement: " + achDef.getName() + "\n" +
-                                  "Requirement: " + achDef.getDescription();
-                    detailDescription.setText(text);
-                } else {
-                    detailDescription.setText("Unlock condition unknown.");
-                }
-            } else {
-                detailDescription.setText("This item is locked by mysterious means.");
-            }
+        if (detailDescription != null) {
+            detailDescription.setText(buildLockedConditionText(def));
             detailDescription.setStyle("-fx-text-fill: #aaaaaa;");
         }
+    }
+
+    /**
+     * Construye el texto de stats a partir de los modifiers del item.
+     * Si no hay stats, devolvemos un string amigable.
+     */
+    private String buildStatsText(ItemDefinition def) {
+        List<StatModifier> mods = def.getModifiers();
+        if (mods == null || mods.isEmpty()) return "-";
+
+        StringBuilder sb = new StringBuilder();
+        for (StatModifier mod : mods) {
+            if (mod == null || mod.getStatId() == null) continue;
+
+            // Aditivo
+            double add = mod.getAdditive();
+            if (Math.abs(add) > EPS) {
+                String sign = (add > 0) ? "+" : "";
+                sb.append(String.format("%s%.1f %s%n", sign, add, mod.getStatId().name()));
+            }
+
+            // Multiplicativo (si es distinto de 1.0)
+            double mul = mod.getMultiplicative();
+            if (Math.abs(mul - 1.0) > EPS) {
+                sb.append(String.format("x%.2f %s%n", mul, mod.getStatId().name()));
+            }
+        }
+
+        String out = sb.toString().trim();
+        return out.isEmpty() ? "-" : out;
+    }
+
+    /**
+     * Construye el texto de condición para un item bloqueado.
+     * Si existe un logro requerido, muestra nombre y descripción del logro.
+     */
+    private String buildLockedConditionText(ItemDefinition def) {
+        String achId = def.getRequiredAchievementId();
+        if (achId == null || achId.isBlank()) {
+            return "This item is locked by mysterious means.";
+        }
+
+        AchievementDefinition achDef = achievements.getDefinition(achId);
+        if (achDef == null) {
+            return "Unlock condition unknown.";
+        }
+
+        return "UNLOCK CONDITION:\n\n"
+                + "Achievement: " + safe(achDef.getName()) + "\n"
+                + "Requirement: " + safe(achDef.getDescription());
+    }
+
+    /**
+     * Carga el icono del item desde ItemRegistry/AssetsManager.
+     * Devuelve null si no existe o falla.
+     */
+    private Image loadItemIcon(ItemDefinition def) {
+        try {
+            if (def == null) return null;
+
+            String path = ItemRegistry.getIconPath(def.getId());
+            if (path == null || path.isBlank()) return null;
+
+            String cleanPath = path.startsWith("/") ? path.substring(1) : path;
+            return AssetsManager.loadImage(cleanPath);
+
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    /**
+     * Oculta el panel de detalles y lo saca del layout para que NO reserve espacio.
+     * (Esto arregla el comportamiento de “panel fantasma” a la derecha.)
+     */
+    private void hideDetailsPanel() {
+        if (detailsPanel == null) return;
+        detailsPanel.setVisible(false);
+        detailsPanel.setManaged(false);
+    }
+
+    /**
+     * Muestra el panel de detalles y lo vuelve a incluir en el layout.
+     */
+    private void showDetailsPanel() {
+        if (detailsPanel == null) return;
+        detailsPanel.setManaged(true);
+        detailsPanel.setVisible(true);
+    }
+
+    /**
+     * Crea el label "?" reutilizable para items bloqueados/fallback.
+     */
+    private Label createUnknownLabel() {
+        Label q = new Label("?");
+        q.setStyle(STYLE_UNKNOWN_LABEL);
+        return q;
+    }
+
+    /**
+     * Evita nulls en textos (UI más robusta).
+     */
+    private static String safe(String s) {
+        return (s != null) ? s : "";
     }
 }

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
@@ -10,42 +9,69 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<HBox spacing="20" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+<HBox spacing="20"
+      xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.layla.ui.ItemsController"
-      style="-fx-background-color: transparent; -fx-padding: 20;">
+      styleClass="collection-content">
 
+    <!-- LISTA / GRID -->
     <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
         <Label text="UNLOCKED ITEMS" styleClass="section-header"/>
 
-        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;"
-                    hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+        <ScrollPane fitToWidth="true"
+                    styleClass="transparent-scroll"
+                    hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                    VBox.vgrow="ALWAYS">
             <content>
-                <FlowPane fx:id="gridPane" hgap="12" vgap="12" alignment="TOP_LEFT"
-                          style="-fx-background-color: transparent;"/>
+                <FlowPane fx:id="gridPane"
+                          hgap="12" vgap="12"
+                          alignment="TOP_LEFT"
+                          styleClass="transparent-pane"/>
             </content>
         </ScrollPane>
     </VBox>
 
-    <VBox fx:id="detailsPanel" spacing="15" alignment="TOP_CENTER" prefWidth="320" minWidth="320" styleClass="detail-panel">
+    <!-- DETALLES -->
+    <VBox fx:id="detailsPanel"
+          spacing="15"
+          alignment="TOP_CENTER"
+          prefWidth="320" minWidth="320"
+          styleClass="detail-panel"
+          visible="false"
+          managed="false">
 
         <StackPane styleClass="icon-box-large">
-            <ImageView fx:id="detailImage" fitWidth="80" fitHeight="80" preserveRatio="true"/>
+            <ImageView fx:id="detailImage"
+                       fitWidth="80" fitHeight="80"
+                       preserveRatio="true"/>
         </StackPane>
 
-        <Label fx:id="detailName" text="ITEM NAME" wrapText="true" textAlignment="CENTER"
-               style="-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24px;"/>
+        <Label fx:id="detailName"
+               text="ITEM NAME"
+               wrapText="true"
+               textAlignment="CENTER"
+               styleClass="item-detail-title"/>
 
-        <Label fx:id="detailPool" text="TREASURE" style="-fx-text-fill: #666; -fx-font-size: 12px;"/>
+        <Label fx:id="detailPool"
+               text="TREASURE"
+               styleClass="item-detail-pool"/>
 
-        <Separator style="-fx-opacity: 0.3;"/>
+        <Separator styleClass="soft-separator"/>
 
         <Label text="EFFECTS" styleClass="section-header"/>
-        <Label fx:id="detailDescription" text="..." wrapText="true" style="-fx-text-fill: white; -fx-font-style: italic;"/>
+        <Label fx:id="detailDescription"
+               text="..."
+               wrapText="true"
+               styleClass="item-detail-desc"/>
 
-        <Separator style="-fx-opacity: 0.3;"/>
+        <Separator styleClass="soft-separator"/>
 
         <Label text="STATS" styleClass="section-header"/>
-        <Label fx:id="detailStats" text="..." wrapText="true" style="-fx-text-fill: #00ff00;"/>
+        <Label fx:id="detailStats"
+               text="..."
+               wrapText="true"
+               styleClass="item-detail-stats"/>
 
     </VBox>
 </HBox>

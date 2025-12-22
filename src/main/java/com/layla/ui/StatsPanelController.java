@@ -3,13 +3,16 @@ package com.layla.ui;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
-import java.util.function.IntConsumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import com.layla.AppContext;
 import com.layla.model.EnemyProfile;
 import com.layla.model.EnemyType;
 import com.layla.model.PlayerStatId;
@@ -25,46 +28,114 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 
+/**
+ * Panel de depuración / balanceo:
+ * - Edita stats base del jugador (HP, velocidad, fire rate, etc.).
+ * - Edita balance por tipo de enemigo (EnemyProfile) y permite guardarlo en JSON.
+ * - Ajusta monedas iniciales y, si estás en pausa, puede avisar al GameController.
+ */
 public class StatsPanelController {
-    // Player & player-projectile fields
-    @FXML private TextField startHpField;   // solo info / legacy
-    @FXML private TextField maxHpField;     // este manda
+
+    // =========================
+    // FXML: Player stats
+    // =========================
+
+    /** HP unificado (este manda). */
+    @FXML private TextField maxHpField;
+
     @FXML private TextField moveSpeedField;
     @FXML private TextField fireRateField;
     @FXML private TextField projSpeedField;
     @FXML private TextField projRangeField;
     @FXML private TextField projDamageField;
 
-    // Coins on menu / en partida
-    private Integer initialCoins = null;            // null => usar balance.startCoins
-    private IntConsumer onCoinsChanged;             // usado solo en partida (GameController)
+    // =========================
+    // FXML: Coins
+    // =========================
+
     @FXML private Spinner<Integer> coinsSpinner;
 
+    /** Monedas iniciales si vienes desde GameController (pausa). Null => usar balance.startCoins. */
+    private Integer initialCoins = null;
+
+    /** Callback para informar al GameController cuando cambien coins del run actual. */
+    private Consumer<Integer> onCoinsChanged = c -> {};
+
+    // =========================
+    // FXML: Persistencia / Enemy profiles
+    // =========================
+
     @FXML private CheckBox persistCheck;
+
     @FXML private ComboBox<EnemyType> enemyTypeCombo;
-    @FXML private TextField profileHpField, profileSpeedField, profileContactField, profileFireField, profileJitterField,
-                            profileProjSpeedField, profileProjRangeField, profileProjDmgField, profileScoreField;
     @FXML private CheckBox stationaryCheck;
     @FXML private Button saveBtn;
 
+    @FXML private TextField profileHpField;
+    @FXML private TextField profileSpeedField;
+    @FXML private TextField profileContactField;
+    @FXML private TextField profileFireField;
+    @FXML private TextField profileJitterField;
+    @FXML private TextField profileProjSpeedField;
+    @FXML private TextField profileProjRangeField;
+    @FXML private TextField profileProjDmgField;
+    @FXML private TextField profileScoreField;
+
+    // =========================
+    // Callbacks / Services
+    // =========================
+
     private Runnable onClose = () -> {};
-    /** Called whenever stats/balance change so caller (HUD/game) can refresh immediately. */
     private Runnable onStatsChanged = () -> {};
-    private StatsService stats = com.layla.AppContext.stats();
+
+    private StatsService stats = AppContext.stats();
+
+    // =========================
+    // Estado interno de bindings
+    // =========================
+
+    /** Guard para evitar side-effects cuando rellenamos la UI por código. */
+    private boolean updatingUI = false;
+
+    /** Guardamos listeners para poder desengancharlos al cambiar de EnemyType. */
     private final Map<TextField, ChangeListener<String>> profileBindings = new HashMap<>();
     private ChangeListener<Boolean> stationaryBinding;
-    private final Path enemyBalancePath = Path.of(
-            System.getProperty("user.home"),
-            ".layla",
-            "enemy_balance.json"
+
+    // =========================
+    // Paths
+    // =========================
+
+    private static final Path USER_STATS_PATH = Path.of(
+            System.getProperty("user.home"), ".layla", "stats.json"
     );
 
-    // --------- API pública extra ---------
-    public void setOnClose(Runnable r)          { this.onClose = (r != null) ? r : () -> {}; }
-    public void setOnStatsChanged(Runnable r)   { this.onStatsChanged = (r != null) ? r : () -> {}; }
-    public void setStatsService(StatsService s) { if (s != null) this.stats = s; }
+    private static final Path ENEMY_BALANCE_PATH = Path.of(
+            System.getProperty("user.home"), ".layla", "enemy_balance.json"
+    );
 
-    /** Coins iniciales (cuando vienes desde GameController en pausa). */
+    // =========================
+    // API pública (desde fuera)
+    // =========================
+
+    /** Asigna callback de cierre del overlay/panel. */
+    public void setOnClose(Runnable r) {
+        this.onClose = (r != null) ? r : () -> {};
+    }
+
+    /** Se llama cuando cambian stats/balance para refrescar HUD/juego. */
+    public void setOnStatsChanged(Runnable r) {
+        this.onStatsChanged = (r != null) ? r : () -> {};
+    }
+
+    /** Permite inyectar StatsService (tests o variantes). */
+    public void setStatsService(StatsService s) {
+        if (s != null) this.stats = s;
+    }
+
+    /**
+     * Monedas iniciales (cuando vienes desde GameController en pausa).
+     * También actualiza el spinner si ya está listo.
+     */
     public void setInitialCoins(int coins) {
         this.initialCoins = Math.max(0, coins);
         if (coinsSpinner != null && coinsSpinner.getValueFactory() != null) {
@@ -72,219 +143,91 @@ public class StatsPanelController {
         }
     }
 
-    /** Callback para avisar al GameController cuando cambien las monedas. */
-    public void setOnCoinsChanged(IntConsumer onCoinsChanged) {
-        this.onCoinsChanged = onCoinsChanged;
+    /**
+     * Callback para avisar al GameController si estás en partida:
+     * (ej. al pulsar Aplicar, actualizar coins del run actual).
+     */
+    public void setOnCoinsChanged(java.util.function.IntConsumer cb) {
+        this.onCoinsChanged = (cb != null) ? cb::accept : c -> {};
     }
 
+    // =========================
+    // JavaFX init
+    // =========================
+
+    /**
+     * Inicializa el panel:
+     * - Configura spinner, focus helpers, listeners "live".
+     * - Configura sección de perfiles y carga JSON de enemigos.
+     */
     @FXML
     private void initialize() {
-        // Bindings player/enemy + JSON de enemigos
+        configureCoinsSpinner();
+        installFocusHelpers();
         installLiveBindings();
         setupEnemyProfilesPanel();
-
-        // Spinner de monedas
-        if (coinsSpinner != null) {
-            SpinnerValueFactory<Integer> vf =
-                    new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 9999, 0);
-            coinsSpinner.setValueFactory(vf);
-            coinsSpinner.setEditable(true); // puedes escribir
-        }
-
-        // Start HP se queda solo como info / desactivado
-        if (startHpField != null) {
-            startHpField.setEditable(false);
-            startHpField.setDisable(true);
-            startHpField.setStyle("-fx-opacity: 0.6; -fx-control-inner-background: #333333;");
-        }
     }
 
-    private void setupEnemyProfilesPanel() {
-        if (enemyTypeCombo == null) return;
-        enemyTypeCombo.getItems().setAll(EnemyType.values());
-        enemyTypeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldT, newT) -> {
-            if (newT != null) {
-                bindProfile(com.layla.AppContext.balance().profile(newT));
-            }
-        });
-        if (!enemyTypeCombo.getItems().isEmpty()) {
-            enemyTypeCombo.getSelectionModel().select(EnemyType.SHOOTER);
-            refreshSelectedProfile();
-        }
+    // =========================
+    // Entrada (cuando se muestra el panel)
+    // =========================
 
-        if (saveBtn != null) {
-            saveBtn.setOnAction(e -> saveProfilesAsync());
-        }
-
-        loadProfilesAsync();
-    }
-
-    // ---------- Pantalla al abrir ----------
-    /** Preload UI from global balance/stats. */
+    /**
+     * Rellena la UI desde balance/stats actuales.
+     * También aplica (si existe) el JSON de usuario antes de pintar.
+     */
     public void onShow() {
-        var bal = com.layla.AppContext.balance();
+        updatingUI = true;
+        try {
+            // 1) Cargar JSON user si existe (puede tocar HP/stats/coins)
+            loadUserJsonIfExists();
 
-        // Primero cargamos JSON de usuario (puede tocar HP, stats y coins)
-        loadUserJsonIfExists();
+            // 2) Unificar HP: startHp y maxHp deben ser el mismo valor internamente
+            unifyHpInBalance();
 
-        // *** HP unificado ***
-        double hp = bal.maxHp;
-        if (bal.startHp > 0) {
-            hp = bal.maxHp;
-        }
-        bal.startHp = hp;
-        bal.maxHp   = hp;
+            // 3) Pintar campos del jugador
+            paintPlayerFields();
 
-        if (startHpField != null) put(startHpField, hp);
-        if (maxHpField   != null) put(maxHpField,   hp);
+            // 4) Pintar coins
+            paintCoins();
 
-        // Player stats (StatsService)
-        var baseStats = stats.getBaseStats();
-        put(moveSpeedField, baseStats.getBase(PlayerStatId.MOVE_SPEED));
-        put(fireRateField,  baseStats.getBase(PlayerStatId.FIRE_RATE));
-        put(projSpeedField, baseStats.getBase(PlayerStatId.PROJECTILE_SPEED));
-        put(projRangeField, baseStats.getBase(PlayerStatId.PROJECTILE_RANGE));
-        put(projDamageField,baseStats.getBase(PlayerStatId.PROJECTILE_DAMAGE));
+            // 5) Refrescar perfil seleccionado (si procede)
+            refreshSelectedProfile();
 
-        // Coins spinner
-        if (coinsSpinner != null && coinsSpinner.getValueFactory() != null) {
-            int coinsToShow = (initialCoins != null)
-                    ? initialCoins
-                    : Math.max(0, bal.startCoins);
-            coinsSpinner.getValueFactory().setValue(coinsToShow);
-        }
-
-        refreshSelectedProfile();
-    }
-
-    private void bindProfile(EnemyProfile profile) {
-        if (profile == null) return;
-        bindNumberField(profileHpField,        () -> profile.baseHp,     v -> profile.baseHp = v);
-        bindNumberField(profileSpeedField,     () -> profile.speed,      v -> profile.speed = v);
-        bindNumberField(profileContactField,   () -> profile.contactDmg, v -> profile.contactDmg = v);
-        bindNumberField(profileFireField,      () -> profile.fireRate,   v -> profile.fireRate = v);
-        bindNumberField(profileJitterField,    () -> profile.jitter,     v -> profile.jitter = v);
-        bindNumberField(profileProjSpeedField, () -> profile.projSpeed,  v -> profile.projSpeed = v);
-        bindNumberField(profileProjRangeField, () -> profile.projRange,  v -> profile.projRange = v);
-        bindNumberField(profileProjDmgField,   () -> profile.projDamage, v -> profile.projDamage = v);
-
-        // Score por enemigo (int internamente, editable como número)
-        bindNumberField(
-            profileScoreField,
-            () -> (double) profile.score,
-            v  -> profile.score = (int) Math.round(v)
-        );
-
-        bindStationary(profile);
-    }
-
-    private void bindNumberField(TextField tf, DoubleSupplier getter, DoubleConsumer setter) {
-        if (tf == null || getter == null || setter == null) return;
-        ChangeListener<String> prev = profileBindings.remove(tf);
-        if (prev != null) tf.textProperty().removeListener(prev);
-        tf.setText(Double.toString(getter.getAsDouble()));
-        ChangeListener<String> listener = (obs, oldV, newV) -> {
-            Double val = tryParse(newV);
-            if (val != null) {
-                setter.accept(val);
-            }
-        };
-        tf.textProperty().addListener(listener);
-        profileBindings.put(tf, listener);
-    }
-
-    private void bindStationary(EnemyProfile profile) {
-        if (stationaryCheck == null) return;
-        if (stationaryBinding != null) {
-            stationaryCheck.selectedProperty().removeListener(stationaryBinding);
-        }
-        stationaryCheck.setSelected(profile.stationary);
-        stationaryBinding = (obs, oldV, newV) -> profile.stationary = Boolean.TRUE.equals(newV);
-        stationaryCheck.selectedProperty().addListener(stationaryBinding);
-    }
-
-    private void refreshSelectedProfile() {
-        if (enemyTypeCombo == null) return;
-        EnemyType selected = enemyTypeCombo.getSelectionModel().getSelectedItem();
-        if (selected != null) {
-            bindProfile(com.layla.AppContext.balance().profile(selected));
+        } finally {
+            updatingUI = false;
         }
     }
 
-    private void loadProfilesAsync() {
-        CompletableFuture
-            .runAsync(() -> com.layla.AppContext.balance().loadFromJson(enemyBalancePath))
-            .thenRun(() -> Platform.runLater(this::refreshSelectedProfile));
+    // =========================
+    // UI config helpers
+    // =========================
+
+    /**
+     * Configura spinner de coins:
+     * - rango razonable
+     * - editable (y luego "commiteamos" el texto antes de leer)
+     */
+    private void configureCoinsSpinner() {
+        if (coinsSpinner == null) return;
+
+        SpinnerValueFactory<Integer> vf =
+                new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 9999, 0);
+        coinsSpinner.setValueFactory(vf);
+        coinsSpinner.setEditable(true);
     }
 
-    private void saveProfilesAsync() {
-        CompletableFuture.runAsync(() -> com.layla.AppContext.balance().saveToJson(enemyBalancePath));
-    }
+    /**
+     * Selecciona todo el texto al entrar en foco (mejor UX para editar números).
+     */
+    private void installFocusHelpers() {
+        Consumer<TextField> selectAllOnFocus = tf ->
+                tf.focusedProperty().addListener((o, oldV, newV) -> {
+                    if (Boolean.TRUE.equals(newV)) tf.selectAll();
+                });
 
-    // --------- Actions ---------
-
-    @FXML
-    private void onApply() {
-        var bal = com.layla.AppContext.balance();
-
-        // *** HP único ***
-        double hp = get(maxHpField, bal.maxHp);
-        bal.maxHp   = hp;
-        bal.startHp = hp;
-        stats.setBaseStat(PlayerStatId.MAX_HEALTH, hp);
-
-        // Player/shooting stats (StatsService)
-        stats.setBaseStat(PlayerStatId.MOVE_SPEED,        get(moveSpeedField, stats.getBaseStat(PlayerStatId.MOVE_SPEED)));
-        stats.setBaseStat(PlayerStatId.FIRE_RATE,         get(fireRateField,  stats.getBaseStat(PlayerStatId.FIRE_RATE)));
-        stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  get(projSpeedField, stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED)));
-        stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  get(projRangeField, stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE)));
-        stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, get(projDamageField,stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE)));
-
-        // Monedas: aplicamos al balance y opcionalmente al run actual
-        if (coinsSpinner != null && coinsSpinner.getValue() != null) {
-            int coins = Math.max(0, coinsSpinner.getValue());
-            bal.startCoins = coins;          // 🔹 esto se usará al empezar próximas partidas
-            if (onCoinsChanged != null) {    // 🔹 si estamos en pausa, actualiza también las coins del run
-                onCoinsChanged.accept(coins);
-            }
-        }
-
-        if (persistCheck.isSelected()) saveUserJson();
-
-        onStatsChanged.run();
-        onClose.run();
-    }
-
-    @FXML
-    private void onReset() {
-        // Restore defaults for both player stats and balance
-        stats.getBaseStats().resetDefaults();
-        var bal = com.layla.AppContext.balance();
-        bal.resetDefaults();
-
-        // Unificamos start/max HP en el valor por defecto
-        bal.startHp = bal.maxHp;
-
-        // Repaint fields
-        onShow();
-
-        if (persistCheck.isSelected()) saveUserJson();
-
-        onStatsChanged.run();
-    }
-
-    @FXML
-    private void onCancel() { onClose.run(); }
-
-    // ---------- Live bindings ----------
-    private void installLiveBindings() {
-        Consumer<TextField> selectAllOnFocus = tf -> tf.focusedProperty().addListener((o, oldV, newV) -> {
-            if (Boolean.TRUE.equals(newV)) tf.selectAll();
-        });
-
-        // Focus helpers
         for (TextField tf : new TextField[] {
-                startHpField, maxHpField,
+                maxHpField,
                 moveSpeedField, fireRateField, projSpeedField, projRangeField, projDamageField,
                 profileHpField, profileSpeedField, profileContactField, profileFireField,
                 profileJitterField, profileProjSpeedField, profileProjRangeField, profileProjDmgField,
@@ -292,78 +235,349 @@ public class StatsPanelController {
         }) {
             if (tf != null) selectAllOnFocus.accept(tf);
         }
+    }
 
-        // Player stats (StatsService)
-        liveNumber(moveSpeedField, v -> { stats.setBaseStat(PlayerStatId.MOVE_SPEED, v); onStatsChanged.run(); });
-        liveNumber(fireRateField,  v -> { stats.setBaseStat(PlayerStatId.FIRE_RATE, v); onStatsChanged.run(); });
-        liveNumber(projSpeedField, v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, v); onStatsChanged.run(); });
-        liveNumber(projRangeField, v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, v); onStatsChanged.run(); });
-        liveNumber(projDamageField,v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, v); onStatsChanged.run(); });
+    // =========================
+    // Player stats logic
+    // =========================
 
-        // Balance (player HP) – solo maxHp manda
+    /**
+     * Unifica HP en el balance:
+     * - maxHp manda
+     * - startHp = maxHp
+     * - también sincroniza StatsService MAX_HEALTH
+     */
+    private void unifyHpInBalance() {
+        var bal = AppContext.balance();
+        double hp = bal.maxHp;
+        bal.maxHp = hp;
+        bal.startHp = hp;
+
+        stats.setBaseStat(PlayerStatId.MAX_HEALTH, hp);
+    }
+
+    /**
+     * Pinta campos del jugador (StatsService + Balance).
+     * No debe disparar listeners gracias a updatingUI.
+     */
+    private void paintPlayerFields() {
+        var bal = AppContext.balance();
+
+        // HP unificado
+        setNumber(maxHpField, bal.maxHp);
+
+        // Stats base (StatsService)
+        setNumber(moveSpeedField,  stats.getBaseStat(PlayerStatId.MOVE_SPEED));
+        setNumber(fireRateField,   stats.getBaseStat(PlayerStatId.FIRE_RATE));
+        setNumber(projSpeedField,  stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED));
+        setNumber(projRangeField,  stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE));
+        setNumber(projDamageField, stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE));
+    }
+
+    /**
+     * Pinta coins:
+     * - si hay initialCoins (pausa) => se ve eso
+     * - si no => balance.startCoins
+     */
+    private void paintCoins() {
+        if (coinsSpinner == null || coinsSpinner.getValueFactory() == null) return;
+
+        int coinsToShow = (initialCoins != null)
+                ? initialCoins
+                : Math.max(0, AppContext.balance().startCoins);
+
+        coinsSpinner.getValueFactory().setValue(coinsToShow);
+    }
+
+    // =========================
+    // Enemy profiles setup
+    // =========================
+
+    /**
+     * Prepara el panel de perfiles:
+     * - llena ComboBox
+     * - bind del perfil al seleccionar tipo
+     * - carga JSON de enemigos
+     * - botón save guarda a JSON
+     */
+    private void setupEnemyProfilesPanel() {
+        if (enemyTypeCombo == null) return;
+
+        enemyTypeCombo.getItems().setAll(EnemyType.values());
+
+        enemyTypeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldT, newT) -> {
+            if (newT != null) {
+                bindProfile(AppContext.balance().profile(newT));
+            }
+        });
+
+        // Selección inicial sensata
+        if (!enemyTypeCombo.getItems().isEmpty()) {
+            EnemyType preferred = enemyTypeCombo.getItems().contains(EnemyType.SHOOTER)
+                    ? EnemyType.SHOOTER
+                    : enemyTypeCombo.getItems().get(0);
+            enemyTypeCombo.getSelectionModel().select(preferred);
+        }
+
+        // Botón guardar perfiles
+        if (saveBtn != null) {
+            saveBtn.setOnAction(e -> saveProfilesAsync());
+        }
+
+        // Cargar JSON de enemigos (asíncrono)
+        loadProfilesAsync();
+    }
+
+    /**
+     * Vincula los campos del panel EnemyProfile al objeto profile actual.
+     * Importante: removemos listeners anteriores para no acumularlos.
+     */
+    private void bindProfile(EnemyProfile profile) {
+        if (profile == null) return;
+
+        updatingUI = true;
+        try {
+            bindNumberField(profileHpField,        () -> profile.baseHp,     v -> profile.baseHp = v);
+            bindNumberField(profileSpeedField,     () -> profile.speed,      v -> profile.speed = v);
+            bindNumberField(profileContactField,   () -> profile.contactDmg, v -> profile.contactDmg = v);
+            bindNumberField(profileFireField,      () -> profile.fireRate,   v -> profile.fireRate = v);
+            bindNumberField(profileJitterField,    () -> profile.jitter,     v -> profile.jitter = v);
+            bindNumberField(profileProjSpeedField, () -> profile.projSpeed,  v -> profile.projSpeed = v);
+            bindNumberField(profileProjRangeField, () -> profile.projRange,  v -> profile.projRange = v);
+            bindNumberField(profileProjDmgField,   () -> profile.projDamage, v -> profile.projDamage = v);
+
+            // Score: int internamente
+            bindNumberField(
+                    profileScoreField,
+                    () -> (double) profile.score,
+                    v  -> profile.score = (int) Math.round(v)
+            );
+
+            bindStationary(profile);
+
+        } finally {
+            updatingUI = false;
+        }
+    }
+
+    /**
+     * Bindea un TextField numérico a un getter/setter.
+     * - actualiza el texto con el getter
+     * - registra listener y lo guarda para removerlo en el siguiente bind
+     */
+    private void bindNumberField(TextField tf, DoubleSupplier getter, DoubleConsumer setter) {
+        if (tf == null || getter == null || setter == null) return;
+
+        // Quitar listener previo si existe
+        ChangeListener<String> prev = profileBindings.remove(tf);
+        if (prev != null) tf.textProperty().removeListener(prev);
+
+        // Pintar valor actual
+        tf.setText(Double.toString(getter.getAsDouble()));
+
+        // Nuevo listener
+        ChangeListener<String> listener = (obs, oldV, newV) -> {
+            if (updatingUI) return;
+
+            Double val = tryParseDouble(newV);
+            if (val != null) setter.accept(val);
+        };
+
+        tf.textProperty().addListener(listener);
+        profileBindings.put(tf, listener);
+    }
+
+    /**
+     * Bindea el CheckBox "stationary" al EnemyProfile actual.
+     * Remueve binding previo para evitar acumulación.
+     */
+    private void bindStationary(EnemyProfile profile) {
+        if (stationaryCheck == null) return;
+
+        if (stationaryBinding != null) {
+            stationaryCheck.selectedProperty().removeListener(stationaryBinding);
+        }
+
+        stationaryCheck.setSelected(profile.stationary);
+
+        stationaryBinding = (obs, oldV, newV) -> {
+            if (updatingUI) return;
+            profile.stationary = Boolean.TRUE.equals(newV);
+        };
+
+        stationaryCheck.selectedProperty().addListener(stationaryBinding);
+    }
+
+    /**
+     * Re-bindea el perfil del EnemyType seleccionado.
+     */
+    private void refreshSelectedProfile() {
+        if (enemyTypeCombo == null) return;
+
+        EnemyType selected = enemyTypeCombo.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            bindProfile(AppContext.balance().profile(selected));
+        }
+    }
+
+    /**
+     * Carga perfiles desde JSON (asíncrono) y refresca UI al finalizar.
+     */
+    private void loadProfilesAsync() {
+        CompletableFuture
+                .runAsync(() -> AppContext.balance().loadFromJson(ENEMY_BALANCE_PATH))
+                .thenRun(() -> Platform.runLater(this::refreshSelectedProfile));
+    }
+
+    /**
+     * Guarda perfiles a JSON (asíncrono).
+     */
+    private void saveProfilesAsync() {
+        CompletableFuture.runAsync(() -> AppContext.balance().saveToJson(ENEMY_BALANCE_PATH));
+    }
+
+    // =========================
+    // Live bindings (player)
+    // =========================
+
+    /**
+     * Instala listeners "en vivo" para que, al editar un campo, el juego se actualice sin esperar a Apply.
+     */
+    private void installLiveBindings() {
+        // HP único (maxHpField manda)
         liveNumber(maxHpField, v -> {
-            var b = com.layla.AppContext.balance();
+            var b = AppContext.balance();
             b.maxHp = v;
             b.startHp = v;
             stats.setBaseStat(PlayerStatId.MAX_HEALTH, v);
-            if (startHpField != null) put(startHpField, v);
             onStatsChanged.run();
         });
+
+        // Stats base
+        liveNumber(moveSpeedField,  v -> { stats.setBaseStat(PlayerStatId.MOVE_SPEED, v); onStatsChanged.run(); });
+        liveNumber(fireRateField,   v -> { stats.setBaseStat(PlayerStatId.FIRE_RATE, v); onStatsChanged.run(); });
+        liveNumber(projSpeedField,  v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, v); onStatsChanged.run(); });
+        liveNumber(projRangeField,  v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, v); onStatsChanged.run(); });
+        liveNumber(projDamageField, v -> { stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, v); onStatsChanged.run(); });
     }
 
+    /**
+     * Listener genérico para TextField numérico.
+     * Ignora entradas inválidas (incluye estados intermedios al escribir).
+     */
     private void liveNumber(TextField tf, Consumer<Double> onValidNumber) {
-        if (tf == null) return;
+        if (tf == null || onValidNumber == null) return;
+
         tf.textProperty().addListener((obs, oldV, newV) -> {
-            Double val = tryParse(newV);
-            if (val != null) {
-                onValidNumber.accept(val);
-            }
+            if (updatingUI) return;
+
+            Double val = tryParseDouble(newV);
+            if (val != null) onValidNumber.accept(val);
         });
     }
 
-    private static Double tryParse(String s) {
-        try { return Double.parseDouble(s.trim()); }
-        catch (Exception e) { return null; }
+    // =========================
+    // Actions (FXML)
+    // =========================
+
+    /**
+     * Aplica valores a balance/stats, persiste si procede y cierra.
+     */
+    @FXML
+    private void onApply() {
+        var bal = AppContext.balance();
+
+        // HP único
+        double hp = getNumber(maxHpField, bal.maxHp);
+        bal.maxHp = hp;
+        bal.startHp = hp;
+        stats.setBaseStat(PlayerStatId.MAX_HEALTH, hp);
+
+        // Stats
+        stats.setBaseStat(PlayerStatId.MOVE_SPEED,        getNumber(moveSpeedField,  stats.getBaseStat(PlayerStatId.MOVE_SPEED)));
+        stats.setBaseStat(PlayerStatId.FIRE_RATE,         getNumber(fireRateField,   stats.getBaseStat(PlayerStatId.FIRE_RATE)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  getNumber(projSpeedField,  stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  getNumber(projRangeField,  stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE)));
+        stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, getNumber(projDamageField, stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE)));
+
+        // Coins (commitear editor si el spinner es editable)
+        int coins = getSpinnerIntValue(coinsSpinner, Math.max(0, bal.startCoins));
+        coins = Math.max(0, coins);
+
+        bal.startCoins = coins;        // futuras runs
+        onCoinsChanged.accept(coins);  // run actual (si aplica)
+
+        // Persistencia user
+        if (persistCheck != null && persistCheck.isSelected()) {
+            saveUserJson();
+        }
+
+        onStatsChanged.run();
+        onClose.run();
     }
 
-    // ---------- IO helpers ----------
-    private static void put(TextField f, double v) { if (f != null) f.setText(Double.toString(v)); }
-    private static double get(TextField f, double def) {
-        try { return Double.parseDouble(f.getText().trim()); } catch (Exception e) { return def; }
+    /**
+     * Restaura defaults (balance + stats), repinta, persiste si procede.
+     */
+    @FXML
+    private void onReset() {
+        stats.getBaseStats().resetDefaults();
+        AppContext.balance().resetDefaults();
+
+        // Unificar startHp/maxHp en defaults
+        unifyHpInBalance();
+
+        // Repintar
+        onShow();
+
+        if (persistCheck != null && persistCheck.isSelected()) {
+            saveUserJson();
+        }
+
+        onStatsChanged.run();
     }
 
-    private Path cfgPath() {
-        return Path.of(System.getProperty("user.home"), ".layla", "stats.json");
+    /**
+     * Cierra sin aplicar.
+     */
+    @FXML
+    private void onCancel() {
+        onClose.run();
     }
 
+    // =========================
+    // JSON user stats
+    // =========================
+
+    /**
+     * Carga stats.json si existe (sin librerías), y aplica valores al balance/stats.
+     * Nota: leemos "maxHp" y (por compatibilidad) también "startHp" si existiera.
+     */
     private void loadUserJsonIfExists() {
         try {
-            Path p = cfgPath();
-            if (!Files.exists(p)) return;
-            String json = Files.readString(p);
-            Map<String, Double> m = Json.minimalParse(json);
-            if (m == null) return;
+            if (!Files.exists(USER_STATS_PATH)) return;
 
-            var bal = com.layla.AppContext.balance();
+            String json = Files.readString(USER_STATS_PATH);
+            Map<String, Double> m = Json.parseNumbers(json);
+            if (m == null || m.isEmpty()) return;
 
-            // HP unificado: priorizamos maxHp si existe; si no, startHp
-            Double savedHp = null;
-            if (m.containsKey("maxHp"))        savedHp = m.get("maxHp");
-            else if (m.containsKey("startHp")) savedHp = m.get("startHp");
+            var bal = AppContext.balance();
 
+            // HP unificado: prioriza maxHp, si no existe usa startHp (compatibilidad con configs viejas)
+            Double savedHp = m.containsKey("maxHp") ? m.get("maxHp") : m.get("startHp");
             if (savedHp != null) {
-                bal.maxHp   = savedHp;
+                bal.maxHp = savedHp;
                 bal.startHp = savedHp;
                 stats.setBaseStat(PlayerStatId.MAX_HEALTH, savedHp);
             }
 
-            if (m.containsKey("moveSpeed"))  stats.setBaseStat(PlayerStatId.MOVE_SPEED,       m.get("moveSpeed"));
-            if (m.containsKey("fireRate"))   stats.setBaseStat(PlayerStatId.FIRE_RATE,        m.get("fireRate"));
-            if (m.containsKey("projSpeed"))  stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, m.get("projSpeed"));
-            if (m.containsKey("projRange"))  stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, m.get("projRange"));
-            if (m.containsKey("projDamage")) stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE,m.get("projDamage"));
+            if (m.containsKey("moveSpeed"))  stats.setBaseStat(PlayerStatId.MOVE_SPEED,        m.get("moveSpeed"));
+            if (m.containsKey("fireRate"))   stats.setBaseStat(PlayerStatId.FIRE_RATE,         m.get("fireRate"));
+            if (m.containsKey("projSpeed"))  stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  m.get("projSpeed"));
+            if (m.containsKey("projRange"))  stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  m.get("projRange"));
+            if (m.containsKey("projDamage")) stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, m.get("projDamage"));
 
-            // Back-compat keys
+            // Back-compat keys (por si guardaste versiones antiguas)
             if (m.containsKey("fireCooldown")) {
                 double cooldown = m.get("fireCooldown");
                 double rate = cooldown > 0.0 ? 1.0 / cooldown : 0.0;
@@ -378,58 +592,122 @@ public class StatsPanelController {
                 stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, m.get("damage"));
             }
 
-            // 🔹 NUEVO: coins persistentes
+            // Coins persistentes (startCoins)
             if (m.containsKey("startCoins")) {
-                double c = m.get("startCoins");
-                bal.startCoins = (int) Math.max(0, Math.round(c));
+                int c = (int) Math.max(0, Math.round(m.get("startCoins")));
+                bal.startCoins = c;
             }
 
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // No queremos crashear el panel por un JSON roto
+        }
     }
 
+    /**
+     * Guarda stats.json (sin librerías), solo valores del jugador (no enemy balance).
+     * Guardamos maxHp y startCoins, etc.
+     */
     private void saveUserJson() {
         try {
-            var bal = com.layla.AppContext.balance();
+            var bal = AppContext.balance();
 
-            Path p = cfgPath();
-            Files.createDirectories(p.getParent());
+            Files.createDirectories(USER_STATS_PATH.getParent());
 
-            java.util.LinkedHashMap<String, Double> m = new java.util.LinkedHashMap<>();
-            // Guardamos HP unificado
-            m.put("startHp",       bal.maxHp);
-            m.put("maxHp",         bal.maxHp);
-            m.put("moveSpeed",     stats.getBaseStat(PlayerStatId.MOVE_SPEED));
-            m.put("fireRate",      stats.getBaseStat(PlayerStatId.FIRE_RATE));
-            m.put("projSpeed",     stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED));
-            m.put("projRange",     stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE));
-            m.put("projDamage",    stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE));
-            // 🔹 NUEVO: guardamos startCoins como Double en el JSON
-            m.put("startCoins",    (double) Math.max(0, bal.startCoins));
-            // No guardamos enemy* aquí; los enemigos van en enemy_balance.json
+            LinkedHashMap<String, Double> m = new LinkedHashMap<>();
+            // HP unificado (guardamos startHp también por compatibilidad con configs viejas)
+            m.put("maxHp",      bal.maxHp);
+            m.put("startHp",    bal.maxHp);
 
-            String json = Json.toJson(m);
-            Files.writeString(p, json);
-        } catch (Exception ignored) {}
+            m.put("moveSpeed",  stats.getBaseStat(PlayerStatId.MOVE_SPEED));
+            m.put("fireRate",   stats.getBaseStat(PlayerStatId.FIRE_RATE));
+            m.put("projSpeed",  stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED));
+            m.put("projRange",  stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE));
+            m.put("projDamage", stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE));
+
+            m.put("startCoins", (double) Math.max(0, bal.startCoins));
+
+            Files.writeString(USER_STATS_PATH, Json.toJson(m));
+
+        } catch (Exception ignored) {
+            // no crashear por IO
+        }
     }
 
-    /** Minimal JSON (no libs) */
-    static final class Json {
-        static Map<String, Double> minimalParse(String json) {
-            try {
-                java.util.HashMap<String, Double> out = new java.util.HashMap<>();
-                String s = json.trim();
-                if (!s.startsWith("{") || !s.endsWith("}")) return null;
-                s = s.substring(1, s.length() - 1).trim();
-                if (s.isEmpty()) return out;
-                for (String part : s.split(",")) {
-                    String[] kv = part.split(":");
-                    String k = kv[0].trim().replaceAll("^\"|\"$", "");
-                    Double v = Double.parseDouble(kv[1].trim());
-                    out.put(k, v);
-                }
-                return out;
-            } catch (Exception e) { return null; }
+    // =========================
+    // Parsing / small helpers
+    // =========================
+
+    /** Setter seguro para números. */
+    private void setNumber(TextField f, double v) {
+        if (f == null) return;
+        f.setText(Double.toString(v));
+    }
+
+    /** Getter seguro para números. */
+    private double getNumber(TextField f, double def) {
+        if (f == null) return def;
+        Double v = tryParseDouble(f.getText());
+        return (v != null) ? v : def;
+    }
+
+    /** Parse tolerante (null/blank/espacios). */
+    private static Double tryParseDouble(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        if (t.isEmpty()) return null;
+        try {
+            return Double.parseDouble(t);
+        } catch (Exception e) {
+            return null;
         }
+    }
+
+    /**
+     * Corrige el bug típico del Spinner editable:
+     * si el usuario escribe en el editor, `getValue()` puede no reflejarlo.
+     * Aquí commiteamos lo escrito antes de leer.
+     */
+    private static int getSpinnerIntValue(Spinner<Integer> sp, int fallback) {
+        if (sp == null || sp.getValueFactory() == null) return fallback;
+
+        if (sp.isEditable() && sp.getEditor() != null) {
+            String text = sp.getEditor().getText();
+            try {
+                int v = Integer.parseInt(text.trim());
+                sp.getValueFactory().setValue(v); // commit
+            } catch (Exception ignore) {
+                // no commit si es inválido
+            }
+        }
+
+        Integer v = sp.getValue();
+        return (v != null) ? v : fallback;
+    }
+
+    /**
+     * JSON mínimo sin librerías:
+     * solo soporta claves string y valores numéricos.
+     */
+    static final class Json {
+        private static final Pattern NUM_ENTRY =
+                Pattern.compile("\"([^\"]+)\"\\s*:\\s*([-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)");
+
+        /** Extrae {"a":1,"b":2.5} -> Map(a=1, b=2.5). Ignora lo que no sea número. */
+        static Map<String, Double> parseNumbers(String json) {
+            if (json == null) return null;
+            Matcher m = NUM_ENTRY.matcher(json);
+            Map<String, Double> out = new HashMap<>();
+            while (m.find()) {
+                String key = m.group(1);
+                String raw = m.group(2);
+                try {
+                    out.put(key, Double.parseDouble(raw));
+                } catch (Exception ignore) {}
+            }
+            return out;
+        }
+
+        /** Serializa Map a JSON simple (clave string, valor número). */
         static String toJson(Map<String, Double> m) {
             StringBuilder sb = new StringBuilder("{");
             boolean first = true;

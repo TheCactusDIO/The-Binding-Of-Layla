@@ -5,40 +5,54 @@
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <StackPane fx:id="root"
-           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.CollectionController"
            style="-fx-background-color: #111111;">
 
     <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1280" maxHeight="720">
 
-        <HBox alignment="CENTER_LEFT" style="-fx-padding: 20; -fx-background-color: #1a1a1a; -fx-border-color: #333; -fx-border-width: 0 0 2 0;">
-            <Button text="&lt; BACK" onAction="#onBack" styleClass="menu-button, btn-back"
+        <HBox alignment="CENTER_LEFT"
+              style="-fx-padding: 20; -fx-background-color: #1a1a1a; -fx-border-color: #333; -fx-border-width: 0 0 2 0;">
+
+            <Button text="&lt; BACK"
+                    onAction="#onBack"
+                    styleClass="menu-button btn-back"
                     style="-fx-font-size: 14px; -fx-padding: 8 20;"/>
 
-            <Label text="COLLECTION" maxWidth="Infinity" HBox.hgrow="ALWAYS" alignment="CENTER"
-                   style="-fx-text-fill: white;
-                   -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 32px; -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);"/>
+            <Region HBox.hgrow="ALWAYS"/>
 
-             <Label text="       " style="-fx-min-width: 80;"/>
+            <Label text="COLLECTION" alignment="CENTER"
+                   style="-fx-text-fill: white;
+                          -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 32px;
+                          -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+
         </HBox>
 
-        <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE"
+        <TabPane fx:id="tabPane"
+                 VBox.vgrow="ALWAYS"
+                 tabClosingPolicy="UNAVAILABLE"
                  style="-fx-background-color: transparent;">
-             <stylesheets>
-                 <java.net.URL value="@styles/collection.css"/>
-             </stylesheets>
+
+            <stylesheets>
+                <!-- Si tu CSS está en resources/styles/collection.css -->
+                <java.net.URL value="@../styles/collection.css"/>
+            </stylesheets>
 
             <tabs>
-                <Tab fx:id="tabBestiary" text="BESTIARY" />
-                <Tab fx:id="tabItems" text="ITEMS" />
-                <Tab fx:id="tabAchievements" text="ACHIEVEMENTS" />
-                <Tab fx:id="tabRanking" text="RANKING" />
+                <Tab fx:id="tabBestiary" text="BESTIARY"/>
+                <Tab fx:id="tabItems" text="ITEMS"/>
+                <Tab fx:id="tabAchievements" text="ACHIEVEMENTS"/>
+                <Tab fx:id="tabRanking" text="RANKING"/>
             </tabs>
-         </TabPane>
+        </TabPane>
 
     </VBox>
 </StackPane>

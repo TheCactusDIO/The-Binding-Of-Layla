@@ -1,45 +1,73 @@
 package com.layla.items;
 
 /**
- * Unique identifiers for every collectible item.
+ * Identificadores únicos para cada ítem coleccionable del juego.
+ *
+ * <p>Este enum se usa como clave estable en el código (registro de ítems, guardado/carga,
+ * desbloqueos, pools, etc.).</p>
  */
 public enum ItemId {
-    // --- SHOT MECHANIC ---
+
+    /** Disparo triple. */
     TRIPLE_SHOT,
+    /** Disparo cuádruple. */
     QUAD_SHOT,
+    /** Flechas estilo Cupid (efecto de proyectil específico). */
     CUPIDS_ARROW,
+    /** Proyectiles rebotan / efecto "rubber". */
     RUBBER_CEMENT,
+    /** Proyectiles con homing (estilo Spoon Bender). */
     SPOON_BENDER,
 
-    // --- ISAAC CLASSICS (WAVE 1) ---
-    MEAT,           // Vida + Daño
-    THE_HALO,       // All stats
-    MAGIC_MUSHROOM, // All stats + Multiplier
-    BUCKET_OF_LARD, // Vida masiva, lento
-    CRICKETS_HEAD,  // Daño masivo
-    SYNTHOIL,       // Daño + Rango
-    PENTAGRAM,      // Daño
-    SOY_MILK,       // Cadencia extrema
+    /** Vida + Daño. */
+    MEAT,
+    /** Todas las stats. */
+    THE_HALO,
+    /** Todas las stats + multiplicador. */
+    MAGIC_MUSHROOM,
+    /** Vida masiva, velocidad reducida. */
+    BUCKET_OF_LARD,
+    /** Daño masivo. */
+    CRICKETS_HEAD,
+    /** Daño + Rango. */
+    SYNTHOIL,
+    /** Daño. */
+    PENTAGRAM,
+    /** Cadencia extrema. */
+    SOY_MILK,
 
-    // --- ISAAC CLASSICS (WAVE 2 - HP & UTILITY) ---
-    STIGMATA,       // HP + DMG
-    BLUE_CAP,       // HP + Tears - ShotSpeed
-    STEM_CELLS,     // HP + ShotSpeed
-    SMB_SUPER_FAN,  // HP + All Stats - Speed
-    CAPRICORN,      // All stats balanced
+    /** Vida + Daño. */
+    STIGMATA,
+    /** Vida + Tears, -ShotSpeed. */
+    BLUE_CAP,
+    /** Vida + ShotSpeed. */
+    STEM_CELLS,
+    /** Vida + todas las stats, -Speed. */
+    SMB_SUPER_FAN,
+    /** Todas las stats equilibradas. */
+    CAPRICORN,
 
-    // --- GAME CHANGERS ---
-    POLYPHEMUS,     // Huge DMG, Slow Fire
-    SACRED_HEART,   // Homing + Huge DMG Mult
-    TWENTY_TWENTY,  // Double Shot (20/20)
+    /** Mucho daño, baja cadencia. */
+    POLYPHEMUS,
+    /** Homing + multiplicador de daño alto. */
+    SACRED_HEART,
+    /** Doble disparo (20/20). */
+    TWENTY_TWENTY,
 
-    // --- WAVE 3 (NEW REQUESTS) ---
-    THE_WAFER,          // Tankiness
-    ODD_MUSHROOM_THIN,  // Fire Rate + Speed - Dmg
-    ODD_MUSHROOM_LARGE, // HP + Dmg + Range - Speed
-    GROWTH_HORMONES,    // Dmg + Speed
-    JESUS_JUICE,        // Dmg + Range
-    ROID_RAGE,          // Speed + Range
-    THE_BELT,           // Speed
-    WOODEN_SPOON        // Speed
+    /** Más tankiness / reducción de daño. */
+    THE_WAFER,
+    /** Cadencia + Speed, -Daño. */
+    ODD_MUSHROOM_THIN,
+    /** Vida + Daño + Rango, -Speed. */
+    ODD_MUSHROOM_LARGE,
+    /** Daño + Speed. */
+    GROWTH_HORMONES,
+    /** Daño + Rango. */
+    JESUS_JUICE,
+    /** Speed + Rango. */
+    ROID_RAGE,
+    /** Speed. */
+    THE_BELT,
+    /** Speed. */
+    WOODEN_SPOON
 }

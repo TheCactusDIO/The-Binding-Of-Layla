@@ -29,6 +29,9 @@ public class DatabaseService {
     private static final String DB_NAME = "laila.db";
     private static final String CONNECTION_STRING = "jdbc:sqlite:" + DB_FOLDER + "/" + DB_NAME;
 
+    /**
+     * Creates the database service and initializes the schema if needed.
+     */
     public DatabaseService() {
         initializeDatabase();
     }
@@ -332,49 +335,87 @@ public class DatabaseService {
      * Se hace async para no congelar el juego cuando termina la partida.
      */
     public void recordRunEndAsync(int profileId, boolean isWin, int score, int floor) {
-        CompletableFuture.runAsync(() -> {
-            try (Connection conn = DriverManager.getConnection(CONNECTION_STRING)) {
-                conn.setAutoCommit(false);
+        CompletableFuture.runAsync(() -> recordRunEndInternal(profileId, isWin, score, floor, false));
+    }
 
-                try (PreparedStatement ph = conn.prepareStatement(
-                        "INSERT INTO run_history (profile_id, score, floor, is_win) VALUES (?, ?, ?, ?)")) {
+    /**
+     * Registra el final de una run y devuelve el total de muertes actualizado para el perfil.
+     * Solo es relevante para runs terminadas en muerte; en victoria devuelve el total actual.
+     *
+     * @param profileId id del perfil
+     * @param isWin true si la run es victoria
+     * @param score puntuacion final
+     * @param floor piso final alcanzado
+     * @return future con el total de muertes del perfil tras el update
+     */
+    public CompletableFuture<Long> recordRunEndAsyncWithDeathTotal(int profileId, boolean isWin, int score, int floor) {
+        return CompletableFuture.supplyAsync(() -> recordRunEndInternal(profileId, isWin, score, floor, true));
+    }
 
-                    ph.setInt(1, profileId);
-                    ph.setInt(2, score);
-                    ph.setInt(3, floor);
-                    ph.setInt(4, isWin ? 1 : 0);
-                    ph.executeUpdate();
-                }
+    /**
+     * Performs the run end write in a single transaction and optionally reads the updated death total.
+     *
+     * @param profileId id del perfil
+     * @param isWin true si la run es victoria
+     * @param score puntuacion final
+     * @param floor piso final alcanzado
+     * @param fetchDeaths cuando es true, lee death_count tras el update
+     * @return total de muertes actualizado si fetchDeaths es true; 0 en caso contrario o error
+     */
+    private long recordRunEndInternal(int profileId, boolean isWin, int score, int floor, boolean fetchDeaths) {
+        try (Connection conn = DriverManager.getConnection(CONNECTION_STRING)) {
+            conn.setAutoCommit(false);
 
-                String updateProfile = isWin
-                    ? """
-                      UPDATE profiles SET
-                        run_count = run_count + 1,
-                        win_count = win_count + 1,
-                        current_streak = current_streak + 1,
-                        best_streak = MAX(best_streak, current_streak + 1),
-                        last_played = CURRENT_TIMESTAMP
-                      WHERE id = ?
-                      """
-                    : """
-                      UPDATE profiles SET
-                        run_count = run_count + 1,
-                        death_count = death_count + 1,
-                        current_streak = 0,
-                        last_played = CURRENT_TIMESTAMP
-                      WHERE id = ?
-                      """;
+            try (PreparedStatement ph = conn.prepareStatement(
+                    "INSERT INTO run_history (profile_id, score, floor, is_win) VALUES (?, ?, ?, ?)")) {
 
-                try (PreparedStatement pp = conn.prepareStatement(updateProfile)) {
-                    pp.setInt(1, profileId);
-                    pp.executeUpdate();
-                }
-
-                conn.commit();
-            } catch (Exception e) {
-                e.printStackTrace();
+                ph.setInt(1, profileId);
+                ph.setInt(2, score);
+                ph.setInt(3, floor);
+                ph.setInt(4, isWin ? 1 : 0);
+                ph.executeUpdate();
             }
-        });
+
+            String updateProfile = isWin
+                ? """
+                  UPDATE profiles SET
+                    run_count = run_count + 1,
+                    win_count = win_count + 1,
+                    current_streak = current_streak + 1,
+                    best_streak = MAX(best_streak, current_streak + 1),
+                    last_played = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                  """
+                : """
+                  UPDATE profiles SET
+                    run_count = run_count + 1,
+                    death_count = death_count + 1,
+                    current_streak = 0,
+                    last_played = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                  """;
+
+            try (PreparedStatement pp = conn.prepareStatement(updateProfile)) {
+                pp.setInt(1, profileId);
+                pp.executeUpdate();
+            }
+
+            long deathTotal = 0;
+            if (fetchDeaths) {
+                try (PreparedStatement pd = conn.prepareStatement(
+                        "SELECT death_count FROM profiles WHERE id = ?")) {
+                    pd.setInt(1, profileId);
+                    ResultSet rs = pd.executeQuery();
+                    if (rs.next()) deathTotal = rs.getLong(1);
+                }
+            }
+
+            conn.commit();
+            return deathTotal;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     /**
@@ -447,6 +488,13 @@ public class DatabaseService {
 
     /**
      * Devuelve contadores agregados útiles para logros/estadísticas globales.
+     *
+     * <p>Valores soportados: TOTAL_KILLS (suma enemy_stats) y TOTAL_DEATHS
+     * (death_count del perfil).</p>
+     *
+     * @param profileId id del perfil
+     * @param statType tipo de estadistica a consultar
+     * @return total acumulado segun el tipo solicitado
      */
     public long getStatTotal(int profileId, String statType) {
         String sql;
@@ -506,6 +554,9 @@ public class DatabaseService {
     /**
      * Marca un logro como desbloqueado (si aún estaba bloqueado).
      * Usa un upsert y solo actualiza si unlocked era 0.
+     *
+     * @param profileId id del perfil propietario del logro
+     * @param achievementId id del logro a desbloquear
      */
     public void unlockAchievement(int profileId, String achievementId) {
         String sql = """
@@ -532,6 +583,9 @@ public class DatabaseService {
     /**
      * Devuelve el estado de todos los logros de un perfil.
      * Útil para dibujar la lista de logros y para desbloqueos condicionales.
+     *
+     * @param profileId id del perfil
+     * @return mapa de id -> estado para el perfil solicitado
      */
     public Map<String, AchievementStatus> getAchievementsStatus(int profileId) {
         Map<String, AchievementStatus> statusMap = new HashMap<>();
@@ -561,9 +615,24 @@ public class DatabaseService {
 
     public enum StatType { SEEN, KILLED, KILLED_BY }
 
+    /**
+     * Summary of profile counters used in menus and stats screens.
+     */
     public record ProfileSummary(String name, int runs, int wins, int deaths, int streak, int bestStreak) {}
+
+    /**
+     * Aggregated enemy stats for a given enemy type.
+     */
     public record EnemyStatEntry(int seen, int killed, int killedBy) {}
+
+    /**
+     * Stored achievement status for a profile.
+     */
     public record AchievementStatus(boolean unlocked, String unlockDate) {}
+
+    /**
+     * Leaderboard row with run metadata and ranking position.
+     */
     public record LeaderboardEntry(int rank, String playerName, int score, int floor, boolean isWin, String date) {}
 
     /**
@@ -571,6 +640,11 @@ public class DatabaseService {
      * Puedes ampliarlo más adelante (hardMode, partículas, pantalla completa, etc.).
      */
     public record SettingsData(double musicVolume, double sfxVolume, int virtualWidth, int virtualHeight) {
+        /**
+         * Returns default settings for a new profile.
+         *
+         * @return default settings snapshot
+         */
         public static SettingsData defaults() {
             return new SettingsData(0.6, 1.0, 1920, 1080);
         }

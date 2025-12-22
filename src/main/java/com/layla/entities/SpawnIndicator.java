@@ -11,23 +11,49 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
-public class SpawnIndicator implements GameEntity {
+/**
+ * Indicador visual de spawn.
+ *
+ * <p>Muestra un círculo semi-transparente que "pulsa" durante un tiempo y,
+ * al finalizar, elimina su nodo y dispara {@code onFinish}.</p>
+ *
+ * <p>Nota: no tiene colisiones (usa el default no-op de {@link GameEntity#onCollision(GameEntity)}).</p>
+ */
+public final class SpawnIndicator implements GameEntity {
+
+    private static final double RADIUS = 12.0;
+
+    private static final double BASE_ALPHA = 0.2;
+    private static final double PULSE_ALPHA = 0.4;
+    private static final double STROKE_ALPHA_BONUS = 0.3;
+
+    private static final double FREQ_BASE = 5.0;
+    private static final double FREQ_EXTRA = 15.0;
 
     private final Pane parent;
     private final Circle view;
-    private final double duration;
+    private final double durationSeconds;
     private final Consumer<SpawnIndicator> onFinish;
 
-    private double timer = 0.0;
+    private double timerSeconds = 0.0;
     private boolean finished = false;
 
+    /**
+     * Crea un indicador centrado en (x, y).
+     *
+     * @param x centro X del indicador (layoutX)
+     * @param y centro Y del indicador (layoutY)
+     * @param duration duración en segundos (si es 0 o negativa, se completará en el primer update)
+     * @param parent contenedor donde se añade el nodo
+     * @param onFinish callback al finalizar (no null)
+     */
     public SpawnIndicator(double x, double y, double duration, Pane parent, Consumer<SpawnIndicator> onFinish) {
-        this.parent = Objects.requireNonNull(parent);
-        this.duration = duration;
-        this.onFinish = Objects.requireNonNull(onFinish);
+        this.parent = Objects.requireNonNull(parent, "parent");
+        this.onFinish = Objects.requireNonNull(onFinish, "onFinish");
+        this.durationSeconds = duration;
 
-        this.view = new Circle(12.0, Color.rgb(255, 0, 0, 0.2));
-        this.view.setStroke(Color.rgb(255, 0, 0, 0.6));
+        this.view = new Circle(RADIUS, Color.rgb(255, 0, 0, BASE_ALPHA));
+        this.view.setStroke(Color.rgb(255, 0, 0, clamp01(BASE_ALPHA + STROKE_ALPHA_BONUS)));
         this.view.setStrokeWidth(2.0);
         this.view.setStrokeType(StrokeType.INSIDE);
         this.view.getStrokeDashArray().addAll(5d, 5d);
@@ -35,7 +61,7 @@ public class SpawnIndicator implements GameEntity {
         this.view.setLayoutX(x);
         this.view.setLayoutY(y);
 
-        parent.getChildren().add(this.view);
+        this.parent.getChildren().add(this.view);
         this.view.toBack();
     }
 
@@ -43,16 +69,23 @@ public class SpawnIndicator implements GameEntity {
     public void update(double dt) {
         if (finished) return;
 
-        timer += dt;
+        timerSeconds += dt;
 
-        double progress = timer / duration;
-        double frequency = 5.0 + (15.0 * progress);
-        double alpha = 0.2 + 0.4 * Math.abs(Math.sin(timer * frequency));
+        if (durationSeconds <= 0.0) {
+            finish();
+            return;
+        }
 
-        view.setFill(Color.rgb(255, 0, 0, alpha));
-        view.setStroke(Color.rgb(255, 0, 0, alpha + 0.3));
+        double progress = timerSeconds / durationSeconds; // puede pasar de 1.0, no pasa nada
+        double frequency = FREQ_BASE + (FREQ_EXTRA * progress);
 
-        if (timer >= duration) {
+        double alpha = BASE_ALPHA + PULSE_ALPHA * Math.abs(Math.sin(timerSeconds * frequency));
+        double strokeAlpha = clamp01(alpha + STROKE_ALPHA_BONUS);
+
+        view.setFill(Color.rgb(255, 0, 0, clamp01(alpha)));
+        view.setStroke(Color.rgb(255, 0, 0, strokeAlpha));
+
+        if (timerSeconds >= durationSeconds) {
             finish();
         }
     }
@@ -63,9 +96,22 @@ public class SpawnIndicator implements GameEntity {
         onFinish.accept(this);
     }
 
-    public double getX() { return view.getLayoutX(); }
-    public double getY() { return view.getLayoutY(); }
+    /** @return centro X (layoutX) del indicador. */
+    public double getX() {
+        return view.getLayoutX();
+    }
 
-    @Override public Node getView() { return view; }
-    @Override public void onCollision(GameEntity other) {}
+    /** @return centro Y (layoutY) del indicador. */
+    public double getY() {
+        return view.getLayoutY();
+    }
+
+    @Override
+    public Node getView() {
+        return view;
+    }
+
+    private static double clamp01(double v) {
+        return Math.max(0.0, Math.min(1.0, v));
+    }
 }

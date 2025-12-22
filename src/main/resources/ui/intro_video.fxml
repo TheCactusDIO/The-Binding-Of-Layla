@@ -4,14 +4,15 @@
 <?import javafx.scene.media.MediaView?>
 <?import javafx.scene.shape.Rectangle?>
 
-<StackPane xmlns="http://javafx.com/javafx/21"
+<StackPane fx:id="root"
+           xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.IntroVideoController"
-           fx:id="root"
            style="-fx-background-color: black;">
     <children>
         <!-- Fondo negro que SIEMPRE cubre toda el área -->
         <Rectangle fx:id="bg" fill="black"/>
+
         <!-- Vídeo por encima; si carga se verá, si no, se queda negro -->
         <MediaView fx:id="mediaView" preserveRatio="true"/>
     </children>

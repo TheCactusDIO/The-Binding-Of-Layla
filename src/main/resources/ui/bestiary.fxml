@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
@@ -11,31 +12,51 @@
 <?import javafx.scene.layout.VBox?>
 
 <StackPane fx:id="root"
-           xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.BestiaryController"
-           style="-fx-background-color: transparent;"> <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650">
+           style="-fx-background-color: transparent;">
+
+    <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650">
 
         <HBox spacing="20" VBox.vgrow="ALWAYS" style="-fx-padding: 20;">
 
+            <!-- LISTA -->
             <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
                 <Label text="ENCOUNTERS" styleClass="section-header"/>
 
-                <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;"
+                <ScrollPane fitToWidth="true"
+                            style="-fx-background-color: transparent; -fx-background: transparent;"
                             hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
                     <content>
-                        <FlowPane fx:id="gridPane" hgap="12" vgap="12" alignment="TOP_LEFT"
+                        <FlowPane fx:id="gridPane"
+                                  hgap="12" vgap="12"
+                                  alignment="TOP_LEFT"
                                   style="-fx-background-color: transparent;"/>
                     </content>
                 </ScrollPane>
             </VBox>
 
-            <VBox fx:id="detailsPanel" spacing="15" alignment="TOP_CENTER" prefWidth="380" minWidth="380" styleClass="detail-panel">
+            <!-- DETALLES (COLAPSABLE) -->
+            <VBox fx:id="detailsPanel"
+                  spacing="15"
+                  alignment="TOP_CENTER"
+                  prefWidth="0"
+                  minWidth="0"
+                  maxWidth="380"
+                  visible="false"
+                  managed="false"
+                  opacity="0.0"
+                  styleClass="detail-panel">
 
                 <StackPane styleClass="icon-box-large">
                     <ImageView fx:id="detailImage" fitWidth="120" fitHeight="120" preserveRatio="true"/>
                 </StackPane>
 
-                <Label fx:id="detailName" text="SELECT AN ENEMY" wrapText="true" textAlignment="CENTER"
+                <Label fx:id="detailName"
+                       text="SELECT AN ENEMY"
+                       wrapText="true"
+                       textAlignment="CENTER"
                        style="-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 28px;"/>
 
                 <Separator style="-fx-opacity: 0.3;"/>
@@ -76,7 +97,14 @@
                     </HBox>
                 </VBox>
 
+                <Button text="CLOSE"
+                        onAction="#onCloseDetails"
+                        styleClass="menu-button"
+                        style="-fx-padding: 8 20;"/>
+
             </VBox>
+
         </HBox>
     </VBox>
+
 </StackPane>
