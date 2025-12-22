@@ -5,12 +5,15 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -42,13 +45,19 @@ public class AssetsManager {
     // =========================
 
     /** Caché de imágenes ya cargadas: ruta relativa -> Image. */
-    private static final Map<String, Image> imageCache = new HashMap<>();
+    private static final Map<String, Image> imageCache = new ConcurrentHashMap<>();
 
     /** Caché de sonidos cortos ya cargados: ruta relativa -> AudioClip. */
-    private static final Map<String, AudioClip> soundCache = new HashMap<>();
+    private static final Map<String, AudioClip> soundCache = new ConcurrentHashMap<>();
 
     /** Caché de fuentes: "archivo@size" -> Font. */
-    private static final Map<String, Font> fontCache = new HashMap<>();
+    private static final Map<String, Font> fontCache = new ConcurrentHashMap<>();
+
+    /**
+     * Cache de URIs de medios extraídos a fichero temporal.
+     * Motivo: JavaFX Media (GStreamer) puede fallar con URLs tipo jar: para MP4.
+     */
+    private static final Map<String, String> extractedMediaUriCache = new ConcurrentHashMap<>();
 
     /**
      * Lista de MediaPlayers activos usados para SFX (fallback).
@@ -434,50 +443,22 @@ public class AssetsManager {
     // MÚSICA
     // =========================
 
-    /**
-     * Reproduce una pista de música desde /assets/music/ FORZANDO reinicio:
-     * - Detiene la música anterior (aunque sea la misma).
-     * - Crea un MediaPlayer nuevo y lo guarda como música global.
-     * - Usa el volumen global {@link #musicVolume}.
-     *
-     * Úsalo cuando realmente quieras reiniciar una pista desde 0.
-     */
     public static void playMusic(String fileName, boolean loop) {
         playMusicInternal(fileName, loop, true);
     }
 
-    /**
-     * Asegura que una pista esté sonando, pero SIN reiniciarla si ya está puesta.
-     *
-     * Caso típico:
-     * - Entras a ProfileSelect -> ensureMusic("menu.mp3", true)
-     * - Pasas a MainMenu -> ensureMusic("menu.mp3", true) (no se corta)
-     * - Vuelves al menú desde el juego -> ensureMusic("menu.mp3", true) (arranca si no estaba)
-     *
-     * Si hay música pausada, la reanuda. Si hay otra pista distinta, cambia a la nueva.
-     */
     public static void ensureMusic(String fileName, boolean loop) {
         playMusicInternal(fileName, loop, false);
     }
 
-    /**
-     * Pausa la música actual si existe.
-     */
     public static void pauseMusic() {
         if (backgroundMusic != null) backgroundMusic.pause();
     }
 
-    /**
-     * Reanuda la música actual si existe.
-     */
     public static void resumeMusic() {
         if (backgroundMusic != null) backgroundMusic.play();
     }
 
-    /**
-     * Detiene y libera el MediaPlayer de música actual.
-     * Es importante llamar a dispose() para evitar fugas de recursos en JavaFX Media.
-     */
     public static void stopMusic() {
         if (backgroundMusic != null) {
             try { backgroundMusic.stop(); } catch (Exception ignore) {}
@@ -488,32 +469,23 @@ public class AssetsManager {
         System.out.println("[AssetsManager] Música detenida");
     }
 
-    /**
-     * Implementación interna de la lógica de música.
-     *
-     * @param fileName nombre de archivo dentro de /assets/music/
-     * @param loop si true, bucle infinito; si false, una reproducción
-     * @param forceRestart si true, reinicia aunque sea el mismo archivo
-     */
     private static void playMusicInternal(String fileName, boolean loop, boolean forceRestart) {
         String f = normalizeFileName(fileName);
         if (f == null) return;
 
         boolean sameTrack = (currentMusicFile != null && currentMusicFile.equals(f) && backgroundMusic != null);
 
-        // Si es la misma pista y no queremos reiniciar, solo aseguramos estado/volumen/bucle.
         if (!forceRestart && sameTrack) {
             try {
                 backgroundMusic.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
                 backgroundMusic.setVolume(musicVolume);
-                backgroundMusic.play(); // si estaba en pausa, reanuda; si estaba sonando, no pasa nada grave
+                backgroundMusic.play();
             } catch (Exception e) {
                 System.err.println("[AssetsManager] Error asegurando música: " + e.getMessage());
             }
             return;
         }
 
-        // En cualquier otro caso, cambiamos la pista (o reiniciamos).
         stopMusic();
 
         try {
@@ -524,7 +496,6 @@ public class AssetsManager {
             mp.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
             mp.setVolume(musicVolume);
 
-            // Si NO es loop, al terminar liberamos recursos y limpiamos estado.
             mp.setOnEndOfMedia(() -> {
                 if (mp.getCycleCount() == 1) {
                     try { mp.stop(); } catch (Exception ignore) {}
@@ -563,13 +534,8 @@ public class AssetsManager {
 
     /**
      * Reproduce un vídeo desde /assets/videos/.
-     * - Detiene el vídeo anterior si existía.
-     * - Devuelve el MediaPlayer para que la UI lo conecte a un MediaView.
-     * - Por defecto lo deja en mute (útil si el vídeo es decorativo).
-     *
-     * @param fileName nombre del archivo de vídeo en /assets/videos/
-     * @param loop si true, repite indefinidamente
-     * @return MediaPlayer del vídeo o null si falla
+     * Si el recurso NO es file:, se copia a un fichero temporal y se reproduce desde ahí
+     * (evita ERROR_MEDIA_INVALID en algunos entornos con GStreamer).
      */
     public static MediaPlayer playVideo(String fileName, boolean loop) {
         stopVideo();
@@ -577,15 +543,18 @@ public class AssetsManager {
             String f = normalizeFileName(fileName);
             if (f == null) return null;
 
-            URL url = AssetsManager.class.getResource("/assets/videos/" + f);
+            String resourcePath = "/assets/videos/" + f;
+            URL url = AssetsManager.class.getResource(resourcePath);
             if (url == null) throw new Exception("Vídeo no encontrado: " + f);
 
-            videoPlayer = new MediaPlayer(new Media(url.toExternalForm()));
+            String mediaUri = toPlayableMediaUri(resourcePath, url);
+
+            videoPlayer = new MediaPlayer(new Media(mediaUri));
             videoPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
             videoPlayer.setMute(true);
             videoPlayer.play();
 
-            System.out.println("[AssetsManager] Vídeo: " + f);
+            System.out.println("[AssetsManager] Vídeo: " + f + " (" + url.getProtocol() + ")");
             return videoPlayer;
 
         } catch (Exception e) {
@@ -594,9 +563,6 @@ public class AssetsManager {
         }
     }
 
-    /**
-     * Detiene y libera el MediaPlayer del vídeo actual.
-     */
     public static void stopVideo() {
         if (videoPlayer != null) {
             try { videoPlayer.stop(); } catch (Exception ignore) {}
@@ -606,18 +572,54 @@ public class AssetsManager {
         }
     }
 
+    /**
+     * Convierte una URL de recurso a un URI reproducible por JavaFX Media.
+     * - Si es file:, se usa tal cual.
+     * - Si es jar: u otro, se extrae a un fichero temporal y se devuelve file:...
+     */
+    private static String toPlayableMediaUri(String cacheKey, URL resourceUrl) {
+        String protocol = resourceUrl.getProtocol();
+        if ("file".equalsIgnoreCase(protocol)) {
+            return resourceUrl.toExternalForm();
+        }
+
+        return extractedMediaUriCache.computeIfAbsent(cacheKey, k -> {
+            try (InputStream is = AssetsManager.class.getResourceAsStream(cacheKey)) {
+                if (is == null) {
+                    // Fallback: si no se puede abrir stream, intentamos la URL directa igualmente.
+                    return resourceUrl.toExternalForm();
+                }
+
+                String suffix = "";
+                int dot = cacheKey.lastIndexOf('.');
+                if (dot >= 0 && dot < cacheKey.length() - 1) {
+                    suffix = cacheKey.substring(dot);
+                    if (suffix.length() > 10) suffix = ""; // seguridad
+                }
+
+                Path tmp = Files.createTempFile("layla_media_", suffix);
+                Files.copy(is, tmp, StandardCopyOption.REPLACE_EXISTING);
+                tmp.toFile().deleteOnExit();
+
+                return tmp.toUri().toString();
+
+            } catch (Exception e) {
+                // Si falla la extracción, devolvemos la URL original para no romper.
+                return resourceUrl.toExternalForm();
+            }
+        });
+    }
+
     // =========================
     // UTILIDADES
     // =========================
 
-    /** Normaliza un nombre de archivo simple y evita strings vacíos. */
     private static String normalizeFileName(String fileName) {
         if (fileName == null) return null;
         String f = fileName.trim();
         return f.isEmpty() ? null : f;
     }
 
-    /** Clampa un valor al rango [0..1]. */
     private static double clamp01(double v) {
         return Math.max(0.0, Math.min(1.0, v));
     }

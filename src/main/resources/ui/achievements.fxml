@@ -7,6 +7,7 @@
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
@@ -15,10 +16,24 @@
            fx:controller="com.layla.ui.AchievementsController"
            style="-fx-background-color: transparent;">
 
-    <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650">
+    <VBox spacing="12" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650"
+          style="-fx-padding: 16;">
 
-        <HBox fx:id="mainContentBox" spacing="20" VBox.vgrow="ALWAYS" style="-fx-padding: 20;">
+        <!-- Header -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <Button text="VOLVER" onAction="#onBack"
+                    styleClass="menu-button"
+                    style="-fx-padding: 8 18;"/>
 
+            <Label text="LOGROS"
+                   style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 34px;"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+
+        <HBox fx:id="mainContentBox" spacing="20" VBox.vgrow="ALWAYS">
+
+            <!-- Lista -->
             <ScrollPane fx:id="scrollPane" HBox.hgrow="ALWAYS" fitToWidth="true"
                         style="-fx-background-color: transparent; -fx-background: transparent;"
                         hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
@@ -29,34 +44,44 @@
                 </content>
             </ScrollPane>
 
-            <VBox fx:id="detailPanel" spacing="15" alignment="TOP_CENTER" prefWidth="0" minWidth="0" maxWidth="380"
+            <!-- Panel detalle (arranca cerrado) -->
+            <VBox fx:id="detailPanel"
+                  spacing="15"
+                  alignment="TOP_CENTER"
+                  prefWidth="0"
+                  minWidth="0"
+                  maxWidth="380"
                   styleClass="detail-panel">
 
                 <StackPane styleClass="icon-box-large">
                     <ImageView fx:id="detailImage" fitWidth="120" fitHeight="120" preserveRatio="true"/>
                 </StackPane>
 
-                <Label fx:id="detailName" text="ACHIEVEMENT NAME" wrapText="true" textAlignment="CENTER"
+                <Label fx:id="detailName" text="NOMBRE DEL LOGRO" wrapText="true" textAlignment="CENTER"
                        style="-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 28px;"/>
-                <Label fx:id="detailStatus" text="LOCKED"
+
+                <Label fx:id="detailStatus" text="BLOQUEADO"
                        style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
 
                 <Separator style="-fx-opacity: 0.3;"/>
 
                 <VBox spacing="5" alignment="CENTER_LEFT" maxWidth="300">
-                    <Label text="Condition:" styleClass="section-header"/>
-                    <Label fx:id="detailDescription" text="Description..." wrapText="true" style="-fx-text-fill: white;"/>
+                    <Label text="Condición:" styleClass="section-header"/>
+                    <Label fx:id="detailDescription" text="..." wrapText="true" style="-fx-text-fill: white;"/>
                 </VBox>
 
                 <Separator style="-fx-opacity: 0.3;"/>
 
                 <VBox spacing="5" alignment="CENTER_LEFT" maxWidth="300">
-                    <Label text="Reward:" styleClass="section-header"/>
-                    <Label fx:id="detailUnlockContent" text="Unlocks: ..." wrapText="true" style="-fx-text-fill: #00ff00;"/>
+                    <Label text="Recompensa:" styleClass="section-header"/>
+                    <Label fx:id="detailUnlockContent" text="..." wrapText="true" style="-fx-text-fill: #00ff00;"/>
                 </VBox>
 
-                <Button text="CLOSE" onAction="#onCloseDetails" styleClass="menu-button" style="-fx-padding: 8 20;"/>
+                <Button text="CERRAR DETALLES" onAction="#onCloseDetails"
+                        styleClass="menu-button"
+                        style="-fx-padding: 8 20;"/>
             </VBox>
+
         </HBox>
     </VBox>
 </StackPane>

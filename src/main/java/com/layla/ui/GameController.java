@@ -63,6 +63,53 @@ import javafx.util.Duration;
 
 public class GameController implements ViewLifecycle {
 
+    // =====================
+    // TEXTOS UI (HARDCODEADOS EN ESPAÑOL)
+    // =====================
+    private static final String TXT_PUNTUACION = "Puntuación";
+    private static final String TXT_MONEDAS    = "Monedas";
+
+    private static final String TXT_LISTO     = "Listo";
+    private static final String TXT_OLEADA    = "Oleada";
+    private static final String TXT_SIGUIENTE = "Siguiente";
+    private static final String TXT_JEFE      = "JEFE";
+    private static final String TXT_PAUSA     = "PAUSA";
+    private static final String TXT_INICIO    = "INICIO";
+    private static final String TXT_LIMPIO    = "LIMPIO";
+
+    // Zonas / pisos
+    private static final String ZONA_SOTANO        = "Sótano";
+    private static final String ZONA_CUEVAS        = "Cuevas";
+    private static final String ZONA_PROFUNDIDADES = "Profundidades";
+    private static final String ZONA_UTERO         = "Útero";
+    private static final String ZONA_SEOL          = "Seol";
+
+    // Notificaciones
+    private static final String NOTI_MODO_AVARICIA_T = "MODO AVARICIA";
+    private static final String NOTI_MODO_AVARICIA_D = "Toca el botón para empezar";
+
+    private static final String NOTI_PAUSA_T = "¡PAUSA!";
+    private static final String NOTI_PAUSA_D = "-1 vida, -5 monedas";
+
+    private static final String NOTI_OLEADA_RAPIDA_T = "¡OLEADA RÁPIDA!";
+    private static final String NOTI_OLEADA_RAPIDA_D = "+1 moneda";
+
+    private static final String NOTI_DESBORDADO_T = "¡DESBORDADO!";
+    private static final String NOTI_DESBORDADO_D = "¡Las oleadas se acumulan!";
+
+    private static final String NOTI_PISO_T = "PISO ";
+    private static final String NOTI_PISO_D = "Te esperan nuevos desafíos";
+
+    // Tienda
+    private static final String TXT_TIENDA = "TIENDA";
+
+    // Game over / victoria
+    private static final String TXT_GAME_OVER = "FIN DE LA PARTIDA";
+    private static final String TXT_VICTORIA  = "¡VICTORIA!";
+
+    // =====================
+    // FXML / NODOS PRINCIPALES
+    // =====================
     @FXML private Pane gameArea;
     @FXML private HBox hudBar;
     @FXML private Label scoreLabel;
@@ -72,22 +119,26 @@ public class GameController implements ViewLifecycle {
     @FXML private StackPane root;
     @FXML private StackPane overlayLayer;
 
+    // =====================
+    // BACKGROUND (MODO "STRETCH" SIN PRESERVE RATIO)
+    // =====================
     private ImageView backgroundView;
+    private boolean bgStretchBound = false;
 
-    // Background cover (avoid stretching). The gameArea is clipped and the background is scaled to cover it.
-    private Rectangle backgroundClip;
-    private boolean backgroundCoverInitialized = false;
-
-    private javafx.scene.Node pauseOverlay;
-    private javafx.scene.Node gameOverOverlay;
-    private javafx.scene.Node shopOverlay;
+    // =====================
+    // OVERLAYS / UI
+    // =====================
+    private Node pauseOverlay;
+    private Node gameOverOverlay;
+    private Node shopOverlay;
 
     private VBox bossHealthBox;
     private ProgressBar bossHealthBar;
     private Label bossNameLabel;
-    private boolean bgStretchBound = false;
-    private boolean boundaryWallsInLoop = false;
 
+    // =====================
+    // ENTIDADES / ESTADO DE JUEGO
+    // =====================
     // Tendero físico (ShopKeeper)
     private GameEntity shopKeeperEntity;
     private double shopCooldown = 0.0; // Cooldown para evitar re-entrada inmediata
@@ -95,35 +146,48 @@ public class GameController implements ViewLifecycle {
     // Referencia para limpiar a Choco al cambiar de piso
     private ChocoCat chocoEntity;
 
-    // Spawn indicators (so we can clean them on level transitions)
+    // Indicadores de spawn (para poder limpiarlos en transiciones)
     private final List<SpawnIndicator> spawnIndicators = new ArrayList<>();
-    // ESTADO PERSISTENTE DE LA TIENDA
+
+    // Estado persistente de la tienda (misma tienda mientras estés en el piso)
     private List<ShopOffer> currentShopOffers = new ArrayList<>();
     private int currentRerollPrice = 1;
 
-    // PRECIO DEL CORAZÓN (Escalable)
+    // Precio del corazón (escala con compras)
     private int currentHeartPrice = 2;
 
-    // ===== MUSIC STATE =====
+    // =====================
+    // MÚSICA
+    // =====================
     private boolean musicStarted = false;
     private String currentFloorMusicFile = null; // track elegido para el piso actual
     private String currentBossMusicFile  = null; // track del boss actual (si hay)
 
-    // ===== BOSS NON-REPEAT DECK (floors 1-4) =====
-    private final List<Integer> bossDeck = new ArrayList<>(4); // 0..3
+    // =====================
+    // BOSSES SIN REPETIR (PISOS 1-4)
+    // =====================
     // 0 = Spreader, 1 = Sentry, 2 = Brute, 3 = Hive
+    private final List<Integer> bossDeck = new ArrayList<>(4);
 
-    // ===== GLOBAL SFX TIMERS =====
+    // =====================
+    // TIMERS GLOBALES (SFX)
+    // =====================
     private static final double ENEMY_PRESENCE_INTERVAL = 3.0;
     private double enemyPresenceTimer = 0.0;
 
     private static final double PLAYER_HURT_SFX_COOLDOWN = 0.12;
     private double playerHurtSfxTimer = 0.0;
 
+    // =====================
+    // SCORE / MONEDAS / HUD
+    // =====================
     private int score = 500;
     private int coins = Math.max(0, com.layla.AppContext.balance().startCoins);
     private Label timeLabel;
 
+    // =====================
+    // OLAS / PISOS
+    // =====================
     private int wavesPerFloor = 5;
     private static final int MAX_FLOORS = 5;
     private int currentFloor = 1;
@@ -138,6 +202,8 @@ public class GameController implements ViewLifecycle {
     private boolean moneyPenaltyActive = false;
     private double buttonSafetyTimer = 0.0;
 
+    // NOTA: Estos campos ahora mismo no están conectados a un “spawn constante”.
+    // Se mantienen tal cual para no alterar comportamiento (aunque el bloque esté “vacío”).
     private double constantSpawnInterval;
     private double timeUntilNextSpawn = 0.0;
 
@@ -163,17 +229,16 @@ public class GameController implements ViewLifecycle {
     private final DatabaseService db = AppContext.db();
     private final AchievementService achievements = AppContext.achievements();
 
-    private double bias = 0.2;
-    private boolean tickerAdded = false;
+    // “Ticker”/loop lógico adicional
     private GameEntity ticker;
 
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<GameEntity> obstacles = new ArrayList<>();
 
-    // ===== Invisible boundary walls (blocks player/enemies + prevents spawns on the decorative BG wall) =====
-    // Tune this until it matches your background wall thickness.
-
-    // Invisible walls thickness (match the visual wall in the background).
+    // =====================
+    // PAREDES INVISIBLES (LÍMITES DEL “MURO” DECORATIVO DEL BG)
+    // =====================
+    // Grosor de paredes invisibles (ajusta para que coincida con el borde del fondo).
     private static final double BG_WALL_THICKNESS_LEFT   = 120.0;
     private static final double BG_WALL_THICKNESS_RIGHT  = 120.0;
     private static final double BG_WALL_THICKNESS_TOP    = 80.0;
@@ -184,6 +249,7 @@ public class GameController implements ViewLifecycle {
     private InvisibleWall wallLeft;
     private InvisibleWall wallRight;
     private boolean boundaryWallsAdded = false;
+    private boolean boundaryWallsInLoop = false;
 
     private final ThreadLocalRandom enemyRng = ThreadLocalRandom.current();
     private static final double SEPARATION_EPS = 1e-5;
@@ -211,11 +277,13 @@ public class GameController implements ViewLifecycle {
     private boolean shootingArmed = false;
     private double shootingArmTimer = 0.6;
 
-    // ---------------------
-    // SFX helpers
-    // ---------------------
+    // =====================================================================
+    // BOSS DECK (SIN REPETIR)
+    // =====================================================================
 
-
+    /**
+     * Reinicia la baraja de bosses (pisos 1-4) para que no se repitan durante la run.
+     */
     private void resetBossDeckForRun() {
         bossDeck.clear();
         bossDeck.add(0);
@@ -225,8 +293,11 @@ public class GameController implements ViewLifecycle {
         Collections.shuffle(bossDeck, enemyRng);
     }
 
+    /**
+     * Devuelve el tipo de boss para el piso actual, intentando que no se repita entre pisos 1-4.
+     */
     private int pickBossTypeForFloor(int floor) {
-        // floors 1-4 unique
+        // Pisos 1-4 únicos
         if (bossDeck.isEmpty()) resetBossDeckForRun();
         int idx = floor - 1;
         if (idx < 0) idx = 0;
@@ -234,14 +305,27 @@ public class GameController implements ViewLifecycle {
         return bossDeck.get(idx);
     }
 
+    // =====================================================================
+    // PAUSA / REANUDAR
+    // =====================================================================
+
+    /**
+     * Handler del botón de pausa (ESC). Detiene el GameLoop y muestra overlay.
+     *
+     * IMPORTANTE:
+     * - Se eliminó la llamada a updateBackgroundCover() porque en este proyecto
+     *   el background está en modo “stretch” con fitWidth/fitHeight BINDADOS.
+     *   Llamar a setFitWidth/Height cuando están bindados lanza excepción.
+     */
     @FXML
     private void onPausePressed() {
         if (gameOverShown || pauseOverlay != null || paused) return;
         paused = true;
+
         Platform.runLater(() -> {
             if (gameLoop != null && gameLoop.isRunning()) gameLoop.stop();
             updateBoundaryWalls();
-            updateBackgroundCover();
+            // ❌ No tocar el background aquí: está en modo stretch con bindings.
         });
 
         pauseOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/pause_overlay.fxml", 0.50, controller -> {
@@ -257,7 +341,7 @@ public class GameController implements ViewLifecycle {
                     });
                 });
                 poc.setOnSettings(() -> {
-                    final javafx.scene.Node[] settingsNode = new javafx.scene.Node[1];
+                    final Node[] settingsNode = new Node[1];
                     settingsNode[0] = OverlayRouter.showOverlay(overlayLayer, "ui/settings.fxml", 0.90, c -> {
                         if (c instanceof SettingsController sc) {
                             sc.setStatsService(statsService);
@@ -275,6 +359,9 @@ public class GameController implements ViewLifecycle {
         });
     }
 
+    /**
+     * Cierra overlay de pausa y reanuda el GameLoop.
+     */
     private void resumeFromPause() {
         if (pauseOverlay != null) {
             OverlayRouter.closeOverlay(overlayLayer, pauseOverlay);
@@ -286,50 +373,64 @@ public class GameController implements ViewLifecycle {
         });
     }
 
+    // =====================================================================
+    // HUD
+    // =====================================================================
+
+    /**
+     * Formatea segundos en string “SS” (dos dígitos).
+     */
     private static String formatTime(double seconds) {
         int s = (int) Math.ceil(seconds);
         return String.format("%02d", s);
     }
 
+    /**
+     * Actualiza textos del HUD (puntuación, monedas, piso/oleada, temporizador).
+     * También refresca barra de vida del boss y el ItemHud si existe.
+     */
     private void updateHudLabels() {
-        String multiplierText = comboMultiplier > 1.0 ? String.format(" (x%.1f)", comboMultiplier) : "";
-        if (scoreLabel != null) scoreLabel.setText("Score: " + score + multiplierText);
-        if (coinLabel  != null) coinLabel.setText("Coins: " + coins);
+        String mult = comboMultiplier > 1.0 ? String.format(" (x%.1f)", comboMultiplier) : "";
 
-        String floorName = switch(currentFloor) {
-            case 1 -> "Basement";
-            case 2 -> "Caves";
-            case 3 -> "Depths";
-            case 4 -> "Womb";
-            default -> "Sheol";
+        if (scoreLabel != null) scoreLabel.setText(TXT_PUNTUACION + ": " + score + mult);
+        if (coinLabel  != null) coinLabel.setText(TXT_MONEDAS + ": " + coins);
+
+        String zona = switch (currentFloor) {
+            case 1 -> ZONA_SOTANO;
+            case 2 -> ZONA_CUEVAS;
+            case 3 -> ZONA_PROFUNDIDADES;
+            case 4 -> ZONA_UTERO;
+            default -> ZONA_SEOL;
         };
 
-        String waveText = currentWave == 0 ? "Ready" : currentWave + "/" + wavesPerFloor;
-        if (floorLabel != null) floorLabel.setText(floorName + " - Wave " + waveText);
+        String oleadaTxt = (currentWave == 0) ? TXT_LISTO : (currentWave + "/" + wavesPerFloor);
+        if (floorLabel != null) floorLabel.setText(zona + " - " + TXT_OLEADA + " " + oleadaTxt);
 
         if (timeLabel != null) {
             if (activeBoss != null) {
-                timeLabel.setText("BOSS");
+                timeLabel.setText(TXT_JEFE);
                 timeLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-weight: bold;");
             } else if (waveInProgress) {
                 if (timerStopped) {
-                    timeLabel.setText("PAUSED");
+                    timeLabel.setText(TXT_PAUSA);
                     timeLabel.setStyle("-fx-text-fill: #aaaaff; -fx-font-weight: bold;");
                 } else {
-                    timeLabel.setText("Next: " + formatTime(nextWaveTimer));
+                    timeLabel.setText(TXT_SIGUIENTE + ": " + formatTime(nextWaveTimer));
                     timeLabel.setStyle("-fx-text-fill: white;");
                     if (nextWaveTimer <= 3.0) {
                         timeLabel.setStyle("-fx-text-fill: #ff5555; -fx-effect: dropshadow(gaussian, red, 10, 0.5, 0, 0);");
                     }
                 }
             } else {
-                timeLabel.setText(currentWave == 0 ? "START" : "CLEAR");
+                timeLabel.setText(currentWave == 0 ? TXT_INICIO : TXT_LIMPIO);
                 timeLabel.setStyle("-fx-text-fill: #55ff55;");
             }
         }
 
         if (activeBoss != null && bossHealthBar != null) {
-            bossHealthBar.setProgress(activeBoss.getHp() / activeBoss.getMaxHp());
+            double maxHp = Math.max(0.0001, activeBoss.getMaxHp());
+            double v = activeBoss.getHp() / maxHp;
+            bossHealthBar.setProgress(Math.max(0.0, Math.min(1.0, v)));
         }
 
         if (itemHud != null) {
@@ -338,6 +439,9 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Initialize JavaFX: configura HUD, crea barra del boss y la añade al overlayLayer.
+     */
     @FXML
     private void initialize() {
         if (hudBar != null && healthLabel != null) {
@@ -358,7 +462,8 @@ public class GameController implements ViewLifecycle {
         bossHealthBar = new ProgressBar(1.0);
         bossHealthBar.setPrefWidth(600);
         bossHealthBar.setStyle("-fx-accent: #cc0000; -fx-control-inner-background: #333333; -fx-text-box-border: transparent;");
-        bossNameLabel = new Label("BOSS");
+
+        bossNameLabel = new Label(TXT_JEFE);
         bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px; -fx-effect: dropshadow(gaussian, black, 2, 1, 0, 0);");
 
         bossHealthBox = new VBox(4, bossNameLabel, bossHealthBar);
@@ -376,9 +481,17 @@ public class GameController implements ViewLifecycle {
             // Para que no moleste clics
             bossHealthBox.setMouseTransparent(true);
         }
+
         updateHudLabels();
     }
 
+    // =====================================================================
+    // BALANCE / PLAYER
+    // =====================================================================
+
+    /**
+     * Aplica el balance (stats base) al player ya instanciado en runtime.
+     */
     private void applyBalanceToRuntimePlayer() {
         if (player == null) return;
         var bal = com.layla.AppContext.balance();
@@ -399,6 +512,14 @@ public class GameController implements ViewLifecycle {
         player.setHealth(Math.min(player.getHealth(), player.getMaxHealth()));
     }
 
+    // =====================================================================
+    // CICLO DE VIDA DE LA VISTA
+    // =====================================================================
+
+    /**
+     * Se ejecuta al entrar en la vista del juego: resetea UI, engancha input,
+     * prepara gameLoop y spawnea al jugador si toca.
+     */
     @Override
     public void onEnter() {
         this.wavesPerFloor = AppContext.getRunModifiers().wavesPerFloor;
@@ -427,17 +548,20 @@ public class GameController implements ViewLifecycle {
                 }
             });
             gameArea.requestFocus();
-            // keep boundary walls in sync with window resize
+
+            // Mantener paredes sincronizadas con resize de la ventana
             gameArea.widthProperty().addListener((obs, ov, nv) -> updateBoundaryWalls());
             gameArea.heightProperty().addListener((obs, ov, nv) -> updateBoundaryWalls());
         });
 
         if (gameLoop == null) gameLoop = new GameLoop(gameArea);
+
         if (!playerSpawnListenerAdded) {
             playerSpawnListenerAdded = true;
             gameArea.widthProperty().addListener((obs, ow, nw) -> maybeSpawnPlayer());
             gameArea.heightProperty().addListener((obs, oh, nh) -> maybeSpawnPlayer());
         }
+
         maybeSpawnPlayer();
 
         if (restartPending) {
@@ -449,20 +573,33 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Se ejecuta al salir de la vista del juego: detiene gameLoop, desengancha input
+     * y resetea banderas/refs para evitar fugas de estado.
+     */
     @Override
     public void onExit() {
         if (gameLoop != null) gameLoop.stop();
         if (input != null) input.detach();
+
         startGateOpen = false;
         gameOverShown = false;
         paused = false;
         activeBoss = null;
         waveInProgress = false;
+
         if (greedButton != null) greedButton = null;
         shopKeeperEntity = null;
-        if (chocoEntity != null) chocoEntity = null; // Limpiar ref
+        if (chocoEntity != null) chocoEntity = null;
     }
 
+    // =====================================================================
+    // INICIO DE PARTIDA
+    // =====================================================================
+
+    /**
+     * Señal para empezar la run (abre puerta de inicio y resetea estado principal).
+     */
     public void signalGameStart() {
         if (startGateOpen) return;
         startGateOpen = true;
@@ -479,7 +616,7 @@ public class GameController implements ViewLifecycle {
         enemies.clear();
         pendingSpawns = 0;
 
-        // bosses sin repetir en floors 1-4
+        // Bosses sin repetir en floors 1-4
         resetBossDeckForRun();
 
         currentRerollPrice = SHOP_REROLL_BASE_PRICE;
@@ -490,7 +627,7 @@ public class GameController implements ViewLifecycle {
 
         spawnGreedButton();
         spawnShopKeeper();
-        spawnChocoCat(); // AÑADIDO: Spawnear a Choco al inicio
+        spawnChocoCat();
 
         updateHudLabels();
         maybeSpawnPlayer();
@@ -507,14 +644,21 @@ public class GameController implements ViewLifecycle {
             "enemy_presence", "buy", "boss_death"
         );
 
-
-        // timers sfx
+        // Timers SFX
         enemyPresenceTimer = 0.0;
         playerHurtSfxTimer = 0.0;
 
-        AppContext.notifications().showNotification("GREED MODE", "Touch button to start!", 4.0);
+        AppContext.notifications().showNotification(NOTI_MODO_AVARICIA_T, NOTI_MODO_AVARICIA_D, 4.0);
     }
 
+    // =====================================================================
+    // FONDO (BACKGROUND)
+    // =====================================================================
+
+    /**
+     * Cambia el fondo según el piso actual.
+     * Mantiene el background siempre al fondo (index 0) y el HUD por delante.
+     */
     private void changeFloorVisuals() {
         if (backgroundView == null) {
             backgroundView = new ImageView();
@@ -522,7 +666,7 @@ public class GameController implements ViewLifecycle {
             gameArea.getChildren().add(0, backgroundView);
         }
 
-        // Reinsert seguro al index 0 (por si algo lo movió)
+        // Reinserta seguro al index 0 (por si algo lo movió)
         if (!gameArea.getChildren().contains(backgroundView)) {
             gameArea.getChildren().add(0, backgroundView);
         } else {
@@ -539,11 +683,10 @@ public class GameController implements ViewLifecycle {
             default -> "basement.png";
         };
 
-        // 1) Ruta más probable en tu proyecto
+        // 1) Ruta “principal”
         Image img = AssetsManager.loadImage("assets/background/" + file);
 
-        // 2) Fallback por si lo tienes en otra carpeta
-        if (img == null) img = AssetsManager.loadImage("assets/background/" + file);
+        // 2) Fallbacks (mismos intentos que tenías, sin duplicados)
         if (img == null) img = AssetsManager.loadImage("/assets/images/background/" + file);
         if (img == null) img = AssetsManager.loadImage("/assets/background/" + file);
 
@@ -570,68 +713,11 @@ public class GameController implements ViewLifecycle {
         if (hudBar != null) hudBar.toFront();
     }
 
-    private void ensureBackgroundCover() {
-        if (backgroundView == null || backgroundView.getImage() == null) return;
-
-        if (!backgroundCoverInitialized) {
-            backgroundCoverInitialized = true;
-
-            backgroundView.setSmooth(true);
-            backgroundView.setPreserveRatio(true);
-
-            // Clip gameArea so oversized background doesn't bleed outside.
-            if (backgroundClip == null) {
-                backgroundClip = new Rectangle();
-                backgroundClip.setManaged(false);
-                backgroundClip.widthProperty().bind(gameArea.widthProperty());
-                backgroundClip.heightProperty().bind(gameArea.heightProperty());
-                gameArea.setClip(backgroundClip);
-            }
-
-            // Recompute cover on resize or when image changes.
-            gameArea.widthProperty().addListener((obs, o, n) -> updateBackgroundCover());
-            gameArea.heightProperty().addListener((obs, o, n) -> updateBackgroundCover());
-            backgroundView.imageProperty().addListener((obs, o, n) -> updateBackgroundCover());
-        }
-
-        updateBackgroundCover();
-    }
-
-    private void updateBackgroundCover() {
-        if (backgroundView == null) return;
-        Image img = backgroundView.getImage();
-        if (img == null) return;
-
-        double w = gameArea.getWidth();
-        double h = gameArea.getHeight();
-        if (w <= 1 || h <= 1) return;
-
-        double iw = img.getWidth();
-        double ih = img.getHeight();
-        if (iw <= 1 || ih <= 1) return;
-
-        double areaAspect = w / h;
-        double imgAspect = iw / ih;
-
-        if (imgAspect >= areaAspect) {
-            // Image is wider -> scale by height (cover)
-            backgroundView.setFitHeight(h);
-            backgroundView.setFitWidth(0);
-            double scale = h / ih;
-            double fitW = iw * scale;
-            backgroundView.setLayoutX((w - fitW) * 0.5);
-            backgroundView.setLayoutY(0);
-        } else {
-            // Image is taller -> scale by width (cover)
-            backgroundView.setFitWidth(w);
-            backgroundView.setFitHeight(0);
-            double scale = w / iw;
-            double fitH = ih * scale;
-            backgroundView.setLayoutX(0);
-            backgroundView.setLayoutY((h - fitH) * 0.5);
-        }
-    }
-
+    /**
+     * Activa el modo “stretch” sin preserve ratio:
+     * - fitWidth/fitHeight bindados al tamaño de gameArea
+     * - layout en (0,0)
+     */
     private void ensureBackgroundStretchNoPreserveRatio() {
         if (backgroundView == null) return;
         if (bgStretchBound) return;
@@ -644,6 +730,13 @@ public class GameController implements ViewLifecycle {
         backgroundView.setLayoutY(0);
     }
 
+    // =====================================================================
+    // BOTÓN GREED
+    // =====================================================================
+
+    /**
+     * Spawnea el botón central de Greed (start wave / siguiente piso / etc).
+     */
     private void spawnGreedButton() {
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
@@ -677,17 +770,21 @@ public class GameController implements ViewLifecycle {
                     timerStopped = true;
                     btn.setActiveState(false);
 
-                    AppContext.notifications().showNotification("PAUSED!", "-1 HP, -5 Coins", 2.0);
+                    AppContext.notifications().showNotification(NOTI_PAUSA_T, NOTI_PAUSA_D, 2.0);
                 } else if (!timerStopped) {
                     player.takeDamage(0.5);
                 }
             }
         });
+
         greedButton.setActiveState(false);
         gameLoop.addEntity(greedButton);
         checkAndPushInteractive(greedButton);
     }
 
+    /**
+     * Limpia obstáculos alrededor de un punto (útil para que el botón/tendero/pedestal tengan espacio).
+     */
     private void clearAreaAround(double x, double y, double radius) {
         List<GameEntity> toRemove = new ArrayList<>();
         for (GameEntity obs : obstacles) {
@@ -699,6 +796,7 @@ public class GameController implements ViewLifecycle {
                 toRemove.add(obs);
             }
         }
+
         for (GameEntity obs : toRemove) {
             if (obs instanceof Rock rock) rock.destroy();
             gameLoop.removeEntity(obs);
@@ -707,10 +805,26 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // NAVEGACIÓN / GETTERS
+    // =====================================================================
+
+    /** Vuelve al menú principal con transición. */
     public void backToMenu() { SceneRouter.goWithFadeKeepSize("ui/main_menu.fxml"); }
+
+    /** Devuelve la capa de overlays (para que otros controladores la usen). */
     public StackPane getOverlayLayer() { return overlayLayer; }
+
+    /** Devuelve el StatsService de la run. */
     public StatsService getStatsService() { return statsService; }
 
+    // =====================================================================
+    // MÚSICA
+    // =====================================================================
+
+    /**
+     * Inicia música del piso si todavía no ha empezado durante la run.
+     */
     public void startFloorMusicIfNeeded() {
         if (!musicStarted) {
             playFloorMusicForCurrentFloor(true); // fuerza pick random al iniciar run
@@ -718,11 +832,11 @@ public class GameController implements ViewLifecycle {
         }
     }
 
-    // =====================
-    // MUSIC HELPERS
-    // =====================
+    /**
+     * Reproduce música del piso actual.
+     * @param forceNewPick si true, elige track nuevo; si false, reutiliza el ya asignado a este piso.
+     */
     private void playFloorMusicForCurrentFloor(boolean forceNewPick) {
-        // Si ya hay una elegida para este piso y no quieres cambiarla, reutilízala
         if (!forceNewPick && currentFloorMusicFile != null) {
             AssetsManager.playMusic(currentFloorMusicFile, true);
             return;
@@ -735,14 +849,19 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Reproduce música de boss (si el track es válido).
+     */
     private void playBossMusic(String bossTrack) {
         if (bossTrack == null || bossTrack.isBlank()) return;
         currentBossMusicFile = bossTrack;
         AssetsManager.playMusic(bossTrack, true);
     }
 
+    /**
+     * Tras boss, vuelve a la música del piso (la misma que ya estaba asignada).
+     */
     private void resumeFloorMusicAfterBoss() {
-        // vuelve a la música del piso (la que ya estaba elegida)
         if (currentFloorMusicFile == null) {
             playFloorMusicForCurrentFloor(true);
         } else {
@@ -750,33 +869,48 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Elige un track aleatorio para el piso (ignorando mp3 que no existan aún).
+     */
     private String pickRandomFloorTrack(int floor) {
-        // Basement = 3 tracks, Floors 2-5 = 2 tracks
+        // Sótano = 3 tracks, Pisos 2-5 = 2 tracks
         String[] candidates = switch (floor) {
             case 1 -> new String[]{"basement1.mp3", "basement2.mp3", "basement3.mp3"};
             case 2 -> new String[]{"caves1.mp3", "caves2.mp3"};
             case 3 -> new String[]{"depths1.mp3", "depths2.mp3"};
             case 4 -> new String[]{"womb1.mp3", "womb2.mp3"};
-            default -> new String[]{"sheol1.mp3", "sheol2.mp3"}; // floor 5
+            default -> new String[]{"sheol1.mp3", "sheol2.mp3"}; // piso 5
         };
 
-        // Si algún mp3 no existe todavía, lo ignoramos (para que no te pete mientras montas assets)
+        // Si algún mp3 no existe todavía, lo ignoramos (para que no pete mientras montas assets)
         List<String> available = new ArrayList<>();
         for (String f : candidates) {
             if (musicExists(f)) available.add(f);
         }
 
         if (available.isEmpty()) {
-            // fallback duro: intenta el primero igualmente (AssetsManager ya loguea si no existe)
+            // Fallback: intenta el primero igualmente
             return candidates[0];
         }
+
         return available.get(enemyRng.nextInt(available.size()));
     }
 
+    /**
+     * Comprueba si un mp3 existe dentro del classpath.
+     */
     private boolean musicExists(String fileName) {
         return AssetsManager.class.getResource("/assets/music/" + fileName) != null;
     }
 
+    // =====================================================================
+    // WAVES / LÓGICA GREED
+    // =====================================================================
+
+    /**
+     * Arranca una wave concreta: spawnea enemigos, configura timer y estado.
+     * Si wave > wavesPerFloor, spawnea boss.
+     */
     private void startWave(int wave) {
         if (wave > wavesPerFloor) {
             spawnBoss();
@@ -809,6 +943,11 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
+    /**
+     * Lógica principal de Greed para waves:
+     * - gestiona timers
+     * - respawns, clear, penalizaciones, etc.
+     */
     private void updateGreedLogic(double dt) {
         if (activeBoss != null) return;
 
@@ -826,8 +965,11 @@ public class GameController implements ViewLifecycle {
             nextWaveTimer -= dt;
         }
 
+        // Actualmente sin lógica activa de “spawn constante”. Se mantiene tal cual (sin cambiar comportamiento).
         timeUntilNextSpawn -= dt;
-        if (timeUntilNextSpawn <= 0.0) { }
+        if (timeUntilNextSpawn <= 0.0) {
+            // (Reservado / futuro) No hacer nada por ahora.
+        }
 
         boolean timeUp = nextWaveTimer <= 0.0;
         boolean allDead = enemies.isEmpty() && pendingSpawns == 0;
@@ -835,7 +977,7 @@ public class GameController implements ViewLifecycle {
         if (allDead) {
             if (nextWaveTimer > 0 && !moneyPenaltyActive) {
                 spawnRewardCoins(player.getView().getLayoutX(), player.getView().getLayoutY(), 1);
-                AppContext.notifications().showNotification("QUICK CLEAR!", "+1 Coin", 2.0);
+                AppContext.notifications().showNotification(NOTI_OLEADA_RAPIDA_T, NOTI_OLEADA_RAPIDA_D, 2.0);
             }
 
             nextWaveTimer = 0;
@@ -858,12 +1000,15 @@ public class GameController implements ViewLifecycle {
                     currentWave++;
                     spawnWaveEnemiesForCurrentWave();
                     nextWaveTimer = 10.0 + (currentWave * 2.0);
-                    AppContext.notifications().showNotification("OVERWHELMED!", "Waves are stacking!", 2.0);
+                    AppContext.notifications().showNotification(NOTI_DESBORDADO_T, NOTI_DESBORDADO_D, 2.0);
                 }
             }
         }
     }
 
+    /**
+     * Re-spawnea enemigos para la wave actual (cuando se acumulan waves).
+     */
     private void spawnWaveEnemiesForCurrentWave() {
         double difficulty = currentFloor * 1.5 + currentWave * 0.5;
         int enemyCount = (int)((4 + (difficulty * 1.3)) * Math.max(0.1, AppContext.getRunModifiers().spawnRateMult));
@@ -871,6 +1016,9 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
+    /**
+     * Avanza a la siguiente wave y la inicia si procede.
+     */
     private void startNextWave() {
         if (gameOverShown || !startGateOpen) return;
         currentWave++;
@@ -883,6 +1031,13 @@ public class GameController implements ViewLifecycle {
         updateHudLabels();
     }
 
+    // =====================================================================
+    // SHOPKEEPER
+    // =====================================================================
+
+    /**
+     * Spawnea el tendero en la sala, con sprite si existe o fallback simple.
+     */
     private void spawnShopKeeper() {
         if (shopKeeperEntity != null) {
             gameLoop.removeEntity(shopKeeperEntity);
@@ -928,7 +1083,7 @@ public class GameController implements ViewLifecycle {
                     Rectangle body = new Rectangle(40, 40, Color.SADDLEBROWN);
                     body.setArcWidth(10); body.setArcHeight(10);
                     body.setStroke(Color.BLACK); body.setStrokeWidth(2);
-                    Text label = new Text("SHOP");
+                    Text label = new Text(TXT_TIENDA);
                     label.setFill(Color.GOLD);
                     label.setStyle("-fx-font-weight: bold;");
                     sp.getChildren().addAll(body, label);
@@ -939,6 +1094,7 @@ public class GameController implements ViewLifecycle {
                 view.setLayoutY(finalCy - 100);
                 view.setEffect(new javafx.scene.effect.DropShadow(5, Color.BLACK));
             }
+
             @Override public void update(double dt) {
                 if (player != null && !paused && !gameOverShown && shopCooldown <= 0) {
                     Bounds b1 = view.getBoundsInParent();
@@ -956,13 +1112,19 @@ public class GameController implements ViewLifecycle {
                     }
                 }
             }
+
             @Override public Node getView() { return view; }
+
             @Override public Bounds getBounds() { return view.getBoundsInParent(); }
         };
+
         gameLoop.addEntity(shopKeeperEntity);
         obstacles.add(shopKeeperEntity);
     }
 
+    /**
+     * Elimina el tendero del juego (loop + escena + lista de obstáculos).
+     */
     private void removeShopKeeper() {
         if (shopKeeperEntity != null) {
             gameLoop.removeEntity(shopKeeperEntity);
@@ -972,6 +1134,13 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // ENEMIGOS / SPAWN
+    // =====================================================================
+
+    /**
+     * Spawnea una tanda de enemigos para una wave (usa SpawnIndicator con delay).
+     */
     private void spawnWaveEnemies(int count) {
         if (gameArea == null || player == null) return;
         double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
@@ -980,7 +1149,8 @@ public class GameController implements ViewLifecycle {
         for (int i = 0; i < count; i++) {
             double x = 0, y = 0;
             boolean valid = false;
-            for(int tries=0; tries<10; tries++) {
+
+            for (int tries = 0; tries < 10; tries++) {
                 x = enemyRng.nextDouble(20, w - 40);
                 y = enemyRng.nextDouble(20, h - 40);
                 if (isValidSpawn(x, y, 20, 20)) {
@@ -988,7 +1158,8 @@ public class GameController implements ViewLifecycle {
                     break;
                 }
             }
-            if(!valid) { x=50; y=50; }
+
+            if (!valid) { x = 50; y = 50; }
 
             EnemyType type = pickEnemyTypeForWave();
             double spawnDelay = enemyRng.nextDouble(0.2, 1.5);
@@ -996,24 +1167,30 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Crea un indicador de spawn que, al terminar, genera el enemigo real.
+     */
     private void createSpawnIndicator(double x, double y, EnemyType type, double delay) {
         pendingSpawns++;
 
         SpawnIndicator indicator = new SpawnIndicator(x, y, 1.5 + delay, gameArea, (ind) -> {
-            // Ensure we don't leak indicators between rooms/floors
+            // Evita “leaks” de indicadores entre pisos/salas
             spawnIndicators.remove(ind);
 
             spawnRealEnemy(ind.getX(), ind.getY(), type);
             pendingSpawns--;
         });
 
-        // SpawnIndicator internally calls toBack(); we want it visible above the floor/background.
+        // SpawnIndicator hace toBack() internamente; aquí lo queremos visible sobre el fondo.
         if (indicator.getView() != null) indicator.getView().toFront();
 
         spawnIndicators.add(indicator);
         gameLoop.addEntity(indicator);
     }
 
+    /**
+     * Spawnea el enemigo real aplicando multiplicadores por dificultad/modificadores.
+     */
     private void spawnRealEnemy(double x, double y, EnemyType type) {
         double difficulty = currentFloor * 1.0 + (currentWave * 0.1);
         if (AppContext.isHardMode()) difficulty *= 1.5;
@@ -1043,6 +1220,7 @@ public class GameController implements ViewLifecycle {
             k -> sound.play(k),
             hpMul, speedMul, dmgMul
         );
+
         enemy.setPosition(x, y);
         enemies.add(enemy);
         gameLoop.addEntity(enemy);
@@ -1050,6 +1228,13 @@ public class GameController implements ViewLifecycle {
         db.incrementEnemyStatAsync(AppContext.getProfileId(), type.name(), DatabaseService.StatType.SEEN);
     }
 
+    // =====================================================================
+    // BOSS
+    // =====================================================================
+
+    /**
+     * Spawnea el boss del piso, limpia enemigos y pone música/GUI de boss.
+     */
     private void spawnBoss() {
         waveInProgress = true;
         nextWaveTimer = 99999;
@@ -1059,6 +1244,7 @@ public class GameController implements ViewLifecycle {
             if (greedButton.getView() != null) gameArea.getChildren().remove(greedButton.getView());
             greedButton = null;
         }
+
         removeShopKeeper();
 
         for (Enemy e : new ArrayList<>(enemies)) gameLoop.removeEntity(e);
@@ -1068,19 +1254,19 @@ public class GameController implements ViewLifecycle {
         double hpMult = Math.max(0.1, AppContext.getRunModifiers().enemyHpMult);
         double bossHp = (400 + (currentFloor * 250)) * hpMult;
 
-        double bx = gameArea.getWidth()/2 - 40;
-        double by = gameArea.getHeight()/2 - 100;
+        double bx = gameArea.getWidth() / 2 - 40;
+        double by = gameArea.getHeight() / 2 - 100;
         String bossId = "BOSS_FLOOR_" + currentFloor;
 
         java.util.function.Consumer<GameEntity> projectileRemover = (ent) -> gameLoop.removeEntity(ent);
-
         String bossTrack = null;
 
         if (currentFloor == 5) {
             bossTrack = "harvester.mp3";
             bossHp *= 2.0;
-            bossNameLabel.setText("THE HARVESTER (FINAL BOSS)");
+            bossNameLabel.setText("EL COSECHADOR (JEFE FINAL)");
             bossNameLabel.setStyle("-fx-text-fill: #ff0000; -fx-font-size: 24px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 4, 1, 0, 0);");
+
             activeBoss = new com.layla.entities.FinalBoss(
                 bx, by, bossHp,
                 gameArea,
@@ -1091,12 +1277,12 @@ public class GameController implements ViewLifecycle {
                 bossId
             );
         } else {
-            // Bosses 1-4: NO REPEAT in the run
+            // Bosses 1-4: sin repetir durante la run
             int bossType = pickBossTypeForFloor(currentFloor);
 
             switch (bossType) {
                 case 0 -> {
-                    bossNameLabel.setText("THE SPREADER");
+                    bossNameLabel.setText("EL EXPANSOR");
                     bossNameLabel.setStyle("-fx-text-fill: #ffaaaa; -fx-font-weight: bold; -fx-font-size: 18px;");
                     activeBoss = new Boss(
                         bx, by, bossHp,
@@ -1110,7 +1296,7 @@ public class GameController implements ViewLifecycle {
                     bossTrack = "spreader.mp3";
                 }
                 case 1 -> {
-                    bossNameLabel.setText("THE SENTRY");
+                    bossNameLabel.setText("EL CENTINELA");
                     bossNameLabel.setStyle("-fx-text-fill: #aaddff; -fx-font-weight: bold; -fx-font-size: 18px;");
                     activeBoss = new BossSniper(
                         bx, by, bossHp,
@@ -1124,7 +1310,7 @@ public class GameController implements ViewLifecycle {
                     bossTrack = "sentry.mp3";
                 }
                 case 2 -> {
-                    bossNameLabel.setText("THE BRUTE");
+                    bossNameLabel.setText("EL BRUTO");
                     bossNameLabel.setStyle("-fx-text-fill: #aaffaa; -fx-font-weight: bold; -fx-font-size: 18px;");
                     activeBoss = new BossCharger(
                         bx, by, bossHp,
@@ -1138,7 +1324,7 @@ public class GameController implements ViewLifecycle {
                     bossTrack = "charger.mp3";
                 }
                 default -> {
-                    bossNameLabel.setText("THE HIVE");
+                    bossNameLabel.setText("LA COLMENA");
                     bossNameLabel.setStyle("-fx-text-fill: #ffbbff; -fx-font-weight: bold; -fx-font-size: 18px;");
                     activeBoss = new BossHive(
                         bx, by, bossHp,
@@ -1154,7 +1340,7 @@ public class GameController implements ViewLifecycle {
             }
         }
 
-        // Boss music
+        // Música del boss
         if (bossTrack != null) playBossMusic(bossTrack);
 
         gameLoop.addEntity(activeBoss);
@@ -1166,8 +1352,10 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Lógica al morir el boss: SFX, score, coins, next floor button, pedestal, música.
+     */
     private void handleBossDeath(String bossId) {
-        // Boss death SFX
         sound.play("boss_death");
 
         if (activeBoss != null) {
@@ -1176,6 +1364,7 @@ public class GameController implements ViewLifecycle {
             db.incrementEnemyStatAsync(AppContext.getProfileId(), bossId, DatabaseService.StatType.KILLED);
             achievements.onBossKilled();
         }
+
         if (bossHealthBox != null) bossHealthBox.setVisible(false);
 
         // Volver a música del piso (la misma que estaba asignada)
@@ -1186,7 +1375,7 @@ public class GameController implements ViewLifecycle {
         int bossScore = (int)(1000 * currentFloor * comboMultiplier);
         this.score += bossScore;
 
-        spawnRewardCoins(gameArea.getWidth()/2, gameArea.getHeight()/2, 50);
+        spawnRewardCoins(gameArea.getWidth() / 2, gameArea.getHeight() / 2, 50);
         updateHudLabels();
 
         waveInProgress = false;
@@ -1199,6 +1388,13 @@ public class GameController implements ViewLifecycle {
         spawnRewardPedestal(ItemPoolType.BOSS);
     }
 
+    // =====================================================================
+    // NEXT FLOOR
+    // =====================================================================
+
+    /**
+     * Reutiliza el GreedButton como “salida” para pasar al siguiente piso.
+     */
     private void spawnNextFloorButton() {
         if (greedButton != null) {
             gameLoop.removeEntity(greedButton);
@@ -1213,14 +1409,15 @@ public class GameController implements ViewLifecycle {
 
         clearAreaAround(cx, cy, 100);
 
-        greedButton = new GreedButton(cx, cy, gameArea, (btn) -> {
-            loadNextFloor();
-        });
+        greedButton = new GreedButton(cx, cy, gameArea, (btn) -> loadNextFloor());
         greedButton.setAsExit();
         gameLoop.addEntity(greedButton);
         checkAndPushInteractive(greedButton);
     }
 
+    /**
+     * Carga el siguiente piso: limpia nivel, resetea timers, cambia fondo, respawnea layout/NPCs.
+     */
     private void loadNextFloor() {
         currentFloor++;
         if (currentFloor > MAX_FLOORS) {
@@ -1229,7 +1426,6 @@ public class GameController implements ViewLifecycle {
         }
 
         currentWave = 0;
-
         clearLevel();
 
         currentHeartPrice = 2;
@@ -1241,7 +1437,7 @@ public class GameController implements ViewLifecycle {
         currentRerollPrice = SHOP_REROLL_BASE_PRICE;
         currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
 
-        // Parte Audiovisual
+        // Parte audiovisual
         changeFloorVisuals();
         currentBossMusicFile = null;
         currentFloorMusicFile = null;
@@ -1252,24 +1448,27 @@ public class GameController implements ViewLifecycle {
         spawnRoomLayout();
         spawnGreedButton();
         spawnShopKeeper();
-
         spawnChocoCat();
 
         updateHudLabels();
 
-        if(player != null) {
-            player.setPosition(gameArea.getWidth()/2 - 10, gameArea.getHeight()/2 + 80);
+        if (player != null) {
+            player.setPosition(gameArea.getWidth() / 2 - 10, gameArea.getHeight() / 2 + 80);
         }
 
-        // reset timer presencia
+        // Reset timer presencia
         enemyPresenceTimer = 0.0;
 
-        AppContext.notifications().showNotification("FLOOR " + currentFloor, "New challenges await!", 3.0);
+        AppContext.notifications().showNotification(NOTI_PISO_T + currentFloor, NOTI_PISO_D, 3.0);
     }
 
-    // --- NUEVO MÉTODO AÑADIDO PARA SPAWNEAR AL GATO ---
+    // =====================================================================
+    // CHOCOCAT NPC
+    // =====================================================================
 
-    // Spawns the ChocoCat NPC (kept on top so it doesn't get hidden by other nodes)
+    /**
+     * Spawnea el NPC ChocoCat (se mantiene al frente para no quedar oculto).
+     */
     private void spawnChocoCat() {
         if (gameArea == null) return;
 
@@ -1292,20 +1491,29 @@ public class GameController implements ViewLifecycle {
         if (player != null && player.getView() != null) player.getView().toFront();
     }
 
-    // Backwards-compatible name (older code paths call spawnChoco())
+    /**
+     * Alias retrocompatible (código antiguo llama a spawnChoco()).
+     */
     private void spawnChoco() {
         spawnChocoCat();
     }
 
+    // =====================================================================
+    // LIMPIEZA DE NIVEL
+    // =====================================================================
+
+    /**
+     * Limpia el estado del nivel actual (enemigos, indicadores, boss, NPCs, obstáculos no-wall y nodos sueltos).
+     */
     private void clearLevel() {
-        // Remove enemies
+        // Eliminar enemigos
         for (Enemy e : new ArrayList<>(enemies)) {
             gameLoop.removeEntity(e);
             if (e.getView() != null) gameArea.getChildren().remove(e.getView());
         }
         enemies.clear();
 
-        // Remove any pending spawn indicators
+        // Eliminar indicadores pendientes
         for (SpawnIndicator ind : new ArrayList<>(spawnIndicators)) {
             gameLoop.removeEntity(ind);
             if (ind.getView() != null) gameArea.getChildren().remove(ind.getView());
@@ -1313,26 +1521,25 @@ public class GameController implements ViewLifecycle {
         spawnIndicators.clear();
         pendingSpawns = 0;
 
-        // Remove the boss, if any
+        // Eliminar boss si existe
         if (activeBoss != null) {
             gameLoop.removeEntity(activeBoss);
             if (activeBoss.getView() != null) gameArea.getChildren().remove(activeBoss.getView());
             activeBoss = null;
         }
 
-        // Remove ChocoCat (it will be respawned)
+        // Eliminar ChocoCat (se respawnea)
         if (chocoEntity != null) {
             gameLoop.removeEntity(chocoEntity);
             if (chocoEntity.getView() != null) gameArea.getChildren().remove(chocoEntity.getView());
             chocoEntity = null;
         }
 
-        // ✅ IMPORTANT: remove ALL non-wall obstacles properly (fix rocks staying in loop but invisible)
+        // ✅ IMPORTANT: eliminar TODOS los obstáculos que no sean paredes invisibles
         for (GameEntity obs : new ArrayList<>(obstacles)) {
             if (obs == null) continue;
             if (obs instanceof InvisibleWall) continue;
 
-            // Clean rock internals if you have destroy()
             if (obs instanceof Rock rock) {
                 rock.destroy();
             }
@@ -1341,13 +1548,13 @@ public class GameController implements ViewLifecycle {
             if (obs.getView() != null) gameArea.getChildren().remove(obs.getView());
         }
 
-        // Keep only boundary walls in obstacles
+        // Mantener solo paredes en la lista
         obstacles.removeIf(o -> !(o instanceof InvisibleWall));
 
-        // Re-ensure walls exist in obstacles + scene graph (important)
+        // Re-asegurar paredes (por si se limpiaron nodos)
         ensureBoundaryWalls();
 
-        // Finally: remove stray nodes (coins/projectiles/pedestals/etc) but keep BG, player, walls
+        // Eliminar nodos “sueltos” (coins/proyectiles/pedestals/etc) pero mantener BG, player y walls
         if (gameArea != null) {
             gameArea.getChildren().removeIf(n ->
                 n != backgroundView
@@ -1357,11 +1564,19 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // ENEMY TYPE PICKER
+    // =====================================================================
+
+    /**
+     * Selecciona tipo de enemigo según piso y RNG.
+     */
     private EnemyType pickEnemyTypeForWave() {
         int roll = enemyRng.nextInt(100);
+
         if (currentFloor == 1) {
-            if(roll < 70) return EnemyType.SHOOTER;
-            if(roll < 90) return EnemyType.MELEE;
+            if (roll < 70) return EnemyType.SHOOTER;
+            if (roll < 90) return EnemyType.MELEE;
             return EnemyType.TURRET;
         }
 
@@ -1372,6 +1587,13 @@ public class GameController implements ViewLifecycle {
         return EnemyType.KAMIKAZE;
     }
 
+    // =====================================================================
+    // PLAYER SPAWN
+    // =====================================================================
+
+    /**
+     * Spawnea el jugador si la “puerta de inicio” está abierta y aún no existe.
+     */
     private void maybeSpawnPlayer() {
         if (!startGateOpen) return;
         if (player != null || input == null || gameLoop == null) return;
@@ -1381,7 +1603,7 @@ public class GameController implements ViewLifecycle {
 
         player = new Player(input, gameArea, statsService, sound::play);
 
-        // Prevent the player from entering the background wall border.
+        // Impide que el player entre en el borde “muro” del background
         player.setWorldInset(
             BG_WALL_THICKNESS_LEFT,
             BG_WALL_THICKNESS_RIGHT,
@@ -1392,8 +1614,7 @@ public class GameController implements ViewLifecycle {
         applyBalanceToRuntimePlayer();
         player.setHealth(statsService.getMaxHealth());
 
-        player.setPosition(w/2 - 10, h/2 + 100);
-
+        player.setPosition(w / 2 - 10, h / 2 + 100);
         lastPlayerHealth = player.getHealth();
 
         shootingService = new ShootingService(statsService);
@@ -1401,7 +1622,8 @@ public class GameController implements ViewLifecycle {
         shootingArmed = false;
 
         hud = new HudView(statsService, player);
-        hud.setTranslateX(12); hud.setTranslateY(12);
+        hud.setTranslateX(12);
+        hud.setTranslateY(12);
         overlayLayer.getChildren().add(hud);
         StackPane.setAlignment(hud, Pos.TOP_LEFT);
 
@@ -1418,20 +1640,32 @@ public class GameController implements ViewLifecycle {
         if (!gameLoop.isRunning()) gameLoop.start();
     }
 
+    /**
+     * Devuelve objetivos para homing: enemigos + boss si está vivo.
+     */
     private List<GameEntity> getHomingTargets() {
         List<GameEntity> targets = new ArrayList<>(enemies);
         if (activeBoss != null && !activeBoss.isDead()) targets.add(activeBoss);
         return targets;
     }
 
+    // =====================================================================
+    // TICKER (LOOP LÓGICO)
+    // =====================================================================
+
+    /**
+     * Añade una entidad “ticker” para ejecutar lógica global (timers, sfx, wave logic, colisiones, etc).
+     * Se crea una sola vez.
+     */
     private void addTickerIfNeeded() {
         if (!startGateOpen || gameLoop == null) return;
         if (ticker != null) return;
 
         ticker = new GameEntity() {
             private final Group view = new Group();
+
             @Override public void update(double dt) {
-                // timers sfx
+                // Timers sfx
                 if (playerHurtSfxTimer > 0.0) playerHurtSfxTimer -= dt;
                 if (enemyPresenceTimer > 0.0) enemyPresenceTimer -= dt;
 
@@ -1483,8 +1717,13 @@ public class GameController implements ViewLifecycle {
                     }
                 }
 
-                if (shootingService != null && input != null) shootingService.update(dt, input.getMoveVector());
-                if (shootingArmed && !paused && player != null && !player.isDead()) tryShootNow();
+                if (shootingService != null && input != null) {
+                    shootingService.update(dt, input.getMoveVector());
+                }
+
+                if (shootingArmed && !paused && player != null && !player.isDead()) {
+                    tryShootNow();
+                }
 
                 if (player != null) {
                     double currentHp = player.getHealth();
@@ -1508,14 +1747,24 @@ public class GameController implements ViewLifecycle {
                 resolveObstacleCollisions(dt);
                 applyEnemySeparation(dt);
 
-                if (!gameOverShown && player != null && player.isDead()) showGameOverOverlay();
+                if (!gameOverShown && player != null && player.isDead()) {
+                    showGameOverOverlay();
+                }
             }
-            @Override public javafx.scene.Node getView() { return view; }
+
+            @Override public Node getView() { return view; }
         };
+
         gameLoop.addEntity(ticker);
-        tickerAdded = true;
     }
 
+    // =====================================================================
+    // REWARDS / COMBO
+    // =====================================================================
+
+    /**
+     * Gestiona recompensas al morir un enemigo: coins, combo, score.
+     */
     private void handleEnemyDeathRewards(Enemy en) {
         if (enemyRng.nextDouble() < 0.3) {
             int amount = enemyRng.nextInt(1, 4);
@@ -1526,16 +1775,26 @@ public class GameController implements ViewLifecycle {
         comboCount++;
         comboTimer = COMBO_MAX_TIME;
         comboMultiplier = Math.min(5.0, 1.0 + (comboCount * 0.1));
+
         EnemyProfile profile = com.layla.AppContext.balance().profile(en.getType());
         int basePoints = (profile != null) ? profile.score : 10;
+
         this.score += (int)(basePoints * comboMultiplier);
         updateHudLabels();
     }
 
+    // =====================================================================
+    // ROOM LAYOUT / ROCAS
+    // =====================================================================
+
+    /**
+     * Spawnea un patrón de rocas en la sala, manteniendo paredes invisibles.
+     */
     private void spawnRoomLayout() {
-        // Clear existing obstacles (but keep boundary walls)
-        for (GameEntity r : new java.util.ArrayList<>(obstacles)) {
+        // Eliminar obstáculos existentes (pero mantener paredes)
+        for (GameEntity r : new ArrayList<>(obstacles)) {
             if (r instanceof InvisibleWall) continue;
+
             if (r instanceof Rock rock) {
                 rock.destroy();
             } else {
@@ -1543,13 +1802,15 @@ public class GameController implements ViewLifecycle {
             }
             gameLoop.removeEntity(r);
         }
+
         obstacles.removeIf(o -> !(o instanceof InvisibleWall));
         ensureBoundaryWalls();
 
         int pattern = enemyRng.nextInt(4);
         double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
         double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
-        double cx = w/2; double cy = h/2;
+        double cx = w / 2;
+        double cy = h / 2;
 
         if (pattern == 1) {
             spawnRockRow(cx - 80, cx + 80, cy, true);
@@ -1558,10 +1819,10 @@ public class GameController implements ViewLifecycle {
             spawnRock(cx - 150, cy - 100); spawnRock(cx + 150, cy - 100);
             spawnRock(cx - 150, cy + 100); spawnRock(cx + 150, cy + 100);
         } else if (pattern == 3) {
-            for(int i=0; i<6; i++) {
-                double rx = enemyRng.nextDouble(100, w-100);
-                double ry = enemyRng.nextDouble(100, h-100);
-                if(Math.abs(rx-cx) > 100 || Math.abs(ry-cy) > 100) spawnRock(rx, ry);
+            for (int i = 0; i < 6; i++) {
+                double rx = enemyRng.nextDouble(100, w - 100);
+                double ry = enemyRng.nextDouble(100, h - 100);
+                if (Math.abs(rx - cx) > 100 || Math.abs(ry - cy) > 100) spawnRock(rx, ry);
             }
         }
 
@@ -1574,6 +1835,9 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Spawnea una roca en coordenadas, usando skin según piso.
+     */
     private void spawnRock(double x, double y) {
         int skinCol = getRockSkinColumn();
         Rock r = new Rock(x, y, gameArea, skinCol);
@@ -1581,6 +1845,9 @@ public class GameController implements ViewLifecycle {
         gameLoop.addEntity(r);
     }
 
+    /**
+     * Spawnea una fila (o columna) de rocas.
+     */
     private void spawnRockRow(double start, double end, double fixed, boolean horizontal) {
         double step = Rock.SIZE;
         for (double p = start; p <= end; p += step) {
@@ -1589,20 +1856,33 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Determina la columna del spritesheet de roca según piso.
+     */
     private int getRockSkinColumn() {
         return switch (currentFloor) {
-            case 1 -> 0; // Basement
-            case 2 -> 5; // Caves
-            case 3 -> 2; // Depths
-            case 4 -> 3; // Womb
-            default -> 2; // Sheol + fallback
+            case 1 -> 0; // Sótano
+            case 2 -> 5; // Cuevas
+            case 3 -> 2; // Profundidades
+            case 4 -> 3; // Útero
+            default -> 2; // Seol + fallback
         };
     }
 
+    // =====================================================================
+    // RESET DE ESCENA / ANCLAJES
+    // =====================================================================
+
+    /**
+     * Restaura gameArea a su estado “normal” (anchors, escala, fondo y paredes).
+     */
     private void resetPlainGameArea() {
         if (gameArea == null || root == null) return;
-        gameArea.setScaleX(1.0); gameArea.setScaleY(1.0);
-        gameArea.setManaged(true); gameArea.setClip(null);
+
+        gameArea.setScaleX(1.0);
+        gameArea.setScaleY(1.0);
+        gameArea.setManaged(true);
+        gameArea.setClip(null);
 
         AnchorPane anchor = null;
         for (var n : root.getChildren()) {
@@ -1617,14 +1897,23 @@ public class GameController implements ViewLifecycle {
             AnchorPane.setRightAnchor(gameArea, 0.0);
             if (hudBar != null) hudBar.toFront();
         }
+
         changeFloorVisuals();
         ensureBoundaryWalls();
     }
 
+    // =====================================================================
+    // SHOP OVERLAY
+    // =====================================================================
+
+    /**
+     * Muestra la tienda y pausa el GameLoop. Gestiona callbacks de compra/reroll/cierre.
+     */
     private void showShopOverlay() {
         paused = true;
         if (gameLoop != null) gameLoop.stop();
-        final javafx.scene.Node[] overlayRef = new javafx.scene.Node[1];
+
+        final Node[] overlayRef = new Node[1];
         overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/shop_overlay.fxml", 0.90, controller -> {
             if (controller instanceof ShopOverlayController soc) {
                 soc.setStatsService(statsService);
@@ -1636,16 +1925,15 @@ public class GameController implements ViewLifecycle {
                 // Configurar lógica del corazón
                 soc.setHeartPrice(currentHeartPrice);
                 soc.setOnHeartBuyRequest((c) -> {
-                    // Lógica de compra de corazón
                     if (coins >= currentHeartPrice && player.getHealth() < player.getMaxHealth()) {
                         coins -= currentHeartPrice;
                         player.addHealth(2.0);
                         currentHeartPrice += 2;
 
-                        sound.play("buy"); // ✅ SFX comprar
+                        sound.play("buy");
 
                         updateHudLabels();
-                        if (hud != null) hud.refresh(); // REFRESH VISUAL MANUAL
+                        if (hud != null) hud.refresh();
 
                         c.setCoins(coins);
                         c.setHeartPrice(currentHeartPrice);
@@ -1656,41 +1944,42 @@ public class GameController implements ViewLifecycle {
                     coins = Math.max(0, newCoins);
                     updateHudLabels();
                 });
+
                 soc.setOnItemsChanged(() -> {
                     score = Math.max(0, score - SCORE_PENALTY_ON_BUY);
 
-                    sound.play("buy"); // ✅ SFX comprar item
+                    sound.play("buy");
 
                     if (hud != null) hud.refresh();
                     if (itemHud != null) itemHud.refresh();
                     updateHudLabels();
                 });
 
-                soc.setOnRerollPriceChanged(newPrice -> {
-                    currentRerollPrice = newPrice;
-                });
+                soc.setOnRerollPriceChanged(newPrice -> currentRerollPrice = newPrice);
 
                 soc.setOnRerollRequested(c -> {
                     currentShopOffers = generateShopOffers(SHOP_OFFER_COUNT);
                     c.setOffers(currentShopOffers);
-
-                    // (opcional) sonido de comprar/accion tienda
                     sound.play("buy");
                 });
+
                 soc.setOnClose(() -> {
                     coins = soc.getCoins();
                     updateHudLabels();
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
                     shopOverlay = null;
+
                     Platform.runLater(() -> {
                         if (gameLoop != null && !gameOverShown) gameLoop.start();
                         paused = false;
                         shopCooldown = 5.0;
                     });
                 });
+
                 soc.onShow();
             }
         });
+
         shopOverlay = overlayRef[0];
 
         // Traer HUD al frente
@@ -1698,17 +1987,26 @@ public class GameController implements ViewLifecycle {
         if (itemHud != null) itemHud.toFront();
     }
 
+    // =====================================================================
+    // REWARDS: COINS / PEDESTAL / ITEM PICKUP
+    // =====================================================================
+
+    /**
+     * Spawnea monedas como recompensa.
+     */
     private void spawnRewardCoins(double x, double y, int amount) {
         Coin coin = new Coin(x, y, amount, gameArea, statsService, player, c -> {
             coins += c.getValue();
             updateHudLabels();
-            sound.play("coin"); // ✅ coin.wav (sin delay si está precargado)
+            sound.play("coin");
             gameLoop.removeEntity(c);
         });
         gameLoop.addEntity(coin);
     }
 
-    // --- NUEVO MÉTODO CORREGIDO: Acepta ItemPoolType y añade la vista a la pantalla ---
+    /**
+     * Spawnea un pedestal de item de un pool (con fallback a TREASURE si el pool está vacío).
+     */
     private void spawnRewardPedestal(ItemPoolType poolType) {
         if (gameLoop == null || gameArea == null) return;
 
@@ -1727,47 +2025,53 @@ public class GameController implements ViewLifecycle {
         double w = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1280;
         double h = gameArea.getHeight() > 0 ? gameArea.getHeight() : 720;
 
-        double cx = w/2; double cy = h/2;
+        double cx = w / 2;
+        double cy = h / 2;
 
         clearAreaAround(cx, cy + 80, 60);
 
-        ItemPedestal pedestal = new ItemPedestal(itemId, gameArea, statsService,
+        ItemPedestal pedestal = new ItemPedestal(
+            itemId, gameArea, statsService,
             e -> {
                 gameLoop.removeEntity(e);
                 obstacles.remove(e);
-                // Asegurar limpiar la vista al recoger
                 if (e.getView() != null) gameArea.getChildren().remove(e.getView());
                 if (itemHud != null) itemHud.refresh();
                 showItemPickupOverlay(itemId);
             },
             k -> sound.play(k)
         );
+
         pedestal.setPosition(cx, cy + 80);
 
-        // --- CORRECCIÓN DE VISIBILIDAD ---
-        // Añadir explícitamente la vista al área de juego para asegurar que se pinte
+        // Asegurar visibilidad
         if (pedestal.getView() != null && !gameArea.getChildren().contains(pedestal.getView())) {
             gameArea.getChildren().add(pedestal.getView());
         }
 
         gameLoop.addEntity(pedestal);
-
         checkAndPushInteractive(pedestal);
         obstacles.add(pedestal);
     }
 
+    /**
+     * Muestra overlay de pickup del item y al cerrar vuelve a abrir la tienda.
+     */
     private void showItemPickupOverlay(ItemId itemId) {
         paused = true;
         if (gameLoop != null) gameLoop.stop();
+
         final Node[] overlayRef = new Node[1];
         overlayRef[0] = OverlayRouter.showOverlay(overlayLayer, "ui/item_pickup_overlay.fxml", 0.90, controller -> {
             if (controller instanceof ItemPickupOverlayController ipc) {
                 ItemDefinition def = ItemRegistry.getDefinition(itemId);
                 String name = (def != null ? def.getName() : itemId.name());
                 String desc = (def != null ? def.getDescription() : "");
+
                 Image icon = null;
                 String path = ItemRegistry.getIconPath(itemId);
                 if (path != null) icon = AssetsManager.loadImage(path.startsWith("/") ? path.substring(1) : path);
+
                 ipc.setItem(name, desc, icon);
                 ipc.setOnClose(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, overlayRef[0]);
@@ -1777,25 +2081,36 @@ public class GameController implements ViewLifecycle {
         });
     }
 
+    /**
+     * Genera ofertas de tienda (mezcla SHOP + TREASURE) con precio basado en wave.
+     */
     private List<ShopOffer> generateShopOffers(int count) {
         List<ShopOffer> offers = new ArrayList<>();
+
         List<ItemDefinition> shopItems = ItemRegistry.getUnlockedByPool(ItemPoolType.SHOP, achievements);
         List<ItemDefinition> treasureItems = ItemRegistry.getUnlockedByPool(ItemPoolType.TREASURE, achievements);
+
         List<ItemDefinition> pool = new ArrayList<>(shopItems);
         pool.addAll(treasureItems);
+
         if (pool.isEmpty()) return offers;
+
         for (int i = 0; i < count; i++) {
             ItemDefinition def = pool.get(enemyRng.nextInt(pool.size()));
             int price = Math.max(5, 10 + Math.max(0, currentWave - 1) * 2 + enemyRng.nextInt(0, 6));
             offers.add(new ShopOffer(def.getId(), price));
         }
+
         return offers;
     }
 
-    // ===================== Invisible boundary walls =====================
+    // =====================================================================
+    // PAREDES INVISIBLES (BOUNDARY WALLS)
+    // =====================================================================
+
     /**
-     * Creates 4 invisible rectangles around the playable area (matching the background wall border)
-     * so neither player nor enemies can cross them, and enemies cannot spawn there.
+     * Crea 4 rectángulos invisibles alrededor del área jugable para bloquear player/enemies
+     * y evitar spawns en el borde decorativo del fondo.
      */
     private void ensureBoundaryWalls() {
         if (wallTop == null || wallBottom == null || wallLeft == null || wallRight == null) {
@@ -1806,13 +2121,13 @@ public class GameController implements ViewLifecycle {
             boundaryWallsAdded = true;
         }
 
-        // Re-attach always (important after clearLevel / node cleanup)
+        // Re-engancha siempre (importante tras clearLevel / limpieza de nodos)
         attachBoundaryWall(wallTop);
         attachBoundaryWall(wallBottom);
         attachBoundaryWall(wallLeft);
         attachBoundaryWall(wallRight);
 
-        // Add to loop only once (avoid duplicates)
+        // Añadir al loop solo una vez (evitar duplicados)
         if (gameLoop != null && !boundaryWallsInLoop) {
             gameLoop.addEntity(wallTop);
             gameLoop.addEntity(wallBottom);
@@ -1825,6 +2140,9 @@ public class GameController implements ViewLifecycle {
         Platform.runLater(this::updateBoundaryWalls);
     }
 
+    /**
+     * Asegura que la pared esté en el scene graph y en la lista de obstáculos.
+     */
     private void attachBoundaryWall(InvisibleWall w) {
         if (w == null) return;
 
@@ -1838,13 +2156,18 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Método legacy (no usado directamente aquí). Mantenerlo por compatibilidad interna.
+     */
     private void addBoundaryWall(InvisibleWall w) {
-        // Add to scene graph so it participates in bounds/collision (even if fully transparent)
         gameArea.getChildren().add(w.getView());
         obstacles.add(w);
         if (gameLoop != null) gameLoop.addEntity(w);
     }
 
+    /**
+     * Recalcula geometría de las 4 paredes según tamaño actual del gameArea.
+     */
     private void updateBoundaryWalls() {
         if (wallTop == null || wallBottom == null || wallLeft == null || wallRight == null) return;
 
@@ -1857,24 +2180,33 @@ public class GameController implements ViewLifecycle {
         double tT = Math.max(1.0, BG_WALL_THICKNESS_TOP);
         double tB = Math.max(1.0, BG_WALL_THICKNESS_BOTTOM);
 
-        // Top
+        // Arriba
         wallTop.setRect(0, 0, w, tT);
 
-        // Bottom
+        // Abajo
         wallBottom.setRect(0, h - tB, w, tB);
 
-        // Left
+        // Izquierda
         wallLeft.setRect(0, 0, tL, h);
 
-        // Right
+        // Derecha
         wallRight.setRect(w - tR, 0, tR, h);
     }
 
+    /**
+     * True si el Node corresponde a alguna de las paredes invisibles.
+     */
     private boolean isBoundaryWallNode(Node n) {
         if (!boundaryWallsAdded || n == null) return false;
-        return n == wallTop.getView() || n == wallBottom.getView() || n == wallLeft.getView() || n == wallRight.getView();
+        return n == wallTop.getView()
+            || n == wallBottom.getView()
+            || n == wallLeft.getView()
+            || n == wallRight.getView();
     }
 
+    /**
+     * Entidad pared invisible (rectángulo transparente con bounds para colisión).
+     */
     private static final class InvisibleWall implements GameEntity {
         private final Rectangle r = new Rectangle(1, 1);
 
@@ -1893,7 +2225,8 @@ public class GameController implements ViewLifecycle {
             r.setHeight(Math.max(0, h));
         }
 
-        @Override public void update(double dt) { /* static */ }
+        @Override public void update(double dt) { /* estática */ }
+
         @Override public Node getView() { return r; }
 
         @Override
@@ -1902,8 +2235,15 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // VALIDACIÓN DE SPAWN
+    // =====================================================================
+
+    /**
+     * Valida si un enemigo puede spawnear en un rectángulo (no cerca del player, no dentro de obstáculos, no fuera).
+     */
     private boolean isValidSpawn(double ex, double ey, double ew, double eh) {
-        // Keep enemies away from the player AND out of obstacles/walls.
+        // Mantener enemigos lejos del jugador y fuera de obstáculos/paredes
         if (player != null) {
             double pcx = player.getCenterX();
             double pcy = player.getCenterY();
@@ -1916,14 +2256,13 @@ public class GameController implements ViewLifecycle {
 
         Bounds spawn = new BoundingBox(ex, ey, ew, eh);
 
-        // If walls aren't created yet (early init), don't hard-fail.
         for (GameEntity obs : obstacles) {
             if (obs == null) continue;
             Bounds b = obs.getBounds();
             if (b != null && b.intersects(spawn)) return false;
         }
 
-        // Also make sure we don't spawn partially outside the pane.
+        // Evitar spawn fuera del pane
         double w = gameArea.getWidth();
         double h = gameArea.getHeight();
         if (w > 0 && h > 0) {
@@ -1933,31 +2272,57 @@ public class GameController implements ViewLifecycle {
         return true;
     }
 
+    // =====================================================================
+    // UTILIDADES
+    // =====================================================================
+
+    /**
+     * Clamp simple.
+     */
     private static double clamp(double v, double min, double max) {
         return Math.max(min, Math.min(v, max));
     }
 
+    // =====================================================================
+    // DISPARO
+    // =====================================================================
+
+    /**
+     * Intenta disparar según input actual (aim cardinal).
+     */
     private void tryShootNow() {
         if (player == null || shootingService == null || input == null) return;
+
         double[] aim = input.getAimArrowCardinal();
         if (Math.abs(aim[0]) > 0.01 || Math.abs(aim[1]) > 0.01) {
             shootingService.setAim(aim[0], aim[1]);
+
             Bounds bounds = player.getBounds();
             double originX = bounds.getCenterX();
             double originY = bounds.getCenterY();
+
             shootingService.tryShoot(gameArea, gameLoop, originX, originY, player, proj -> {
-                // ✅ Player shoot SFX
                 sound.play("shot");
             });
         }
     }
 
+    /**
+     * Devuelve el centro del player como array [x,y] (para aim/IA).
+     */
     private double[] getPlayerCenter() {
         if (player == null) return new double[]{0, 0};
         Bounds b = player.getBounds();
         return new double[]{ b.getCenterX(), b.getCenterY() };
     }
 
+    // =====================================================================
+    // COLISIONES CON OBSTÁCULOS
+    // =====================================================================
+
+    /**
+     * Resuelve colisiones player/enemigos contra obstáculos.
+     */
     private void resolveObstacleCollisions(double dt) {
         if (player != null) {
             for (GameEntity obs : obstacles) {
@@ -1971,9 +2336,11 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    /**
+     * Empuja una entidad dinámica fuera de una entidad estática cuando sus bounds intersectan.
+     */
     private void resolveCollision(GameEntity dynamic, GameEntity staticEnt) {
         if (staticEnt == shopKeeperEntity) return;
-
         if (dynamic.getView() == null || staticEnt.getView() == null) return;
 
         Bounds d = dynamic.getBounds();
@@ -2001,6 +2368,13 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // SEPARACIÓN ENTRE ENEMIGOS
+    // =====================================================================
+
+    /**
+     * Aplica separación simple entre enemigos para evitar stacking.
+     */
     private void applyEnemySeparation(double dt) {
         for (int i = 0; i < enemies.size(); i++) {
             Enemy e1 = enemies.get(i);
@@ -2009,7 +2383,7 @@ public class GameController implements ViewLifecycle {
 
                 double dx = e1.getCenterX() - e2.getCenterX();
                 double dy = e1.getCenterY() - e2.getCenterY();
-                double distSq = dx*dx + dy*dy;
+                double distSq = dx * dx + dy * dy;
 
                 if (distSq < 900) {
                     double dist = Math.sqrt(distSq);
@@ -2024,6 +2398,14 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // COLOCACIÓN DE INTERACTIVOS (ANTI-COLISIÓN)
+    // =====================================================================
+
+    /**
+     * Si una entidad interactiva spawnea encima de obstáculos, la empuja “en escalera”
+     * hasta que no colisione o hasta agotar tries.
+     */
     private void checkAndPushInteractive(GameEntity entity) {
         if (entity.getView() == null) return;
 
@@ -2049,20 +2431,27 @@ public class GameController implements ViewLifecycle {
         }
     }
 
+    // =====================================================================
+    // GAME OVER / VICTORY
+    // =====================================================================
+
+    /**
+     * Muestra el overlay de Game Over, detiene el loop y guarda run.
+     */
     private void showGameOverOverlay() {
         if (gameOverShown) return;
         gameOverShown = true;
-        if (gameLoop != null) gameLoop.stop();
 
+        if (gameLoop != null) gameLoop.stop();
         db.recordRunEndAsync(AppContext.getProfileId(), false, score, currentFloor);
 
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.85, c -> {
             if (c instanceof GameOverController goc) {
-                goc.setTitle("GAME OVER");
+                goc.setTitle(TXT_GAME_OVER);
                 goc.setOnRetry(() -> {
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
                     gameOverOverlay = null;
-                    restartPending = true; // FIX: Marcar reinicio
+                    restartPending = true;
                     SceneRouter.goWithFadeKeepSize("ui/game.fxml");
                 });
                 goc.setOnBackToMenu(() -> {
@@ -2074,6 +2463,9 @@ public class GameController implements ViewLifecycle {
         });
     }
 
+    /**
+     * Muestra overlay de victoria, cambia música a victory_theme y guarda run.
+     */
     private void showVictoryOverlay() {
         if (gameOverShown) return;
         gameOverShown = true;
@@ -2087,15 +2479,14 @@ public class GameController implements ViewLifecycle {
         musicStarted = true;
 
         if (gameLoop != null) gameLoop.stop();
-
         db.recordRunEndAsync(AppContext.getProfileId(), true, score, currentFloor);
 
         gameOverOverlay = OverlayRouter.showOverlay(overlayLayer, "ui/game_over.fxml", 0.85, c -> {
             if (c instanceof GameOverController goc) {
-                goc.setTitle("VICTORY!");
+                goc.setTitle(TXT_VICTORIA);
 
                 goc.setOnRetry(() -> {
-                    // ✅ parar victory ANTES de cambiar escena
+                    // Parar victory ANTES de cambiar escena
                     AssetsManager.stopMusic();
 
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);
@@ -2106,7 +2497,7 @@ public class GameController implements ViewLifecycle {
                 });
 
                 goc.setOnBackToMenu(() -> {
-                    // ✅ parar victory ANTES de cambiar escena
+                    // Parar victory ANTES de cambiar escena
                     AssetsManager.stopMusic();
 
                     OverlayRouter.closeOverlay(overlayLayer, gameOverOverlay);

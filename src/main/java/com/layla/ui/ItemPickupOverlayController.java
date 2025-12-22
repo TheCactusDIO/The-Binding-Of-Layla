@@ -1,5 +1,6 @@
 package com.layla.ui;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -15,8 +16,11 @@ import javafx.scene.layout.StackPane;
  * - Nombre
  * - Descripción
  * - Se cierra con click o SPACE/ENTER/ESC.
+ *
+ * Nota: El oscurecido lo aporta OverlayRouter (backdrop).
+ * Este root debe ser transparente.
  */
-public class ItemPickupOverlayController {
+public final class ItemPickupOverlayController {
 
     @FXML private StackPane root;
     @FXML private ImageView itemImageView;
@@ -30,31 +34,38 @@ public class ItemPickupOverlayController {
     }
 
     public void setItem(String name, String description, Image icon) {
-        itemNameLabel.setText(name != null ? name : "");
-        itemDescLabel.setText(description != null ? description : "");
-        if (icon != null) {
-            itemImageView.setImage(icon);
+        if (itemNameLabel != null) itemNameLabel.setText(name != null ? name : "");
+        if (itemDescLabel != null) itemDescLabel.setText(description != null ? description : "");
+
+        if (itemImageView != null) {
+            itemImageView.setImage(icon); // si icon es null, limpia
         }
     }
 
     @FXML
     private void initialize() {
-        if (root != null) {
-            root.setFocusTraversable(true);
-            root.requestFocus();
+        if (root == null) return;
 
-            root.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-                KeyCode code = e.getCode();
-                if (code == KeyCode.ENTER || code == KeyCode.SPACE || code == KeyCode.ESCAPE) {
-                    onClose.run();
-                    e.consume();
-                }
-            });
+        root.setFocusTraversable(true);
 
-            root.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+        // Pedir foco cuando ya haya Scene (más fiable que requestFocus() directo)
+        root.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Platform.runLater(root::requestFocus);
+            }
+        });
+
+        root.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            KeyCode code = e.getCode();
+            if (code == KeyCode.ENTER || code == KeyCode.SPACE || code == KeyCode.ESCAPE) {
                 onClose.run();
                 e.consume();
-            });
-        }
+            }
+        });
+
+        root.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+            onClose.run();
+            e.consume();
+        });
     }
 }

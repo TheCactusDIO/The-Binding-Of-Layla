@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.control.ProgressBar?>
-<?import javafx.scene.control.Label?>
+
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.layout.VBox?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.layla.ui.LoadingController"
@@ -15,7 +16,8 @@
         <Insets top="24" right="24" bottom="24" left="24" />
     </padding>
 
-    <Label text="Loading assets..." style="-fx-font-size: 16px;" />
+    <!-- Texto hardcodeado en español -->
+    <Label text="Cargando recursos..." style="-fx-font-size: 16px;" />
     <ProgressBar fx:id="progressBar" prefWidth="400" maxWidth="500" progress="0" />
     <Label fx:id="statusLabel" text="" style="-fx-font-size: 12px; -fx-text-fill: #666666;" />
 </VBox>

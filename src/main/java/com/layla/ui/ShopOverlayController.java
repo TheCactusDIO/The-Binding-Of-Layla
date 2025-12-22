@@ -26,6 +26,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -33,9 +34,9 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
-public class ShopOverlayController {
+public final class ShopOverlayController {
 
-    public static class ShopOffer {
+    public static final class ShopOffer {
         public final ItemId itemId;
         public final int price;
         public boolean sold = false;
@@ -46,6 +47,9 @@ public class ShopOverlayController {
         }
     }
 
+    private static final String HEART_ROW_TAG = "HEART_ROW";
+
+    @FXML private StackPane root;
     @FXML private Label coinsLabel;
     @FXML private VBox offersContainer;
     @FXML private VBox statsContainer;
@@ -54,48 +58,49 @@ public class ShopOverlayController {
 
     private StatsService statsService;
     private Player player;
+
     private int currentCoins;
     private int rerollBasePrice = 1;
-    private List<ShopOffer> offers = new ArrayList<>();
+    private final List<ShopOffer> offers = new ArrayList<>();
 
-    private IntConsumer onCoinsChanged;
-    private Runnable onItemsChanged;
-    private Consumer<ShopOverlayController> onRerollRequested;
-    private Consumer<Integer> onRerollPriceChanged;
-    private Runnable onClose;
+    private IntConsumer onCoinsChanged = ShopOverlayController::noopInt;
+    private Runnable onItemsChanged = ShopOverlayController::noop;
+    private Consumer<ShopOverlayController> onRerollRequested = c -> {};
+    private Consumer<Integer> onRerollPriceChanged = i -> {};
+    private Runnable onClose = ShopOverlayController::noop;
 
-    // Lógica Corazón
+    // Corazón
     private int heartPrice = 0;
-    private Consumer<ShopOverlayController> onHeartBuyRequest;
+    private Consumer<ShopOverlayController> onHeartBuyRequest = c -> {};
 
     @FXML
     private void initialize() {
-        // FORZAR ESTILO OSCURO PARA EL PANEL DE STATS
-        if (statsContainer != null) {
-            statsContainer.setStyle("-fx-background-color: rgba(30, 30, 30, 0.95); -fx-background-radius: 10; -fx-padding: 15; -fx-border-color: #444; -fx-border-radius: 10; -fx-border-width: 2;");
-        }
-
-        if (offers != null && !offers.isEmpty()) {
-            buildOffersUI();
-        }
-        buildStatsUI();
-
-        if (continueButton != null) {
-            continueButton.setText("EXIT SHOP");
-            continueButton.setOnAction(e -> onCloseAction());
-        }
-
-        if (rerollButton != null) {
-            rerollButton.setOnAction(e -> onRerollAction());
+        // Atajos de teclado del overlay
+        if (root != null) {
+            root.setFocusTraversable(true);
+            root.setOnKeyPressed(e -> {
+                if (e.getCode() == KeyCode.ESCAPE) {
+                    onCloseAction();
+                    e.consume();
+                } else if (e.getCode() == KeyCode.R) {
+                    onRerollAction();
+                    e.consume();
+                }
+            });
         }
     }
+
+    // ---------------------------
+    // Setters / callbacks
+    // ---------------------------
 
     public void setStatsService(StatsService stats) {
         this.statsService = stats;
-        buildStatsUI();
     }
 
-    public void setPlayer(Player player) { this.player = player; }
+    public void setPlayer(Player player) {
+        this.player = player;
+    }
 
     public void setCoins(int coins) {
         this.currentCoins = Math.max(0, coins);
@@ -103,7 +108,9 @@ public class ShopOverlayController {
         refreshAffordability();
     }
 
-    public int getCoins() { return currentCoins; }
+    public int getCoins() {
+        return currentCoins;
+    }
 
     public void setRerollBasePrice(int price) {
         this.rerollBasePrice = Math.max(0, price);
@@ -111,28 +118,48 @@ public class ShopOverlayController {
         refreshAffordability();
     }
 
-    public int getRerollBasePrice() { return this.rerollBasePrice; }
-
-    public void setOffers(List<ShopOffer> offers) {
-        this.offers.clear();
-        if (offers != null) {
-            this.offers.addAll(offers);
-        }
-        if (offersContainer != null) {
-            buildOffersUI();
-        }
+    public void setOffers(List<ShopOffer> newOffers) {
+        offers.clear();
+        if (newOffers != null) offers.addAll(newOffers);
+        if (offersContainer != null) buildOffersUI();
     }
 
-    public void setHeartPrice(int price) { this.heartPrice = price; refreshAffordability(); }
-    public void setOnHeartBuyRequest(Consumer<ShopOverlayController> callback) { this.onHeartBuyRequest = callback; }
+    public void setHeartPrice(int price) {
+        this.heartPrice = Math.max(0, price);
+        refreshAffordability();
+    }
 
-    public void setOnCoinsChanged(IntConsumer callback) { this.onCoinsChanged = callback; }
-    public void setOnItemsChanged(Runnable callback) { this.onItemsChanged = callback; }
-    public void setOnRerollRequested(Consumer<ShopOverlayController> callback) { this.onRerollRequested = callback; }
-    public void setOnRerollPriceChanged(Consumer<Integer> callback) { this.onRerollPriceChanged = callback; }
-    public void setOnClose(Runnable callback) { this.onClose = callback; }
+    public void setOnHeartBuyRequest(Consumer<ShopOverlayController> callback) {
+        this.onHeartBuyRequest = (callback != null) ? callback : c -> {};
+    }
+
+    public void setOnCoinsChanged(IntConsumer callback) {
+        this.onCoinsChanged = (callback != null) ? callback : ShopOverlayController::noopInt;
+    }
+
+    public void setOnItemsChanged(Runnable callback) {
+        this.onItemsChanged = (callback != null) ? callback : ShopOverlayController::noop;
+    }
+
+    public void setOnRerollRequested(Consumer<ShopOverlayController> callback) {
+        this.onRerollRequested = (callback != null) ? callback : c -> {};
+    }
+
+    public void setOnRerollPriceChanged(Consumer<Integer> callback) {
+        this.onRerollPriceChanged = (callback != null) ? callback : i -> {};
+    }
+
+    public void setOnClose(Runnable callback) {
+        this.onClose = (callback != null) ? callback : ShopOverlayController::noop;
+    }
+
+    // ---------------------------
+    // Lifecycle
+    // ---------------------------
 
     public void onShow() {
+        if (root != null) root.requestFocus();
+
         updateCoinsLabel();
         updateRerollLabel();
         buildOffersUI();
@@ -140,18 +167,23 @@ public class ShopOverlayController {
         refreshAffordability();
 
         if (continueButton != null) {
-            continueButton.setText("EXIT SHOP");
+            continueButton.setText("SALIR DE LA TIENDA");
+        }
+        if (rerollButton != null) {
+            // El texto real lo pone updateRerollLabel()
         }
     }
 
+    // ---------------------------
+    // UI updates
+    // ---------------------------
+
     private void updateCoinsLabel() {
-        if (coinsLabel != null) coinsLabel.setText("Coins: " + currentCoins + "¢");
+        if (coinsLabel != null) coinsLabel.setText("Monedas: " + currentCoins + "¢");
     }
 
     private void updateRerollLabel() {
-        if (rerollButton != null) {
-            rerollButton.setText("Reroll (" + rerollBasePrice + "¢)");
-        }
+        if (rerollButton != null) rerollButton.setText("Rebarajar (" + rerollBasePrice + "¢)");
     }
 
     private void buildOffersUI() {
@@ -163,26 +195,29 @@ public class ShopOverlayController {
         for (ShopOffer offer : offers) {
             offersContainer.getChildren().add(createOfferRow(offer));
         }
+
         refreshAffordability();
     }
 
     private HBox createHeartRow() {
         HBox row = new HBox(10.0);
-        row.setStyle("-fx-background-color: #333333; -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #555; -fx-border-radius: 8;");
         row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-background-color: #333333; -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #555; -fx-border-radius: 8;");
 
         ImageView iconView = new ImageView();
         iconView.setFitWidth(42.0);
         iconView.setFitHeight(42.0);
         iconView.setPreserveRatio(true);
+
         Image icon = AssetsManager.loadImage("assets/images/health_icon.png");
         if (icon != null) iconView.setImage(icon);
 
         VBox infoBox = new VBox(2.0);
-        Label nameLabel = new Label("Red Heart");
+
+        Label nameLabel = new Label("Corazón rojo");
         nameLabel.setStyle("-fx-font-size: 16; -fx-text-fill: #ff5555; -fx-font-weight: bold;");
 
-        Label descLabel = new Label("Restores 1 Heart container.");
+        Label descLabel = new Label("Restaura 1 corazón (2 HP).");
         descLabel.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11;");
 
         infoBox.getChildren().addAll(nameLabel, descLabel);
@@ -198,35 +233,34 @@ public class ShopOverlayController {
 
         Button buyButton = new Button("COMPRAR");
         buyButton.setStyle("-fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6; -fx-background-color: #4CAF50; -fx-text-fill: white;");
-
-        buyButton.setOnAction(e -> {
-            if (onHeartBuyRequest != null) onHeartBuyRequest.accept(this);
-        });
+        buyButton.setOnAction(e -> onHeartBuyRequest.accept(this));
 
         buyBox.getChildren().addAll(priceLabel, buyButton);
-        row.getChildren().addAll(iconView, infoBox, spacer, buyBox);
 
-        row.setUserData("HEART_ROW");
+        row.getChildren().addAll(iconView, infoBox, spacer, buyBox);
+        row.setUserData(HEART_ROW_TAG);
 
         return row;
     }
 
     private HBox createOfferRow(ShopOffer offer) {
         HBox row = new HBox(10.0);
-        row.setStyle("-fx-background-color: #333333; -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #555; -fx-border-radius: 8;");
         row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-background-color: #333333; -fx-background-radius: 8; -fx-padding: 10; -fx-border-color: #555; -fx-border-radius: 8;");
 
         ImageView iconView = new ImageView();
         iconView.setFitWidth(42.0);
         iconView.setFitHeight(42.0);
         iconView.setPreserveRatio(true);
+
         String path = ItemRegistry.getIconPath(offer.itemId);
         if (path != null) {
-             Image icon = AssetsManager.loadImage(path.startsWith("/") ? path.substring(1) : path);
-             if (icon != null) iconView.setImage(icon);
+            Image icon = AssetsManager.loadImage(path.startsWith("/") ? path.substring(1) : path);
+            if (icon != null) iconView.setImage(icon);
         }
 
         VBox infoBox = new VBox(2.0);
+
         ItemDefinition def = ItemRegistry.getDefinition(offer.itemId);
         String name = (def != null ? def.getName() : offer.itemId.name());
         String desc = (def != null ? def.getDescription() : "???");
@@ -268,10 +302,11 @@ public class ShopOverlayController {
     }
 
     private void handlePurchase(ShopOffer offer, Button button) {
+        if (offer.sold) return;
         if (currentCoins < offer.price) return;
 
         currentCoins -= offer.price;
-        if (onCoinsChanged != null) onCoinsChanged.accept(currentCoins);
+        onCoinsChanged.accept(currentCoins);
         updateCoinsLabel();
 
         if (statsService != null) {
@@ -283,84 +318,89 @@ public class ShopOverlayController {
         button.setText("VENDIDO");
         button.setStyle("-fx-background-color: #444; -fx-text-fill: #888;");
 
-        if (onItemsChanged != null) onItemsChanged.run();
+        onItemsChanged.run();
 
         buildStatsUI();
         refreshAffordability();
     }
 
     private void onRerollAction() {
-        if (currentCoins >= rerollBasePrice) {
-            currentCoins -= rerollBasePrice;
-            if (onCoinsChanged != null) onCoinsChanged.accept(currentCoins);
+        if (currentCoins < rerollBasePrice) return;
 
-            int increment = ThreadLocalRandom.current().nextInt(1, 4);
-            rerollBasePrice += increment;
+        currentCoins -= rerollBasePrice;
+        onCoinsChanged.accept(currentCoins);
 
-            if (onRerollPriceChanged != null) onRerollPriceChanged.accept(rerollBasePrice);
+        int increment = ThreadLocalRandom.current().nextInt(1, 4);
+        int costPaid = rerollBasePrice;
 
-            if (onRerollRequested != null) {
-                onRerollRequested.accept(this);
-            }
+        rerollBasePrice += increment;
+        onRerollPriceChanged.accept(rerollBasePrice);
 
-            updateCoinsLabel();
-            updateRerollLabel();
+        onRerollRequested.accept(this);
 
-            showRerollFloatText(rerollBasePrice - increment);
-            refreshAffordability();
-        }
+        updateCoinsLabel();
+        updateRerollLabel();
+
+        showRerollFloatText(costPaid);
+        refreshAffordability();
     }
 
     private void onCloseAction() {
-        if (onClose != null) onClose.run();
+        onClose.run();
     }
 
     private void refreshAffordability() {
         if (offersContainer == null) return;
 
         for (Node node : offersContainer.getChildren()) {
-            if (node instanceof HBox row) {
-                if ("HEART_ROW".equals(row.getUserData())) {
-                    VBox buyBox = (VBox) row.getChildren().get(row.getChildren().size() - 1);
-                    Label priceLbl = (Label) buyBox.getChildren().get(0);
-                    Button btn = (Button) buyBox.getChildren().get(1);
+            if (!(node instanceof HBox row)) continue;
 
-                    priceLbl.setText(heartPrice + "¢");
+            // Corazón
+            if (HEART_ROW_TAG.equals(row.getUserData())) {
+                VBox buyBox = (VBox) row.getChildren().get(row.getChildren().size() - 1);
+                Label priceLbl = (Label) buyBox.getChildren().get(0);
+                Button btn = (Button) buyBox.getChildren().get(1);
 
-                    boolean canAfford = currentCoins >= heartPrice;
-                    boolean healthFull = (player != null && player.getHealth() >= player.getMaxHealth());
+                priceLbl.setText(heartPrice + "¢");
 
-                    if (healthFull) {
-                        btn.setText("LLENO");
-                        btn.setDisable(true);
-                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
-                    } else if (!canAfford) {
-                        btn.setText("COMPRAR");
-                        btn.setDisable(true);
-                        btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
-                    } else {
-                        btn.setText("COMPRAR");
-                        btn.setDisable(false);
-                        btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
-                    }
-                    continue;
+                boolean canAfford = currentCoins >= heartPrice;
+                boolean healthFull = (player != null && player.getHealth() >= player.getMaxHealth());
+
+                if (healthFull) {
+                    btn.setText("LLENO");
+                    btn.setDisable(true);
+                    btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
+                } else if (!canAfford) {
+                    btn.setText("COMPRAR");
+                    btn.setDisable(true);
+                    btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
+                } else {
+                    btn.setText("COMPRAR");
+                    btn.setDisable(false);
+                    btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                 }
+                continue;
+            }
 
-                if (!row.getChildren().isEmpty() && row.getChildren().get(row.getChildren().size() - 1) instanceof VBox buyBox) {
-                    for (Node n : buyBox.getChildren()) {
-                        if (n instanceof Button btn && !btn.getText().equals("VENDIDO")) {
-                            Object ud = btn.getUserData();
-                            if (ud instanceof ShopOffer offer) {
-                                if (currentCoins < offer.price) {
-                                    btn.setDisable(true);
-                                    btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
-                                } else {
-                                    btn.setDisable(false);
-                                    btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
-                                }
-                            }
-                        }
-                    }
+            // Ofertas normales
+            if (row.getChildren().isEmpty()) continue;
+
+            Node last = row.getChildren().get(row.getChildren().size() - 1);
+            if (!(last instanceof VBox buyBox)) continue;
+
+            for (Node n : buyBox.getChildren()) {
+                if (!(n instanceof Button btn)) continue;
+                if ("VENDIDO".equals(btn.getText())) continue;
+
+                Object ud = btn.getUserData();
+                if (!(ud instanceof ShopOffer offer)) continue;
+
+                if (currentCoins < offer.price) {
+                    btn.setDisable(true);
+                    btn.setStyle("-fx-background-color: #555; -fx-text-fill: #aaa; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
+                } else {
+                    btn.setDisable(false);
+                    btn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 4 12; -fx-background-radius: 6;");
                 }
             }
         }
@@ -372,12 +412,13 @@ public class ShopOverlayController {
 
     private void buildStatsUI() {
         if (statsContainer == null || statsService == null) return;
+
         statsContainer.getChildren().clear();
 
-        addStatRow("Max HP",       statsService.getMaxHealth(),       false, "Vida máxima total.");
-        addStatRow("Damage",       statsService.getProjectileDamage(),false, "Daño por disparo.");
-        addStatRow("Fire Rate",    statsService.getFireRate(),        false, "Disparos por segundo.");
-        addStatRow("Speed",        statsService.getMoveSpeed(),       false, "Velocidad de movimiento.");
+        addStatRow("Vida máxima", statsService.getMaxHealth(), false, "Vida máxima total.");
+        addStatRow("Daño",        statsService.getProjectileDamage(), false, "Daño por disparo.");
+        addStatRow("Cadencia",    statsService.getFireRate(), false, "Disparos por segundo.");
+        addStatRow("Velocidad",   statsService.getMoveSpeed(), false, "Velocidad de movimiento.");
     }
 
     private void addStatRow(String name, double value, boolean isPercent, String desc) {
@@ -393,13 +434,9 @@ public class ShopOverlayController {
 
         String valStr = isPercent ? String.format("%.0f%%", value) : String.format("%.1f", value);
         Label valLbl = new Label(valStr);
+        valLbl.setStyle("-fx-text-fill: #fff; -fx-font-family: 'Consolas'; -fx-font-size: 12; -fx-font-weight: bold;");
 
-        String color = "#fff";
-        if (value > 0) color = "#4caf50";
-
-        valLbl.setStyle("-fx-text-fill: " + color + "; -fx-font-family: 'Consolas'; -fx-font-size: 12; -fx-font-weight: bold;");
-
-        if (desc != null) {
+        if (desc != null && !desc.isBlank()) {
             Tooltip tt = new Tooltip(desc);
             Tooltip.install(row, tt);
         }
@@ -415,11 +452,11 @@ public class ShopOverlayController {
         floating.setStyle("-fx-text-fill: #ff5555; -fx-font-size: 16px; -fx-font-weight: bold; -fx-effect: dropshadow(gaussian, black, 2, 1, 0, 0);");
 
         Scene scene = rerollButton.getScene();
-        if (scene.getRoot() instanceof StackPane root) {
-            root.getChildren().add(floating);
+        if (scene.getRoot() instanceof StackPane spRoot) {
+            spRoot.getChildren().add(floating);
 
-            var p = rerollButton.localToScene(rerollButton.getWidth()/2, 0);
-            var local = root.sceneToLocal(p.getX(), p.getY());
+            var p = rerollButton.localToScene(rerollButton.getWidth() / 2, 0);
+            var local = spRoot.sceneToLocal(p.getX(), p.getY());
 
             floating.setTranslateX(local.getX());
             floating.setTranslateY(local.getY());
@@ -434,11 +471,15 @@ public class ShopOverlayController {
                     new KeyValue(floating.opacityProperty(), 0.0)
                 )
             );
-            tl.setOnFinished(e -> root.getChildren().remove(floating));
+            tl.setOnFinished(e -> spRoot.getChildren().remove(floating));
             tl.play();
         }
     }
 
+    // Handlers FXML
     @FXML private void onReroll() { onRerollAction(); }
-    @FXML private void onClose() { onCloseAction(); }
+    @FXML private void onClose()  { onCloseAction(); }
+
+    private static void noop() {}
+    private static void noopInt(int v) {}
 }

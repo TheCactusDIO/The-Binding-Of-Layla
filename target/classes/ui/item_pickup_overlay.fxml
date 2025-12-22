@@ -6,12 +6,22 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
+<!--
+  Root TRANSPARENTE: el oscurecido lo aporta OverlayRouter.
+  El panel central tiene fondo suave para legibilidad.
+-->
 <StackPane fx:id="root"
-          xmlns="http://javafx.com/javafx"
-          xmlns:fx="http://javafx.com/fxml"
-          fx:controller="com.layla.ui.ItemPickupOverlayController">
+           xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.layla.ui.ItemPickupOverlayController"
+           style="-fx-background-color: transparent;">
+
     <children>
-        <VBox spacing="12" alignment="CENTER">
+        <VBox spacing="12"
+              alignment="CENTER"
+              style="-fx-background-color: rgba(20,20,20,0.35); -fx-background-radius: 12;"
+              StackPane.alignment="CENTER">
+
             <padding>
                 <Insets top="40" right="40" bottom="40" left="40"/>
             </padding>
@@ -19,17 +29,20 @@
             <!-- Icono grande del ítem -->
             <ImageView fx:id="itemImageView"
                        fitWidth="160"
+                       fitHeight="160"
                        preserveRatio="true" />
 
             <!-- Nombre del ítem -->
-            <Label fx:id="itemNameLabel" text="Item Name"
+            <Label fx:id="itemNameLabel"
+                   text="Nombre del ítem"
                    style="-fx-text-fill: #ffd54f;
                           -fx-font-size: 28;
                           -fx-font-weight: bold;
                           -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 10, 0.5, 0, 0);" />
 
             <!-- Descripción -->
-            <Label fx:id="itemDescLabel" text="Item description"
+            <Label fx:id="itemDescLabel"
+                   text="Descripción del ítem"
                    wrapText="true"
                    maxWidth="360"
                    style="-fx-text-fill: #f5f5f5;
@@ -37,7 +50,7 @@
                           -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 6, 0.5, 0, 0);" />
 
             <!-- Hint tipo Isaac -->
-            <Label text="Press SPACE / ENTER / click to continue"
+            <Label text="Pulsa ESPACIO / ENTER o haz clic para continuar"
                    style="-fx-text-fill: #cccccc;
                           -fx-font-size: 12;" />
         </VBox>

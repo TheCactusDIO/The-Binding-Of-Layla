@@ -6,15 +6,14 @@
 <?import javafx.scene.layout.VBox?>
 
 <!--
-  Issue 6 – Overlay de Pausa
-  Raíz TRANSPARENTE: el oscurecido lo aporta OverlayRouter (como Settings).
-  El panel central tiene fondo suave para legibilidad.
+  Raíz transparente: el oscurecido lo aporta OverlayRouter.
+  El panel central usa styleClass="pause-panel" para legibilidad.
 -->
 <StackPane fx:id="root"
            xmlns="http://javafx.com/javafx"
            xmlns:fx="http://javafx.com/fxml"
            fx:controller="com.layla.ui.PauseOverlayController"
-           style="-fx-background-color: transparent;">
+           styleClass="pause-overlay-root">
 
     <!-- Panel central -->
     <VBox fx:id="contentBox"
@@ -27,12 +26,12 @@
             <Insets top="24" right="28" bottom="24" left="28"/>
         </padding>
 
-        <!-- Título con la misma clase que usas en el menú -->
-        <Label text="Paused" styleClass="menu-title"/>
+        <!-- Título reutilizando clase visual del menú -->
+        <Label text="Pausa" styleClass="menu-title"/>
 
-        <!-- Botones con ancho fijo agradable y misma clase visual del menú -->
-        <Button text="Resume"      onAction="#onResume"     styleClass="menu-button" prefWidth="240"/>
-        <Button text="Settings"     onAction="#onSettings"   styleClass="menu-button" prefWidth="240"/>
-        <Button text="Back to Menu" onAction="#onBackToMenu" styleClass="menu-button" prefWidth="240"/>
+        <!-- Botones reutilizando la clase del menú -->
+        <Button text="Reanudar"      onAction="#onResume"     styleClass="menu-button" prefWidth="240" defaultButton="true"/>
+        <Button text="Opciones"      onAction="#onSettings"   styleClass="menu-button" prefWidth="240"/>
+        <Button text="Volver al menú" onAction="#onBackToMenu" styleClass="menu-button" prefWidth="240"/>
     </VBox>
 </StackPane>

@@ -1,10 +1,13 @@
 package com.layla.ui;
 
 import java.lang.ref.WeakReference;
+import java.net.URL;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.layla.core.AssetsManager;
 
+import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -12,19 +15,44 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+/**
+ * Enrutador central de escenas (FXML).
+ * - Permite cambiar de escena con o sin fade.
+ * - Llama automáticamente a onExit()/onEnter() si el controlador implementa ViewLifecycle.
+ * - Aplica CSS global (y CSS del menú si procede).
+ * - Aplica política de música para escenas de menú.
+ *
+ * Nota: No usa i18n ni ResourceBundle. Todo el texto del juego va hardcodeado en español.
+ */
 public final class SceneRouter {
+
+    // =========================
+    // Configuración / estado
+    // =========================
+
     private static Stage primaryStage;
+
+    /** Duración por defecto para transiciones fade. */
     private static final Duration FADE_DURATION = Duration.millis(350);
 
-    // Controlador actual (para onExit/onEnter automáticos)
+    /**
+     * Controlador actual. WeakReference para evitar retener controladores por accidente.
+     * (Si el controlador implementa ViewLifecycle, se llamará onExit/onEnter automáticamente.)
+     */
     private static WeakReference<Object> currentController = new WeakReference<>(null);
 
-    // ---------- Música de menú ----------
+    /** Activa/desactiva logs del router. */
+    private static final boolean DEBUG_LOGS = true;
+
+    // =========================
+    // Música de menú
+    // =========================
+
     private static final String MENU_MUSIC_FILE = "menu.mp3";
 
     /**
-     * Escenas "de menú" donde queremos asegurar la música del menú.
-     * (No meto overlays de juego para no activar música de menú encima del gameplay.)
+     * Escenas consideradas “menú” (asegura música de menú sin reiniciar la pista).
+     * Importante: NO incluye escenas de gameplay.
      */
     private static final Set<String> MENU_MUSIC_SCENES = Set.of(
             "profile_select.fxml",
@@ -41,212 +69,245 @@ public final class SceneRouter {
             "error.fxml"
     );
 
+    // =========================
+    // Hooks para tests / sincronización
+    // =========================
+
+    /** Listeners que se ejecutan cuando la escena está “lista” (típicamente tras el fade-in). */
+    private static final CopyOnWriteArrayList<Runnable> SCENE_READY_LISTENERS = new CopyOnWriteArrayList<>();
+
+    /** Clase utilitaria: no instanciable. */
     private SceneRouter() {}
 
-    // ---------- Tests / hooks ----------
-    private static final java.util.concurrent.CopyOnWriteArrayList<Runnable> SCENE_READY_LISTENERS =
-            new java.util.concurrent.CopyOnWriteArrayList<>();
+    // =========================
+    // API pública
+    // =========================
 
-    /** Permite a tests esperar a que la escena esté visible y estable (tras el fade-in). */
-    public static void onSceneReady(Runnable r) {
-        if (r != null) SCENE_READY_LISTENERS.add(r);
-    }
-
-    /** Llama a los listeners y limpia la lista. */
-    private static void notifySceneReady() {
-        for (Runnable r : SCENE_READY_LISTENERS) {
-            try { r.run(); } catch (Throwable ignore) {}
-        }
-        SCENE_READY_LISTENERS.clear();
-    }
-
-    // ---------- Bootstrap ----------
+    /**
+     * Inicializa el router con el Stage principal.
+     * Debe llamarse una vez al arrancar la app.
+     */
     public static void init(Stage stage) {
         primaryStage = stage;
     }
 
-    private static void ensureInit() {
-        if (primaryStage == null) {
-            throw new IllegalStateException("SceneRouter not initialized. Call SceneRouter.init(stage) first.");
-        }
-    }
-
-    // ---------- Public API ----------
-
-    /** Cambia de escena sin animación, fijando tamaño explícito. */
+    /**
+     * Cambia de escena SIN animación, fijando tamaño explícito.
+     *
+     * @param fxmlPath ruta del FXML (ej: "ui/main_menu.fxml")
+     * @param width ancho de la ventana
+     * @param height alto de la ventana
+     */
     public static void go(String fxmlPath, int width, int height) {
         ensureInit();
+
         try {
-            System.out.println("[SceneRouter] Attempting to load: " + fxmlPath);
-            var url = SceneRouter.class.getResource(normalize(fxmlPath));
-            if (url == null) throw new IllegalArgumentException("FXML not found on classpath: " + normalize(fxmlPath));
+            logInfo("Intentando cargar escena: " + fxmlPath);
 
-            FXMLLoader loader = new FXMLLoader(url);
-            Parent root = loader.load();
-            Object controller = loader.getController();
+            LoadedFXML loaded = loadFXML(fxmlPath);
 
-            // 1) salir de la vista previa (si implementa ViewLifecycle)
+            // 1) Salir de la vista anterior (si aplica)
             callExitOnPrevious();
 
-            Scene scene = new Scene(root, width, height);
+            // 2) Construir escena + CSS
+            Scene scene = new Scene(loaded.root(), width, height);
+            applyBaseStyles(scene, loaded.root());
 
-            // 2) CSS base
-            applyBaseStyles(scene, root);
+            // 3) Mostrar escena
+            setSceneAndShow(scene);
 
-            primaryStage.setScene(scene);
-            primaryStage.show();
-            try { primaryStage.requestFocus(); } catch (Exception ignore) {}
-
-            // 2.5) Política de música (antes de onEnter)
+            // 4) Política de audio (antes de onEnter)
             applySceneAudioPolicy(fxmlPath);
 
-            // 3) entrar en la vista nueva
-            rememberAndEnter(controller);
+            // 5) Entrar en la nueva vista (si aplica)
+            rememberAndEnter(loaded.controller());
 
-            // 4) notificar escena lista
+            // 6) Notificar escena lista
             notifySceneReady();
 
-            System.out.println("[SceneRouter] Scene set and displayed: " + fxmlPath);
+            logInfo("Escena mostrada: " + fxmlPath);
         } catch (Exception e) {
-            System.err.println("[SceneRouter] ERROR loading FXML: " + fxmlPath);
-            e.printStackTrace();
+            logError("ERROR cargando FXML: " + fxmlPath, e);
         }
     }
 
-    /** Cambia de escena con fade, fijando tamaño explícito. */
+    /**
+     * Cambia de escena CON fade, fijando tamaño explícito.
+     *
+     * @param fxmlPath ruta del FXML (ej: "ui/profile_select.fxml")
+     * @param width ancho de la ventana
+     * @param height alto de la ventana
+     */
     public static void goWithFade(String fxmlPath, double width, double height) {
         ensureInit();
+
         try {
-            System.out.println("[SceneRouter] Attempting to load (fade): " + fxmlPath);
-            var url = SceneRouter.class.getResource(normalize(fxmlPath));
-            if (url == null) throw new IllegalArgumentException("FXML not found on classpath: " + normalize(fxmlPath));
+            logInfo("Intentando cargar escena (fade): " + fxmlPath);
 
-            FXMLLoader loader = new FXMLLoader(url);
-            Parent newRoot = loader.load();
-            Object newController = loader.getController();
+            LoadedFXML loaded = loadFXML(fxmlPath);
 
-            // Salir de la vista previa (si implementa ViewLifecycle)
+            // Salir de la vista anterior (si aplica)
             callExitOnPrevious();
 
-            Scene newScene = new Scene(newRoot, width, height);
-            applyBaseStyles(newScene, newRoot);
+            // Nueva escena + CSS
+            Scene newScene = new Scene(loaded.root(), width, height);
+            applyBaseStyles(newScene, loaded.root());
 
             Scene oldScene = primaryStage.getScene();
-            if (oldScene != null) {
-                Parent currentRoot = oldScene.getRoot();
 
-                // Fade-out sobre el root actual
-                FadeTransition fadeOut = new FadeTransition(FADE_DURATION, currentRoot);
+            // Si hay escena previa, fade-out -> swap -> fade-in
+            if (oldScene != null && oldScene.getRoot() != null) {
+                Parent oldRoot = oldScene.getRoot();
+
+                FadeTransition fadeOut = new FadeTransition(FADE_DURATION, oldRoot);
                 fadeOut.setFromValue(1.0);
                 fadeOut.setToValue(0.0);
+
                 fadeOut.setOnFinished(e -> {
-                    // Cambiamos la escena
+                    // Cambiar escena
                     primaryStage.setScene(newScene);
                     primaryStage.show();
 
-                    // Preparar el nuevo root para fade-in
-                    newRoot.setOpacity(0.0);
+                    // Preparar nuevo root para fade-in
+                    loaded.root().setOpacity(0.0);
 
-                    // Política de música (antes de onEnter)
+                    // Audio (antes de onEnter)
                     applySceneAudioPolicy(fxmlPath);
 
-                    // onEnter antes del fade-in
-                    rememberAndEnter(newController);
+                    // onEnter antes del fade-in (útil si la vista inicializa cosas)
+                    rememberAndEnter(loaded.controller());
 
-                    // Fade-in del nuevo root
-                    FadeTransition fadeIn = new FadeTransition(FADE_DURATION, newRoot);
+                    FadeTransition fadeIn = new FadeTransition(FADE_DURATION, loaded.root());
                     fadeIn.setFromValue(0.0);
                     fadeIn.setToValue(1.0);
                     fadeIn.setOnFinished(ev -> {
-                        try { primaryStage.requestFocus(); } catch (Exception ignore2) {}
+                        safeRequestFocus();
                         notifySceneReady();
                     });
                     fadeIn.play();
                 });
+
                 fadeOut.play();
             } else {
-                // No había escena previa
+                // No había escena previa: fade-in directo
                 primaryStage.setScene(newScene);
                 primaryStage.show();
 
-                newRoot.setOpacity(0.0);
+                loaded.root().setOpacity(0.0);
 
-                // Política de música (antes de onEnter)
                 applySceneAudioPolicy(fxmlPath);
+                rememberAndEnter(loaded.controller());
 
-                rememberAndEnter(newController);
-
-                FadeTransition fadeIn = new FadeTransition(FADE_DURATION, newRoot);
+                FadeTransition fadeIn = new FadeTransition(FADE_DURATION, loaded.root());
                 fadeIn.setFromValue(0.0);
                 fadeIn.setToValue(1.0);
                 fadeIn.setOnFinished(ev -> {
-                    try { primaryStage.requestFocus(); } catch (Exception ignore2) {}
+                    safeRequestFocus();
                     notifySceneReady();
                 });
                 fadeIn.play();
             }
 
-            System.out.println("[SceneRouter] Scene set with fade: " + fxmlPath);
+            logInfo("Escena puesta con fade: " + fxmlPath);
         } catch (Exception e) {
-            System.err.println("[SceneRouter] ERROR loading FXML (fade): " + fxmlPath);
-            e.printStackTrace();
+            logError("ERROR cargando FXML (fade): " + fxmlPath, e);
         }
     }
 
-    /** Igual que goWithFade, pero mantiene el tamaño actual del Stage. */
+    /**
+     * Igual que goWithFade, pero mantiene el tamaño actual del Stage.
+     *
+     * @param fxmlPath ruta del FXML
+     */
     public static void goWithFadeKeepSize(String fxmlPath) {
-        var stage = getStage();
+        Stage stage = getStage();
         Scene s = stage.getScene();
+
         if (s == null) {
             goWithFade(fxmlPath, 1280, 720);
             return;
         }
-        double w = s.getWidth();
-        double h = s.getHeight();
-        goWithFade(fxmlPath, w, h);
+
+        goWithFade(fxmlPath, s.getWidth(), s.getHeight());
     }
 
-    // ---------- Reusable fades sobre la escena actual ----------
+    /**
+     * Ejecuta un fade-out sobre la escena actual.
+     *
+     * @param toOpacity opacidad destino (0..1)
+     * @param ms duración en milisegundos
+     */
     public static void fadeOutCurrent(double toOpacity, int ms) {
-        var stage = getStage();
+        Stage stage = getStage();
         if (stage.getScene() == null) return;
-        var root = stage.getScene().getRoot();
-        var ft = new FadeTransition(Duration.millis(ms), root);
+
+        Parent root = stage.getScene().getRoot();
+        if (root == null) return;
+
+        FadeTransition ft = new FadeTransition(Duration.millis(ms), root);
         ft.setFromValue(root.getOpacity());
         ft.setToValue(toOpacity);
         ft.play();
     }
 
+    /**
+     * Ejecuta un fade-in sobre la escena actual.
+     *
+     * @param toOpacity opacidad destino (0..1)
+     * @param ms duración en milisegundos
+     */
     public static void fadeInCurrent(double toOpacity, int ms) {
-        var stage = getStage();
+        Stage stage = getStage();
         if (stage.getScene() == null) return;
-        var root = stage.getScene().getRoot();
-        var ft = new FadeTransition(Duration.millis(ms), root);
+
+        Parent root = stage.getScene().getRoot();
+        if (root == null) return;
+
+        FadeTransition ft = new FadeTransition(Duration.millis(ms), root);
         ft.setFromValue(root.getOpacity());
-        ft.setToValue(toOpacity); // FIX: antes siempre iba a 1.0
+        ft.setToValue(toOpacity);
         ft.play();
     }
 
-    // ---------- Helpers públicos ----------
+    /**
+     * Devuelve el Stage principal (debe haberse llamado init()).
+     */
     public static Stage getStage() {
         ensureInit();
         return primaryStage;
     }
 
+    /**
+     * Devuelve el root de la escena actual.
+     */
     public static Parent getRoot() {
-        var s = getStage().getScene();
-        if (s == null) throw new IllegalStateException("No scene set on primary stage.");
+        Scene s = getStage().getScene();
+        if (s == null) throw new IllegalStateException("No hay escena asignada en el Stage principal.");
         return s.getRoot();
     }
 
+    /**
+     * Devuelve el controlador de la escena actual.
+     */
     public static Object getCurrentController() {
         return currentController != null ? currentController.get() : null;
     }
 
-    // Ejecuta 'action' cuando el currentController sea instancia de 'type' (con timeout)
+    /**
+     * Registra un listener que se ejecuta cuando la escena está lista (normalmente tras el fade-in).
+     */
+    public static void onSceneReady(Runnable r) {
+        if (r != null) SCENE_READY_LISTENERS.add(r);
+    }
+
+    /**
+     * Ejecuta 'action' cuando el controlador actual sea instancia de 'type' (con timeout).
+     * Útil para tests o para enganchar acciones cuando la transición termina.
+     */
     public static <T> void whenControllerIs(Class<T> type, java.util.function.Consumer<T> action) {
         final long deadline = System.nanoTime() + 1_500_000_000L; // ~1500 ms
-        final javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
+
+        AnimationTimer timer = new AnimationTimer() {
             @Override public void handle(long now) {
                 Object c = getCurrentController();
                 if (type.isInstance(c)) {
@@ -254,65 +315,94 @@ public final class SceneRouter {
                     action.accept(type.cast(c));
                 } else if (now > deadline) {
                     stop();
-                    System.err.println("[SceneRouter] whenControllerIs timeout for " + type.getSimpleName());
+                    System.err.println("[SceneRouter] Timeout esperando controlador: " + type.getSimpleName());
                 }
             }
         };
         timer.start();
     }
 
-    // ---------- Internos ----------
+    // =========================
+    // Internos
+    // =========================
 
-    // Normaliza rutas con o sin barra inicial
-    private static String normalize(String fxmlPath) {
-        return fxmlPath.startsWith("/") ? fxmlPath : "/" + fxmlPath;
+    /** Verifica que el router está inicializado (init(stage)). */
+    private static void ensureInit() {
+        if (primaryStage == null) {
+            throw new IllegalStateException("SceneRouter no inicializado. Llama a SceneRouter.init(stage) primero.");
+        }
     }
 
-    private static String basename(String path) {
-        if (path == null) return "";
-        int i = path.lastIndexOf('/');
-        return (i >= 0) ? path.substring(i + 1) : path;
+    /** Llama a los listeners de escena lista y limpia la lista. */
+    private static void notifySceneReady() {
+        for (Runnable r : SCENE_READY_LISTENERS) {
+            try { r.run(); } catch (Throwable ignore) {}
+        }
+        SCENE_READY_LISTENERS.clear();
     }
 
-    /** Política simple: si es escena de menú, asegura música de menú sin reiniciarla. */
+    /** Pide foco al stage de forma segura. */
+    private static void safeRequestFocus() {
+        try { primaryStage.requestFocus(); } catch (Exception ignore) {}
+    }
+
+    /** Aplica una escena al stage y la muestra. */
+    private static void setSceneAndShow(Scene scene) {
+        primaryStage.setScene(scene);
+        primaryStage.show();
+        safeRequestFocus();
+    }
+
+    /**
+     * Carga un FXML y devuelve su root y su controller.
+     * Usa resolución robusta de rutas para evitar bloqueos en loading.
+     */
+    private static LoadedFXML loadFXML(String fxmlPath) throws Exception {
+        URL url = resolveResourceOrThrow(fxmlPath, "FXML");
+        FXMLLoader loader = new FXMLLoader(url);
+        Parent root = loader.load();
+        Object controller = loader.getController();
+        return new LoadedFXML(root, controller);
+    }
+
+    /**
+     * Política de audio:
+     * - Si es escena de menú, asegura la música del menú sin reiniciarla.
+     */
     private static void applySceneAudioPolicy(String fxmlPath) {
-        String base = basename(normalize(fxmlPath));
+        String base = basename(fxmlPath);
         if (MENU_MUSIC_SCENES.contains(base)) {
-            // No reinicia si ya está sonando esa misma pista.
             AssetsManager.ensureMusic(MENU_MUSIC_FILE, true);
         }
     }
 
-    /** Devuelve url.toExternalForm() si existe; si no, null y loguea. */
-    private static String css(String path) {
-        var url = SceneRouter.class.getResource(path);
-        if (url == null) {
-            System.err.println("[SceneRouter] CSS not found: " + path);
-            return null;
-        }
-        return url.toExternalForm();
-    }
-
-    /** Aplica global.css siempre. Añade menu.css SOLO si root tiene id "main-menu-root". */
+    /**
+     * Aplica estilos:
+     * - global.css siempre
+     * - menu.css solo si root tiene id "main-menu-root"
+     */
     private static void applyBaseStyles(Scene scene, Parent root) {
-        var global = css("/ui/styles/global.css");
+        String global = css("ui/styles/global.css");
         if (global != null && !scene.getStylesheets().contains(global)) {
             scene.getStylesheets().add(global);
-            System.out.println("[SceneRouter] Applied /ui/styles/global.css");
+            logInfo("Aplicado CSS global: ui/styles/global.css");
         }
 
         boolean isMainMenu = root != null && "main-menu-root".equals(root.getId());
         if (isMainMenu) {
-            var menu = css("/ui/styles/menu.css");
+            String menu = css("ui/styles/menu.css");
             if (menu != null && !scene.getStylesheets().contains(menu)) {
                 scene.getStylesheets().add(menu);
-                System.out.println("[SceneRouter] Applied /ui/styles/menu.css");
+                logInfo("Aplicado CSS menú: ui/styles/menu.css");
             }
         }
 
-        System.out.println("[SceneRouter] Scene stylesheets now: " + scene.getStylesheets());
+        logInfo("Stylesheets activos: " + scene.getStylesheets());
     }
 
+    /**
+     * Si el controlador anterior implementa ViewLifecycle, llama a onExit().
+     */
     private static void callExitOnPrevious() {
         Object prev = currentController.get();
         if (prev instanceof ViewLifecycle vl) {
@@ -320,10 +410,96 @@ public final class SceneRouter {
         }
     }
 
+    /**
+     * Guarda referencia al controlador actual y, si implementa ViewLifecycle, llama a onEnter().
+     */
     private static void rememberAndEnter(Object controller) {
         currentController = new WeakReference<>(controller);
         if (controller instanceof ViewLifecycle vl) {
             try { vl.onEnter(); } catch (Exception ignore) {}
         }
     }
+
+    /**
+     * Resuelve recursos de forma robusta:
+     * - /ui/xxx.fxml (ideal)
+     * - ui/xxx.fxml (relativo al paquete)
+     * - /com/layla/ui/ui/xxx.fxml (recursos “metidos” bajo el paquete)
+     */
+    private static URL resolveResource(String path) {
+        if (path == null || path.isBlank()) return null;
+
+        String p = path.replace('\\', '/');
+        String noSlash = p.startsWith("/") ? p.substring(1) : p;
+
+        String c1 = "/" + noSlash;
+        String c2 = noSlash;
+        String c3 = "/com/layla/ui/" + noSlash;
+
+        URL url = SceneRouter.class.getResource(c1);
+        if (url != null) return url;
+
+        url = SceneRouter.class.getResource(c2);
+        if (url != null) return url;
+
+        url = SceneRouter.class.getResource(c3);
+        if (url != null) return url;
+
+        return null;
+    }
+
+    /**
+     * Igual que resolveResource, pero lanza excepción detallada si no se encuentra.
+     */
+    private static URL resolveResourceOrThrow(String path, String kind) {
+        URL url = resolveResource(path);
+        if (url == null) {
+            String p = path.replace('\\', '/');
+            String noSlash = p.startsWith("/") ? p.substring(1) : p;
+
+            throw new IllegalArgumentException(
+                    kind + " no encontrado en classpath. Pedido: '" + path + "' "
+                            + "(probado: '/" + noSlash + "', '" + noSlash + "', '/com/layla/ui/" + noSlash + "')"
+            );
+        }
+        return url;
+    }
+
+    /**
+     * Devuelve la parte final del path (nombre del archivo).
+     */
+    private static String basename(String path) {
+        if (path == null) return "";
+        String p = path.replace('\\', '/');
+        int i = p.lastIndexOf('/');
+        return (i >= 0) ? p.substring(i + 1) : p;
+    }
+
+    /**
+     * Devuelve url.toExternalForm() para un CSS si existe; si no, loguea y devuelve null.
+     */
+    private static String css(String path) {
+        URL url = resolveResource(path);
+        if (url == null) {
+            System.err.println("[SceneRouter] CSS no encontrado: " + path);
+            return null;
+        }
+        return url.toExternalForm();
+    }
+
+    /** Log informativo (controlado por DEBUG_LOGS). */
+    private static void logInfo(String msg) {
+        if (DEBUG_LOGS) System.out.println("[SceneRouter] " + msg);
+    }
+
+    /** Log de error. */
+    private static void logError(String msg, Throwable t) {
+        System.err.println("[SceneRouter] " + msg);
+        if (t != null) t.printStackTrace();
+    }
+
+    /**
+     * Contenedor inmutable del resultado de cargar un FXML.
+     */
+    private record LoadedFXML(Parent root, Object controller) {}
 }
