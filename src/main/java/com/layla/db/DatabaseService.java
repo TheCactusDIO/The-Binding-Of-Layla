@@ -613,37 +613,75 @@ public class DatabaseService {
     // TIPOS / RECORDS
     // =========================================================
 
-    public enum StatType { SEEN, KILLED, KILLED_BY }
+    /**
+     * Tipos de estadística.
+     */
+    public enum StatType {
+        /** Visto (aparece/registrado como “visto”). */
+        SEEN,
+        /** Eliminado (muerto por el jugador u otra causa registrada como “kill”). */
+        KILLED,
+        /** Muerto a manos de (el enemigo mató al jugador). */
+        KILLED_BY
+    }
 
     /**
-     * Summary of profile counters used in menus and stats screens.
+     * Resumen de contadores del perfil usados en menús y pantallas de estadísticas.
+     *
+     * @param name nombre del perfil/jugador
+     * @param runs número total de partidas (runs) registradas
+     * @param wins número total de victorias
+     * @param deaths número total de muertes
+     * @param streak racha actual (por ejemplo, de victorias)
+     * @param bestStreak mejor racha registrada
      */
     public record ProfileSummary(String name, int runs, int wins, int deaths, int streak, int bestStreak) {}
 
     /**
-     * Aggregated enemy stats for a given enemy type.
+     * Estadísticas agregadas de un enemigo para un tipo concreto.
+     *
+     * @param seen número de veces que se ha visto
+     * @param killed número de veces que se ha matado
+     * @param killedBy número de veces que ha matado al jugador
      */
     public record EnemyStatEntry(int seen, int killed, int killedBy) {}
 
     /**
-     * Stored achievement status for a profile.
+     * Estado persistido de un logro para un perfil.
+     *
+     * @param unlocked si el logro está desbloqueado
+     * @param unlockDate fecha de desbloqueo (formato guardado en BD)
      */
     public record AchievementStatus(boolean unlocked, String unlockDate) {}
 
     /**
-     * Leaderboard row with run metadata and ranking position.
+     * Fila de leaderboard con metadatos de la partida y posición en el ranking.
+     *
+     * @param rank posición en el ranking
+     * @param playerName nombre del jugador/perfil
+     * @param score puntuación obtenida
+     * @param floor piso alcanzado
+     * @param isWin si la run fue victoria
+     * @param date fecha de la run (formato guardado)
      */
     public record LeaderboardEntry(int rank, String playerName, int score, int floor, boolean isWin, String date) {}
 
     /**
      * Ajustes guardables por perfil.
-     * Puedes ampliarlo más adelante (hardMode, partículas, pantalla completa, etc.).
+     *
+     * <p>Puedes ampliarlo más adelante (hardMode, partículas, pantalla completa, etc.).</p>
+     *
+     * @param musicVolume volumen de música (0.0–1.0)
+     * @param sfxVolume volumen de efectos (0.0–1.0)
+     * @param virtualWidth ancho virtual de renderizado
+     * @param virtualHeight alto virtual de renderizado
      */
     public record SettingsData(double musicVolume, double sfxVolume, int virtualWidth, int virtualHeight) {
+
         /**
-         * Returns default settings for a new profile.
+         * Devuelve los ajustes por defecto para un perfil nuevo.
          *
-         * @return default settings snapshot
+         * @return snapshot con los ajustes por defecto
          */
         public static SettingsData defaults() {
             return new SettingsData(0.6, 1.0, 1920, 1080);

@@ -1,24 +1,41 @@
 package com.layla.ui;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Text;
 
-public class GameOverController {
+/**
+ * Controlador del overlay de fin de partida (derrota / victoria).
+ *
+ * <p>Este overlay se reutiliza tanto para derrota como para victoria. La vista muestra un título
+ * grande y dos botones:</p>
+ * <ul>
+ *   <li><b>Reintentar</b>: reinicia la partida.</li>
+ *   <li><b>Menú</b>: vuelve al menú principal.</li>
+ * </ul>
+ *
+ * <p>Además incluye atajos de teclado:</p>
+ * <ul>
+ *   <li><b>ENTER</b> o <b>ESPACIO</b>: reintentar.</li>
+ *   <li><b>ESC</b>: volver al menú.</li>
+ * </ul>
+ *
+ * <p><b>Nota:</b> textos hardcodeados en español (sin i18n).</p>
+ */
+public final class GameOverController {
 
     // -------------------------
-    // Constantes de UI (ES)
+    // Textos UI (ES)
     // -------------------------
-    private static final String TITLE_DEFEAT_ES = "FIN DE LA PARTIDA";
-    private static final String TITLE_VICTORY_ES = "¡VICTORIA!";
+    private static final String TITLE_DEFEAT = "FIN DE LA PARTIDA";
+    private static final String TITLE_VICTORY = "¡VICTORIA!";
 
-    // Compatibilidad con textos antiguos (si algún sitio aún pasa inglés)
-    private static final String TITLE_DEFEAT_EN = "GAME OVER";
-    private static final String TITLE_VICTORY_EN = "VICTORY!";
-
+    // -------------------------
     // Estilos (Text usa -fx-fill, no -fx-text-fill)
+    // -------------------------
     private static final String STYLE_DEFEAT =
             "-fx-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;";
 
@@ -34,59 +51,72 @@ public class GameOverController {
     @FXML private Text titleText;
 
     // -------------------------
-    // Callbacks (seguro por defecto)
+    // Callbacks (no-op para evitar NPE)
     // -------------------------
-    private Runnable onRetry = () -> {};
-    private Runnable onBackToMenu = () -> {};
+    private Runnable onRetry = GameOverController::noop;
+    private Runnable onBackToMenu = GameOverController::noop;
 
     /**
      * Asigna la acción a ejecutar cuando el jugador pulsa "Reintentar".
-     * Si llega null, se deja una acción vacía para evitar NullPointerException.
+     *
+     * @param action acción a ejecutar; si es {@code null}, se asigna una acción vacía
      */
-    public void setOnRetry(Runnable r) {
-        this.onRetry = (r != null) ? r : () -> {};
+    public void setOnRetry(Runnable action) {
+        this.onRetry = (action != null) ? action : GameOverController::noop;
     }
 
     /**
-     * Asigna la acción a ejecutar cuando el jugador vuelve al menú.
-     * Si llega null, se deja una acción vacía para evitar NullPointerException.
+     * Asigna la acción a ejecutar cuando el jugador pulsa "Menú".
+     *
+     * @param action acción a ejecutar; si es {@code null}, se asigna una acción vacía
      */
-    public void setOnBackToMenu(Runnable r) {
-        this.onBackToMenu = (r != null) ? r : () -> {};
+    public void setOnBackToMenu(Runnable action) {
+        this.onBackToMenu = (action != null) ? action : GameOverController::noop;
     }
 
     /**
-     * Cambia el título del overlay.
-     * - El juego va hardcodeado en español.
-     * - Si por compatibilidad aún te llega "GAME OVER" o "VICTORY!", se convierte aquí.
+     * Configura si el overlay se muestra como victoria o derrota.
+     *
+     * @param victory {@code true} para victoria; {@code false} para derrota
      */
-    public void setTitle(String text) {
+    public void setVictory(boolean victory) {
         if (titleText == null) return;
 
-        String normalized = normalizeTitleToSpanish(text);
-        titleText.setText(normalized);
-
-        // Ajusta estilo según sea victoria o derrota
-        boolean victory = TITLE_VICTORY_ES.equalsIgnoreCase(normalized);
+        titleText.setText(victory ? TITLE_VICTORY : TITLE_DEFEAT);
         titleText.setStyle(victory ? STYLE_VICTORY : STYLE_DEFEAT);
     }
 
     /**
-     * Inicialización del overlay:
-     * - Configura foco para que ENTER/ESC funcionen siempre.
-     * - Marca botones por defecto (ENTER) y cancelación (ESC).
-     * - Añade soporte extra: SPACE también reintenta.
+     * (Opcional) Permite fijar el título manualmente desde fuera.
+     * <p>Si lo usas, solo cambia el texto. El estilo se mantiene tal cual esté actualmente.</p>
+     *
+     * @param title texto a mostrar; si es {@code null} o vacío, no hace nada
+     */
+    public void setTitle(String title) {
+        if (titleText == null) return;
+        if (title == null || title.isBlank()) return;
+        titleText.setText(title);
+    }
+
+    /**
+     * Inicialización del controlador al cargar el FXML.
+     *
+     * <ul>
+     *   <li>Marca "Reintentar" como botón por defecto (ENTER).</li>
+     *   <li>Marca "Menú" como botón de cancelación (ESC, cuando procede).</li>
+     *   <li>Configura atajos de teclado sobre el root.</li>
+     * </ul>
      */
     @FXML
     private void initialize() {
-        // Botones por defecto/cancelación (JavaFX maneja ENTER/ESC en muchos casos)
         if (retryButton != null) retryButton.setDefaultButton(true);
         if (menuButton != null) menuButton.setCancelButton(true);
 
-        // Forzar foco al root para capturar teclas aunque ningún botón tenga foco
         if (root != null) {
             root.setFocusTraversable(true);
-            root.requestFocus();
+
+            // A veces el overlay se inserta después: pedir foco en el siguiente tick ayuda.
+            Platform.runLater(root::requestFocus);
 
             root.setOnKeyPressed(e -> {
                 KeyCode code = e.getCode();
@@ -104,14 +134,12 @@ public class GameOverController {
             });
         }
 
-        // Si el texto del FXML estaba en inglés por accidente, lo normalizamos
-        if (titleText != null) {
-            setTitle(titleText.getText());
-        }
+        // Estado por defecto si nadie llama a setVictory(...) desde fuera.
+        setVictory(false);
     }
 
     /**
-     * Handler del botón "Reintentar" (FXML onAction).
+     * Handler FXML del botón "Reintentar".
      */
     @FXML
     private void onRetry() {
@@ -119,28 +147,12 @@ public class GameOverController {
     }
 
     /**
-     * Handler del botón "Menú" (FXML onAction).
+     * Handler FXML del botón "Menú".
      */
     @FXML
     private void onMenu() {
         onBackToMenu.run();
     }
 
-    /**
-     * Convierte títulos antiguos/variantes a español.
-     * No es i18n ni ResourceBundle: es hardcodeado para dejar el juego en ES
-     * sin obligarte a revisar ahora todos los setTitle() del proyecto.
-     */
-    private static String normalizeTitleToSpanish(String raw) {
-        if (raw == null || raw.isBlank()) return TITLE_DEFEAT_ES;
-
-        String t = raw.trim();
-
-        if (TITLE_VICTORY_EN.equalsIgnoreCase(t)) return TITLE_VICTORY_ES;
-        if (TITLE_DEFEAT_EN.equalsIgnoreCase(t)) return TITLE_DEFEAT_ES;
-
-        // Si ya viene en español (o quieres pasar uno distinto), lo respetamos
-        return t;
-    }
+    private static void noop() { }
 }
-

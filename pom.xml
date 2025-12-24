@@ -89,6 +89,45 @@
 
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.12.0</version>
+
+        <configuration>
+          <!-- Incluir TODO, también privados -->
+          <show>private</show>
+
+          <!-- Encoding correcto para español -->
+          <encoding>${project.build.sourceEncoding}</encoding>
+          <docencoding>${project.build.sourceEncoding}</docencoding>
+          <charset>${project.build.sourceEncoding}</charset>
+
+          <!-- Evita que JDK 21 te rompa por HTML/doclint -->
+          <doclint>none</doclint>
+
+          <!-- NO fallar por warnings (y si hay algún error menor) -->
+          <failOnError>false</failOnError>
+
+          <!-- Opcional: silencioso con warnings -->
+          <quiet>true</quiet>
+
+          <!-- Opcional: si usas módulos JavaFX y da guerra, esto ayuda -->
+          <additionalJOptions>
+            <additionalJOption>-J-Dfile.encoding=UTF-8</additionalJOption>
+          </additionalJOptions>
+        </configuration>
+
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>javadoc</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${maven.compiler.plugin.version}</version>
         <configuration>
