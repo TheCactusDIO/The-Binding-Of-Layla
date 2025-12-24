@@ -1,0 +1,32 @@
+.overlay-root {
+    -fx-background-color: transparent;
+}
+
+.overlay-panel {
+    -fx-background-color: #1b1b1b;
+    -fx-background-radius: 12;
+    -fx-padding: 28;
+}
+
+.overlay-title {
+    -fx-fill: white;
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+}
+
+.overlay-hint {
+    -fx-text-fill: #bbbbbb;
+    -fx-font-size: 13px;
+}
+
+.btn {
+    -fx-font-size: 14px;
+    -fx-padding: 8 18;
+    -fx-background-radius: 8;
+}
+
+.btn-primary {
+}
+
+.btn-secondary {
+}

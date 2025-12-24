@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.Tab?>
@@ -13,24 +15,25 @@
            xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.CollectionController"
-           style="-fx-background-color: #111111;">
+           styleClass="collection-root">
+
+    <stylesheets>
+        <URL value="@css/collection.css"/>
+    </stylesheets>
 
     <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1280" maxHeight="720">
 
         <HBox alignment="CENTER_LEFT"
-              style="-fx-padding: 20; -fx-background-color: #1a1a1a; -fx-border-color: #333; -fx-border-width: 0 0 2 0;">
+              styleClass="collection-header">
 
             <Button text="&lt; BACK"
                     onAction="#onBack"
-                    styleClass="menu-button btn-back"
-                    style="-fx-font-size: 14px; -fx-padding: 8 20;"/>
+                    styleClass="menu-button btn-back collection-back-button"/>
 
             <Region HBox.hgrow="ALWAYS"/>
 
             <Label text="COLLECTION" alignment="CENTER"
-                   style="-fx-text-fill: white;
-                          -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 32px;
-                          -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);"/>
+                   styleClass="collection-title"/>
 
             <Region HBox.hgrow="ALWAYS"/>
 
@@ -39,13 +42,7 @@
         <TabPane fx:id="tabPane"
                  VBox.vgrow="ALWAYS"
                  tabClosingPolicy="UNAVAILABLE"
-                 style="-fx-background-color: transparent;">
-
-            <stylesheets>
-                <!-- Si tu CSS está en resources/styles/collection.css -->
-                <java.net.URL value="@../styles/collection.css"/>
-            </stylesheets>
-
+                 styleClass="collection-tabpane">
             <tabs>
                 <Tab fx:id="tabBestiary" text="BESTIARY"/>
                 <Tab fx:id="tabItems" text="ITEMS"/>
@@ -56,3 +53,6 @@
 
     </VBox>
 </StackPane>
+
+
+

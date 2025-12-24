@@ -14,48 +14,51 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 
 /**
- * Roca (obstáculo estático).
- *
- * <p>Renderiza un sprite desde un spritesheet de 1 fila (rocks_sheet.png) con 6 columnas (32x32).
- * El controlador puede elegir la columna (skin) según el piso.</p>
- *
- * <p>La colisión usa siempre {@link #SIZE} para que sea consistente con tu generación de niveles.</p>
+ * Entidad Roca (Obstáculo estático).
+ * <p>
+ * Funcionalidad:
+ * <ul>
+ * <li>Actúa como un bloqueador de movimiento y proyectiles.</li>
+ * <li>Utiliza un spritesheet con múltiples variantes visuales (skins).</li>
+ * <li>Su tamaño de colisión es constante ({@link #SIZE}) para facilitar la generación de niveles.</li>
+ * </ul>
  */
 public final class Rock implements GameEntity {
 
-    /** Tamaño lógico/visual de la roca para colisiones y separación en generación de niveles. */
+    /** Tamaño lógico y visual de la roca. */
     public static final double SIZE = 40.0;
 
     private static final int SHEET_COLS = 6;
     private static final int FRAME_W = 32;
     private static final int FRAME_H = 32;
 
-    /** Spritesheet cacheado (se carga una sola vez). */
+    /** Referencia estática al spritesheet para cargarla una sola vez. */
     private static Image SHEET;
 
     private final Pane parent;
     private final ImageView view = new ImageView();
 
-    private int skinCol; // 0..5
+    /** Índice de la columna del spritesheet a usar (skin). */
+    private int skinCol;
 
     /**
-     * Crea una roca con la skin por defecto (columna 0).
+     * Crea una roca con la skin por defecto.
      *
-     * @param x centro X donde colocar la roca
-     * @param y centro Y donde colocar la roca
-     * @param parent contenedor JavaFX donde se añade el nodo
+     * @param x      Posición X central.
+     * @param y      Posición Y central.
+     * @param parent Contenedor JavaFX.
      */
     public Rock(double x, double y, Pane parent) {
         this(x, y, parent, 0);
     }
 
     /**
-     * Crea una roca con una columna concreta del spritesheet.
+     * Crea una roca con una skin específica.
      *
-     * @param x centro X donde colocar la roca
-     * @param y centro Y donde colocar la roca
-     * @param parent contenedor JavaFX donde se añade el nodo
-     * @param skinCol columna del spritesheet (0..5). Si se sale de rango, se ajusta.
+     * @param x       Posición X central.
+     * @param y       Posición Y central.
+     * @param parent  Contenedor JavaFX.
+     * @param skinCol Índice de la columna del sprite (0 a 5).
      */
     public Rock(double x, double y, Pane parent, int skinCol) {
         this.parent = Objects.requireNonNull(parent, "parent");
@@ -64,7 +67,7 @@ public final class Rock implements GameEntity {
 
         view.setManaged(false);
         view.setMouseTransparent(true);
-        view.setSmooth(false); // pixel-art friendly
+        view.setSmooth(false); // Estilo pixel-art
         view.setFitWidth(SIZE);
         view.setFitHeight(SIZE);
         view.setPreserveRatio(false);
@@ -80,45 +83,52 @@ public final class Rock implements GameEntity {
         this.parent.getChildren().add(view);
     }
 
+    /**
+     * Carga el spritesheet si no está cargado.
+     */
     private static void ensureSheetLoaded() {
         if (SHEET != null) return;
 
-        // Ruta principal esperada
         SHEET = AssetsManager.loadImage("assets/images/rocks_sheet.png");
-
-        // Fallback
         if (SHEET == null) {
+            // Intento de ruta alternativa
             SHEET = AssetsManager.loadImage("assets/rocks_sheet.png");
         }
     }
 
+    /**
+     * Asegura que el índice de columna esté dentro del rango válido.
+     */
     private static int clampColumn(int col) {
         return Math.max(0, Math.min(SHEET_COLS - 1, col));
     }
 
     /**
-     * Selecciona qué columna del spritesheet se muestra (0..5).
+     * Cambia la apariencia de la roca seleccionando una columna del spritesheet.
      *
-     * @param col columna deseada (se ajusta a rango válido)
+     * @param col Índice de columna (0-5).
      */
     public void setSkinColumn(int col) {
         int safe = clampColumn(col);
         this.skinCol = safe;
 
-        // El viewport se puede setear incluso si la imagen aún no existe; no pasa nada.
+        // Define la región visible de la imagen (viewport)
         view.setViewport(new Rectangle2D(safe * FRAME_W, 0, FRAME_W, FRAME_H));
     }
 
     /**
-     * @return la columna (skin) actual (0..5)
+     * Obtiene el índice de skin actual.
      */
     public int getSkinColumn() {
         return skinCol;
     }
 
+    /**
+     * Actualización por frame (sin efecto para objetos estáticos).
+     */
     @Override
     public void update(double dt) {
-        // Obstáculo estático: sin lógica por frame.
+        // No-op
     }
 
     @Override
@@ -132,7 +142,7 @@ public final class Rock implements GameEntity {
     }
 
     /**
-     * Elimina el nodo de la escena. (La eliminación del GameLoop/listas se hace fuera.)
+     * Elimina visualmente la roca.
      */
     public void destroy() {
         parent.getChildren().remove(view);

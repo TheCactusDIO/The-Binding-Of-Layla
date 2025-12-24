@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
@@ -14,19 +16,22 @@
 <StackPane fx:id="root"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.AchievementsController"
-           style="-fx-background-color: transparent;">
+           styleClass="achievements-root">
+
+    <stylesheets>
+        <URL value="@css/achievements.css"/>
+    </stylesheets>
 
     <VBox spacing="12" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650"
-          style="-fx-padding: 16;">
+          styleClass="achievements-container">
 
         <!-- Header -->
         <HBox alignment="CENTER_LEFT" spacing="12">
             <Button text="VOLVER" onAction="#onBack"
-                    styleClass="menu-button"
-                    style="-fx-padding: 8 18;"/>
+                    styleClass="menu-button achievements-back-button"/>
 
             <Label text="LOGROS"
-                   style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 34px;"/>
+                   styleClass="achievements-title"/>
 
             <Region HBox.hgrow="ALWAYS"/>
         </HBox>
@@ -35,7 +40,7 @@
 
             <!-- Lista -->
             <ScrollPane fx:id="scrollPane" HBox.hgrow="ALWAYS" fitToWidth="true"
-                        style="-fx-background-color: transparent; -fx-background: transparent;"
+                        styleClass="transparent-scroll"
                         hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
                 <content>
                     <StackPane>
@@ -58,30 +63,31 @@
                 </StackPane>
 
                 <Label fx:id="detailName" text="NOMBRE DEL LOGRO" wrapText="true" textAlignment="CENTER"
-                       style="-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 28px;"/>
+                       styleClass="detail-title"/>
 
                 <Label fx:id="detailStatus" text="BLOQUEADO"
-                       style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                       styleClass="detail-status"/>
 
-                <Separator style="-fx-opacity: 0.3;"/>
+                <Separator styleClass="soft-separator"/>
 
                 <VBox spacing="5" alignment="CENTER_LEFT" maxWidth="300">
                     <Label text="Condición:" styleClass="section-header"/>
-                    <Label fx:id="detailDescription" text="..." wrapText="true" style="-fx-text-fill: white;"/>
+                    <Label fx:id="detailDescription" text="..." wrapText="true" styleClass="detail-description"/>
                 </VBox>
 
-                <Separator style="-fx-opacity: 0.3;"/>
+                <Separator styleClass="soft-separator"/>
 
                 <VBox spacing="5" alignment="CENTER_LEFT" maxWidth="300">
                     <Label text="Recompensa:" styleClass="section-header"/>
-                    <Label fx:id="detailUnlockContent" text="..." wrapText="true" style="-fx-text-fill: #00ff00;"/>
+                    <Label fx:id="detailUnlockContent" text="..." wrapText="true" styleClass="detail-unlock"/>
                 </VBox>
 
                 <Button text="CERRAR DETALLES" onAction="#onCloseDetails"
-                        styleClass="menu-button"
-                        style="-fx-padding: 8 20;"/>
+                        styleClass="menu-button detail-close-button"/>
             </VBox>
 
         </HBox>
     </VBox>
 </StackPane>
+
+

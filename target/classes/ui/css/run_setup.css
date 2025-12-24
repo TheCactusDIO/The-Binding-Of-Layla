@@ -1,0 +1,80 @@
+.run-setup-root {
+    -fx-background-color: #111111;
+}
+
+.run-title {
+    -fx-text-fill: white;
+    -fx-font-family: "Upheaval TT (BRK)";
+    -fx-font-size: 48px;
+    -fx-effect: dropshadow(gaussian, black, 5, 0.5, 0, 0);
+}
+
+.run-subtitle {
+    -fx-text-fill: #888;
+    -fx-font-weight: bold;
+}
+
+.character-card {
+    -fx-background-color: #222;
+    -fx-border-color: #444;
+    -fx-border-width: 3;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-cursor: hand;
+}
+
+.character-name {
+    -fx-font-family: "Upheaval TT (BRK)";
+}
+
+.character-name-layla {
+    -fx-text-fill: #ffd54f;
+    -fx-font-size: 28px;
+}
+
+.character-name-fragile {
+    -fx-text-fill: #aaddff;
+    -fx-font-size: 26px;
+}
+
+.soft-separator {
+    -fx-opacity: 0.3;
+}
+
+.character-description {
+    -fx-text-fill: #ddd;
+    -fx-font-size: 14px;
+}
+
+.character-hp {
+    -fx-text-fill: #ff5555;
+    -fx-font-weight: bold;
+}
+
+.character-lock {
+    -fx-text-fill: #555;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+    -fx-background-color: #111;
+    -fx-padding: 4;
+    -fx-background-radius: 4;
+}
+
+.run-checkbox {
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-cursor: hand;
+}
+
+.run-actions {
+    -fx-padding: 20 0 0 0;
+}
+
+.btn-accent {
+    -fx-text-fill: #ffd54f;
+    -fx-border-color: #bfa34b;
+}
+
+.btn-large {
+    -fx-font-size: 22px;
+}

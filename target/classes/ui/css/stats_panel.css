@@ -1,0 +1,28 @@
+.stats-panel-root {
+    -fx-background-color: rgba(0,0,0,0.85);
+}
+
+.transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.stats-panel-title {
+    -fx-text-fill: white;
+    -fx-font-size: 18;
+    -fx-font-weight: bold;
+}
+
+.stats-section-title {
+    -fx-text-fill: white;
+    -fx-font-size: 14;
+    -fx-font-weight: bold;
+}
+
+.stats-label {
+    -fx-text-fill: white;
+}
+
+.stats-checkbox {
+    -fx-text-fill: white;
+}

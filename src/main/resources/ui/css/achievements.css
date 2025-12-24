@@ -1,0 +1,49 @@
+.achievements-root {
+    -fx-background-color: transparent;
+}
+
+.achievements-container {
+    -fx-padding: 16;
+}
+
+.achievements-back-button {
+    -fx-padding: 8 18;
+}
+
+.achievements-title {
+    -fx-text-fill: white;
+    -fx-font-family: "Upheaval TT (BRK)";
+    -fx-font-size: 34px;
+}
+
+.transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.detail-title {
+    -fx-text-fill: #ffd54f;
+    -fx-font-family: "Upheaval TT (BRK)";
+    -fx-font-size: 28px;
+}
+
+.detail-status {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.soft-separator {
+    -fx-opacity: 0.3;
+}
+
+.detail-description {
+    -fx-text-fill: white;
+}
+
+.detail-unlock {
+    -fx-text-fill: #00ff00;
+}
+
+.detail-close-button {
+    -fx-padding: 8 20;
+}

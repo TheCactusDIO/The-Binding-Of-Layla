@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TableColumn?>
@@ -12,7 +14,11 @@
       fx:controller="com.layla.ui.RankingController"
       spacing="15"
       alignment="TOP_CENTER"
-      style="-fx-background-color: transparent;">
+      styleClass="ranking-root">
+
+    <stylesheets>
+        <URL value="@css/ranking.css"/>
+    </stylesheets>
 
     <padding>
         <Insets top="20" right="40" bottom="20" left="40"/>
@@ -20,20 +26,18 @@
 
     <!-- Header -->
     <Label text="TOP 20 RUNS"
-           styleClass="section-header ranking-title"
-           style="-fx-font-size: 24px; -fx-text-fill: #ffd54f;"/>
+           styleClass="section-header ranking-title"/>
 
     <!-- Table -->
     <TableView fx:id="rankingTable"
                VBox.vgrow="ALWAYS"
-               styleClass="ranking-table"
-               style="-fx-background-color: #222; -fx-border-color: #444; -fx-border-radius: 4;">
+               styleClass="ranking-table">
 
         <columns>
             <TableColumn fx:id="rankCol"
                          text="#"
                          prefWidth="50"
-                         style="-fx-alignment: CENTER;"/>
+                         styleClass="col-center"/>
 
             <TableColumn fx:id="nameCol"
                          text="PLAYER"
@@ -42,12 +46,12 @@
             <TableColumn fx:id="scoreCol"
                          text="SCORE"
                          prefWidth="120"
-                         style="-fx-alignment: CENTER-RIGHT; -fx-font-weight: bold;"/>
+                         styleClass="col-right-bold"/>
 
             <TableColumn fx:id="floorCol"
                          text="FLOOR"
                          prefWidth="120"
-                         style="-fx-alignment: CENTER;"/>
+                         styleClass="col-center"/>
 
             <TableColumn fx:id="dateCol"
                          text="DATE"
@@ -60,3 +64,5 @@
     </TableView>
 
 </VBox>
+
+

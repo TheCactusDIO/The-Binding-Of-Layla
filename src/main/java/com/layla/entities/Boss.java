@@ -18,34 +18,49 @@ import javafx.scene.shape.StrokeType;
 import javafx.util.Duration;
 
 /**
- * Entidad base de jefe.
- *
- * Nota de diseño:
- * - Si la instancia es exactamente {@code Boss}, usa el comportamiento "Spreader rework".
- * - Si es una subclase, mantiene el comportamiento legacy para no alterar otros bosses.
+ * Entidad base para los jefes del juego.
+ * <p>
+ * Provee la estructura común (vista, vida, callbacks de muerte/proyectiles) y
+ * un comportamiento por defecto.
+ * </p>
+ * <p>
+ * <strong>Nota de diseño:</strong>
+ * <ul>
+ * <li>Si la instancia es exactamente de la clase {@code Boss}, se utiliza el comportamiento "Spreader rework" (patrones de disparo, dash, strafe).</li>
+ * <li>Si es una subclase (como {@link BossCharger}), se mantiene el comportamiento "legacy" (persecución simple) para no romper la lógica específica de esos jefes.</li>
+ * </ul>
+ * </p>
  */
 public class Boss implements GameEntity {
 
     // =========================
-    // Dependencias / callbacks
+    // Dependencias / Callbacks
     // =========================
 
+    /** Panel contenedor donde se añade la vista del jefe. */
     protected final Pane parent;
+
+    /** Representación visual del jefe (círculo). */
     protected final Circle view;
+
+    /** Proveedor para obtener la posición actual del jugador [x, y]. */
     protected final Supplier<double[]> playerPos;
 
+    /** Callback a ejecutar cuando el jefe muere. */
     protected final Consumer<Boss> onDeath;
+
+    /** Callback para registrar nuevos proyectiles en el bucle del juego. */
     protected final Consumer<GameEntity> onSpawnProjectile;
 
     /**
      * Callback para eliminar correctamente proyectiles del GameLoop.
-     * El Projectile lo usará para pedir su eliminación sin dejar basura en listas internas.
+     * El {@link Projectile} lo usará para pedir su propia eliminación al impactar o salir de rango.
      */
     protected final Consumer<GameEntity> onRemoveProjectile;
 
     /**
-     * ID del boss (se usa para estadísticas o para "last hit source").
-     * No se fuerza a non-null para no romper llamadas existentes, pero conviene que lo sea.
+     * Identificador único del jefe.
+     * Útil para sistemas de estadísticas o para identificar la fuente de daño ("last hit source").
      */
     protected final String bossId;
 
@@ -53,16 +68,26 @@ public class Boss implements GameEntity {
     // Estado base del boss
     // =========================
 
+    /** Vida actual del jefe. */
     protected double hp;
+
+    /** Vida máxima del jefe. */
     protected double maxHp;
+
+    /** Velocidad de movimiento base (píxeles por segundo). */
     protected double speed = 45.0;
 
+    /** Indica si el jefe ha muerto para detener actualizaciones. */
     protected boolean dead = false;
+
+    /** Fase actual del jefe (1 o 2). Afecta a la agresividad y patrones. */
     protected int phase = 1;
+
+    /** Temporizador general para controlar la cadencia de ataques. */
     protected double attackTimer = 0.0;
 
     // =========================
-    // Rework state (solo Boss.class)
+    // Rework state (Exclusivo de Boss.class)
     // =========================
 
     private static final double DESIRED_RANGE = 210.0;
@@ -75,24 +100,53 @@ public class Boss implements GameEntity {
 
     private static final double DASH_DURATION_SEC = 0.55;
 
+    /** Temporizador para cambiar entre patrones de ataque en el rework. */
     private double patternTimer = 0.0;
+
+    /** Índice del patrón de ataque actual (0: Espiral, 1: Abanico, 2: Anillos). */
     private int patternIndex = 0;
 
+    /** Ángulo acumulado para los disparos en espiral. */
     private double spiralAngle = 0.0;
+
+    /** Dirección del movimiento lateral (1.0 o -1.0). */
     private double strafeSign = 1.0;
 
+    /** Tiempo restante para que el dash esté disponible de nuevo. */
     private double dashCooldown = 3.0;
+
+    /** Tiempo restante de duración del dash actual. */
     private double dashTimer = 0.0;
+
+    /** Componente X de la dirección del dash. */
     private double dashDirX = 0.0;
+
+    /** Componente Y de la dirección del dash. */
     private double dashDirY = 0.0;
+
+    /** Indica si el jefe está ejecutando un dash actualmente. */
     private boolean dashing = false;
 
+    /** Generador de números aleatorios para variaciones de comportamiento. */
     private final ThreadLocalRandom rng = ThreadLocalRandom.current();
 
     // =========================
     // Constructor
     // =========================
 
+    /**
+     * Crea una nueva instancia de un Boss.
+     *
+     * @param x                 Posición X inicial.
+     * @param y                 Posición Y inicial.
+     * @param maxHp             Vida máxima.
+     * @param parent            Panel donde se renderizará.
+     * @param playerPos         Supplier para conocer la posición del jugador.
+     * @param onDeath           Callback al morir.
+     * @param onSpawnProjectile Callback para crear proyectiles.
+     * @param onRemoveProjectile Callback para eliminar proyectiles.
+     * @param bossId            Identificador único (texto).
+     */
     public Boss(
             double x,
             double y,
@@ -113,7 +167,7 @@ public class Boss implements GameEntity {
         this.maxHp = maxHp;
         this.hp = maxHp;
 
-        this.bossId = bossId; // se mantiene tal cual para no romper IDs existentes
+        this.bossId = bossId;
 
         this.view = new Circle(40.0, Color.DARKRED);
         this.view.setStroke(Color.BLACK);
@@ -128,12 +182,17 @@ public class Boss implements GameEntity {
     }
 
     // =========================
-    // Game loop
+    // Bucle de juego (Game Loop)
     // =========================
 
     /**
-     * Actualiza el boss.
-     * Si {@code hp <= 0} por cualquier razón, se fuerza muerte para evitar "entidades zombis".
+     * Actualiza la lógica del jefe en cada frame.
+     * <p>
+     * Verifica la vida (para evitar estados inconsistentes o "zombis"), y delega
+     * la lógica de movimiento/ataque dependiendo de si es la clase base o una subclase.
+     * </p>
+     *
+     * @param dt Delta time en segundos desde el último frame.
      */
     @Override
     public void update(double dt) {
@@ -144,7 +203,7 @@ public class Boss implements GameEntity {
             return;
         }
 
-        // Mantener legacy en subclases
+        // Mantener legacy en subclases para no romper su IA específica
         if (getClass() != Boss.class) {
             updateLegacy(dt);
             return;
@@ -154,8 +213,14 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Comportamiento antiguo: persigue al jugador y cada X segundos lanza radial spam.
-     * Se conserva para subclases para evitar cambios de gameplay no deseados.
+     * Lógica de actualización antigua (Legacy).
+     * <p>
+     * Comportamiento simple: persigue al jugador en línea recta y cada cierto tiempo
+     * lanza un ataque radial. Se conserva para las subclases que extienden Boss pero
+     * no sobrescriben {@code update()}.
+     * </p>
+     *
+     * @param dt Delta time en segundos.
      */
     private void updateLegacy(double dt) {
         double[] pPos = playerPos.get();
@@ -180,9 +245,18 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Rework del boss base:
-     * - Mantiene rango, hace strafe, y alterna patrones de presión.
-     * - Tiene dash con telegraph simple.
+     * Lógica del "Rework" para el Boss base (tipo Spreader).
+     * <p>
+     * Implementa una IA más compleja que incluye:
+     * <ul>
+     * <li>Mantenimiento de distancia (ni muy cerca, ni muy lejos).</li>
+     * <li>Movimiento lateral (strafe).</li>
+     * <li>Habilidad de Dash (embestida) con telegrafiado previo.</li>
+     * <li>Rotación de patrones de ataque (espiral, abanico, anillos).</li>
+     * </ul>
+     * </p>
+     *
+     * @param dt Delta time en segundos.
      */
     private void updateSpreaderRework(double dt) {
         double[] pPos = playerPos.get();
@@ -202,7 +276,7 @@ public class Boss implements GameEntity {
         double ndy = dy / dist;
 
         // -------------------------
-        // Dash
+        // Lógica de Dash
         // -------------------------
         if (dashing) {
             dashTimer -= dt;
@@ -211,7 +285,7 @@ public class Boss implements GameEntity {
             view.setLayoutX(bx + dashDirX * dashSpeed * dt);
             view.setLayoutY(by + dashDirY * dashSpeed * dt);
 
-            // Trail shots durante dash (fase 2 más agresivo)
+            // Disparos residuales durante el dash (más agresivo en fase 2)
             if (phase >= 2 && rng.nextDouble() < 0.18) {
                 spawnMiniSpiralBurst(2, 180.0);
             }
@@ -220,16 +294,16 @@ public class Boss implements GameEntity {
                 dashing = false;
                 dashCooldown = (phase == 1) ? 3.2 : 2.2;
 
-                // Shockwave al terminar dash
+                // Shockwave al terminar el dash (impacto)
                 spawnRing(10 + phase * 2, 220.0 + phase * 30.0, 3.0, 1.0);
             }
 
         } else {
             // -------------------------
-            // Movimiento con strafe
+            // Movimiento normal con Strafe
             // -------------------------
 
-            // Perpendicular para strafe
+            // Vector perpendicular para el strafe
             double sx = -ndy * strafeSign;
             double sy =  ndx * strafeSign;
 
@@ -241,14 +315,14 @@ public class Boss implements GameEntity {
             double moveX = ndx * mult;
             double moveY = ndy * mult;
 
-            // Dentro del rango ideal, más strafe que seguimiento
+            // Si está en rango ideal, prioriza strafe sobre acercarse
             double strafeWeight = (dist > DESIRED_RANGE) ? 0.30 : 0.60;
             double followWeight = 1.0 - strafeWeight;
 
             double finalX = moveX * followWeight + sx * strafeWeight * STRAFE_SPEED_MULT;
             double finalY = moveY * followWeight + sy * strafeWeight * STRAFE_SPEED_MULT;
 
-            // Si está muy cerca, fuerza retirada
+            // Si está demasiado cerca, fuerza la retirada
             if (dist < TOO_CLOSE) {
                 finalX = -ndx * RETREAT_SPEED_MULT + sx * 0.45;
                 finalY = -ndy * RETREAT_SPEED_MULT + sy * 0.45;
@@ -257,10 +331,10 @@ public class Boss implements GameEntity {
             view.setLayoutX(bx + finalX * speed * dt);
             view.setLayoutY(by + finalY * speed * dt);
 
-            // Cambia strafe de vez en cuando para no ser “mecánico”
+            // Cambia la dirección del strafe aleatoriamente
             if (rng.nextDouble() < 0.01) strafeSign *= -1.0;
 
-            // Cooldown de dash
+            // Iniciar Dash si el cooldown terminó y hay distancia suficiente
             dashCooldown -= dt;
             if (dashCooldown <= 0.0 && dist > 120.0) {
                 startDashTelegraphed(ndx, ndy);
@@ -268,7 +342,7 @@ public class Boss implements GameEntity {
         }
 
         // -------------------------
-        // Ataques por tiempo
+        // Temporizadores de Ataque
         // -------------------------
         patternTimer += dt;
 
@@ -279,27 +353,27 @@ public class Boss implements GameEntity {
             attackTimer = 0.0;
         }
 
-        // Cambio de patrón
+        // Cambio de patrón cíclico
         double patternDuration = (phase == 1) ? 4.2 : 3.3;
         if (patternTimer >= patternDuration) {
             patternTimer = 0.0;
             patternIndex = (patternIndex + 1) % 3;
         }
 
-        // Patrones con "presión" continua
+        // Ejecución de patrones de "presión" continua (disparos entre ataques principales)
         switch (patternIndex) {
-            case 0 -> { // Spiral pressure
+            case 0 -> { // Presión en espiral
                 spiralAngle += dt * ((phase == 1) ? 3.2 : 4.6);
                 if (rng.nextDouble() < ((phase == 1) ? 0.12 : 0.20)) {
                     spawnSpiralShot(spiralAngle, 240.0 + phase * 40.0);
                 }
             }
-            case 1 -> { // Aimed fan bursts
+            case 1 -> { // Ráfagas apuntadas aleatorias
                 if (rng.nextDouble() < ((phase == 1) ? 0.05 : 0.16)) {
                     spawnAimedFan(5 + phase * 2, 0.35, 260.0 + phase * 40.0);
                 }
             }
-            default -> { // Denial rings
+            default -> { // Anillos de negación de área
                 if (rng.nextDouble() < ((phase == 1) ? 0.04 : 0.10)) {
                     spawnRing(12 + phase * 2, 170.0, 3.0, 1.0);
                 }
@@ -308,7 +382,11 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Inicia un dash con un telegraph visual corto (stroke temporal).
+     * Inicia la secuencia de Dash mostrando un aviso visual (telegraph).
+     * El jefe cambia de color brevemente antes de lanzarse.
+     *
+     * @param ndx Componente X de la dirección del dash normalizada.
+     * @param ndy Componente Y de la dirección del dash normalizada.
      */
     private void startDashTelegraphed(double ndx, double ndy) {
         dashing = true;
@@ -332,9 +410,11 @@ public class Boss implements GameEntity {
     // ======================
 
     /**
-     * Ejecuta el ataque principal.
-     * - Rework si {@code getClass() == Boss.class}
-     * - Legacy radial para subclases
+     * Ejecuta el ataque principal del jefe.
+     * <p>
+     * Si es la clase base, ejecuta el ataque "Spreader" (abanico + anillo en fase 2).
+     * Si es una subclase, ejecuta el ataque legacy (radial simple).
+     * </p>
      */
     protected void performAttack() {
         if (dead) return;
@@ -344,16 +424,18 @@ public class Boss implements GameEntity {
             return;
         }
 
-        // Núcleo del Spreader: fan dirigido + anillo extra en fase 2
+        // Ataque principal del Spreader: Abanico dirigido
         spawnAimedFan(7 + phase * 2, 0.50, 280.0 + phase * 30.0);
 
+        // En fase 2 añade un anillo extra
         if (phase >= 2) {
             spawnRing(8, 210.0, 3.0, 1.0);
         }
     }
 
     /**
-     * Ataque legacy: spam radial.
+     * Ataque legacy: disparo radial en 360 grados.
+     * Usado por defecto en subclases que no sobrescriben performAttack.
      */
     private void performAttackLegacy() {
         int projectiles = 8 + (phase * 2);
@@ -364,18 +446,24 @@ public class Boss implements GameEntity {
     }
 
     // ======================
-    // Helpers de proyectiles
+    // Helpers de Proyectiles
     // ======================
 
     /**
-     * Crea y spawnea un proyectil desde la posición actual del boss.
+     * Crea y genera un proyectil básico desde la posición actual del jefe.
+     *
+     * @param dirX   Componente X de la dirección.
+     * @param dirY   Componente Y de la dirección.
+     * @param speed  Velocidad del proyectil.
+     * @param radius Radio del proyectil (tamaño visual/hitbox).
+     * @param damage Daño que inflige.
      */
     private void spawnProjectile(double dirX, double dirY, double speed, double radius, double damage) {
         Projectile p = new Projectile(
                 dirX, dirY,
                 speed,
                 radius, damage,
-                true,
+                true, // es enemigo
                 parent,
                 onRemoveProjectile,
                 this,
@@ -391,14 +479,20 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Disparo único en espiral.
+     * Dispara un único proyectil en un ángulo determinado (patrón espiral).
+     *
+     * @param angle Ángulo en radianes.
+     * @param speed Velocidad del proyectil.
      */
     private void spawnSpiralShot(double angle, double speed) {
         spawnProjectile(Math.cos(angle), Math.sin(angle), speed, 3.0, 1.0);
     }
 
     /**
-     * Mini ráfaga espiral (usada como presión extra).
+     * Dispara una pequeña ráfaga de proyectiles en espiral rápida.
+     *
+     * @param count Número de disparos en la ráfaga.
+     * @param speed Velocidad de los proyectiles.
      */
     private void spawnMiniSpiralBurst(int count, double speed) {
         for (int i = 0; i < count; i++) {
@@ -408,7 +502,11 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Dispara un abanico apuntado al jugador.
+     * Dispara un abanico de proyectiles centrado en la dirección del jugador.
+     *
+     * @param shots         Número total de proyectiles en el abanico.
+     * @param spreadRadians Apertura total del abanico en radianes.
+     * @param speed         Velocidad de los proyectiles.
      */
     private void spawnAimedFan(int shots, double spreadRadians, double speed) {
         double[] pPos = playerPos.get();
@@ -422,6 +520,7 @@ public class Boss implements GameEntity {
 
         int half = shots / 2;
         for (int i = -half; i <= half; i++) {
+            // Evita división por cero si shots es 1 (aunque el bucle lo maneja)
             double t = (half == 0) ? 0.0 : (i / (double) half);
             double ang = base + t * spreadRadians;
             spawnProjectile(Math.cos(ang), Math.sin(ang), speed, 3.0, 1.0);
@@ -429,7 +528,12 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Dispara un anillo radial.
+     * Dispara un anillo de proyectiles en todas direcciones (360 grados).
+     *
+     * @param projectiles Número de proyectiles.
+     * @param speed       Velocidad de los proyectiles.
+     * @param radius      Radio del proyectil.
+     * @param damage      Daño del proyectil.
      */
     private void spawnRing(int projectiles, double speed, double radius, double damage) {
         for (int i = 0; i < projectiles; i++) {
@@ -439,18 +543,20 @@ public class Boss implements GameEntity {
     }
 
     // ======================
-    // Daño, fases y muerte
+    // Daño, Fases y Muerte
     // ======================
 
     /**
-     * Aplica daño y gestiona feedback visual y cambios de fase.
+     * Aplica daño al jefe, gestiona el parpadeo visual y comprueba cambios de fase o muerte.
+     *
+     * @param amount Cantidad de daño a aplicar.
      */
     public void takeDamage(double amount) {
         if (dead) return;
 
         hp -= amount;
 
-        // Flash rápido al recibir daño
+        // Feedback visual: parpadeo blanco
         view.setFill(Color.WHITE);
         PauseTransition flash = new PauseTransition(Duration.millis(100));
         flash.setOnFinished(e -> {
@@ -466,15 +572,16 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Actualiza el color base del boss después del flash.
-     * Se deja simple para no alterar estética; lo puedes especializar en subclases.
+     * Restaura el color base del jefe tras el parpadeo de daño.
+     * Puede ser sobrescrito por subclases para restaurar su color específico.
      */
     protected void updateColor() {
         view.setFill(Color.DARKRED);
     }
 
     /**
-     * Cambia a fase 2 al bajar del 50 por ciento de vida.
+     * Comprueba si se debe transicionar a la Fase 2 (bajo el 50% de vida).
+     * En Fase 2, aumenta velocidad y cambia el color del borde.
      */
     protected void checkPhaseChange() {
         if (phase == 1 && hp < maxHp * 0.5) {
@@ -488,7 +595,8 @@ public class Boss implements GameEntity {
     }
 
     /**
-     * Marca muerto, elimina el nodo y notifica al sistema.
+     * Gestiona la muerte del jefe.
+     * Elimina su vista y notifica al sistema a través del callback {@code onDeath}.
      */
     protected void die() {
         if (dead) return;
@@ -498,7 +606,7 @@ public class Boss implements GameEntity {
     }
 
     // ======================
-    // Getters y colisión
+    // Getters y Colisión
     // ======================
 
     public double getHp() { return hp; }
@@ -509,7 +617,8 @@ public class Boss implements GameEntity {
     @Override public Bounds getBounds() { return view.getBoundsInParent(); }
 
     /**
-     * Marca el boss como fuente del último golpe al jugador (para estadísticas o UI).
+     * Maneja la colisión con otras entidades.
+     * Si colisiona con el jugador, registra este jefe como la fuente del último golpe.
      */
     @Override
     public void onCollision(GameEntity other) {

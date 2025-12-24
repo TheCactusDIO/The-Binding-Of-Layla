@@ -27,16 +27,15 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.text.Font;
 
 /**
- * Gestor global de assets del juego (imágenes, sonidos, fuentes, música y vídeo).
- *
- * - Mantiene cachés en memoria para evitar recargar recursos repetidamente.
- * - Permite precargar recursos leyendo un manifest (assets/manifest.json).
- * - Proporciona reproducción reutilizable de música/vídeo con un único MediaPlayer global.
- * - Para SFX usa AudioClip cuando es posible (latencia baja) y MediaPlayer como fallback.
- *
- * Nota importante:
- * - Para evitar que la música “se corte” al navegar entre pantallas, usa {@link #ensureMusic(String, boolean)}.
- * - Si quieres reiniciar una pista sí o sí, usa {@link #playMusic(String, boolean)}.
+ * Gestor global de recursos del juego (Imágenes, Sonido, Música, Vídeo y Fuentes).
+ * <p>
+ * Responsabilidades:
+ * <ul>
+ * <li><strong>Caché:</strong> Evita recargar recursos desde disco manteniendo referencias en memoria.</li>
+ * <li><strong>Precarga:</strong> Lee un archivo {@code manifest.json} para cargar recursos críticos al inicio.</li>
+ * <li><strong>Gestión de Audio:</strong> Maneja la música de fondo (loop) y los efectos de sonido (SFX).</li>
+ * <li><strong>Compatibilidad:</strong> Extrae recursos a archivos temporales si es necesario para reproductores nativos (GStreamer).</li>
+ * </ul>
  */
 public class AssetsManager {
 
@@ -44,24 +43,25 @@ public class AssetsManager {
     // CACHÉS EN MEMORIA
     // =========================
 
-    /** Caché de imágenes ya cargadas: ruta relativa -> Image. */
+    /** Caché de imágenes cargadas (Ruta relativa -> Objeto Image). */
     private static final Map<String, Image> imageCache = new ConcurrentHashMap<>();
 
-    /** Caché de sonidos cortos ya cargados: ruta relativa -> AudioClip. */
+    /** Caché de efectos de sonido cortos (Ruta relativa -> AudioClip). */
     private static final Map<String, AudioClip> soundCache = new ConcurrentHashMap<>();
 
-    /** Caché de fuentes: "archivo@size" -> Font. */
+    /** Caché de fuentes tipográficas (Nombre+Tamaño -> Font). */
     private static final Map<String, Font> fontCache = new ConcurrentHashMap<>();
 
     /**
-     * Cache de URIs de medios extraídos a fichero temporal.
-     * Motivo: JavaFX Media (GStreamer) puede fallar con URLs tipo jar: para MP4.
+     * Caché de URIs de medios extraídos temporalmente.
+     * Almacena la ruta del archivo temporal generado para recursos empaquetados en JAR.
      */
     private static final Map<String, String> extractedMediaUriCache = new ConcurrentHashMap<>();
 
     /**
-     * Lista de MediaPlayers activos usados para SFX (fallback).
-     * Se guarda una referencia fuerte para evitar que el GC corte el sonido antes de tiempo.
+     * Lista de reproductores de SFX activos (MediaPlayer).
+     * <p>Se mantiene una referencia fuerte aquí para evitar que el Garbage Collector (GC)
+     * detenga el sonido prematuramente si la variable local sale de ámbito.</p>
      */
     private static final List<MediaPlayer> activeSfx =
             Collections.synchronizedList(new ArrayList<>());
@@ -70,50 +70,48 @@ public class AssetsManager {
     // PLAYERS GLOBALES
     // =========================
 
-    /** Reproductor global de música de fondo (solo uno a la vez). */
+    /** Reproductor único para la música de fondo. */
     private static MediaPlayer backgroundMusic;
 
-    /** Último archivo de música cargado en el reproductor global (para evitar reinicios innecesarios). */
+    /** Nombre del archivo de música actual para evitar reinicios si se pide la misma pista. */
     private static String currentMusicFile;
 
-    /** Reproductor global de vídeo (solo uno a la vez). */
+    /** Reproductor único para vídeos (intros, cinemáticas). */
     private static MediaPlayer videoPlayer;
 
     // =========================
-    // VOLUMEN (0..1)
+    // VOLUMEN (0.0 a 1.0)
     // =========================
 
-    /** Volumen global para efectos de sonido (SFX), rango 0..1. */
+    /** Volumen global para efectos de sonido. */
     private static double sfxVolume = 1.0;
 
-    /**
-     * Volumen global para música, rango 0..1.
-     * Importante: se guarda aunque no haya música sonando, para aplicarlo a futuras reproducciones.
-     */
+    /** Volumen global para música. */
     private static double musicVolume = 0.6;
 
     /**
-     * Ajusta el volumen global de SFX (0..1).
-     * Se aplica a reproducciones futuras de AudioClip y a MediaPlayer en playSfx/playSfxWithPlayer.
+     * Establece el volumen global de los efectos de sonido.
+     * @param v Valor entre 0.0 y 1.0.
      */
     public static void setSfxVolume(double v) {
         sfxVolume = clamp01(v);
         System.out.println("[AssetsManager] Volumen SFX = " + sfxVolume);
     }
 
-    /** Devuelve el volumen global actual de SFX (0..1). */
+    /** @return Volumen actual de SFX. */
     public static double getSfxVolume() {
         return sfxVolume;
     }
 
-    /** Devuelve el volumen global actual de música (0..1). */
+    /** @return Volumen actual de música. */
     public static double getMusicVolume() {
         return musicVolume;
     }
 
     /**
-     * Ajusta el volumen global de música (0..1).
-     * Si ya hay música sonando, también aplica el cambio al MediaPlayer actual.
+     * Establece el volumen global de la música.
+     * Aplica el cambio inmediatamente si hay música reproduciéndose.
+     * @param v Valor entre 0.0 y 1.0.
      */
     public static void setMusicVolume(double v) {
         musicVolume = clamp01(v);
@@ -124,8 +122,8 @@ public class AssetsManager {
     }
 
     /**
-     * Devuelve el nombre de archivo de la música actualmente cargada (por ejemplo "menu.mp3"),
-     * o null si no hay ninguna pista cargada.
+     * Obtiene el nombre del archivo de música actual.
+     * @return Nombre del archivo o null si no hay música cargada.
      */
     public static String getCurrentMusicFile() {
         return currentMusicFile;
@@ -136,18 +134,16 @@ public class AssetsManager {
     // =========================
 
     /**
-     * Executor dedicado para carga de assets.
-     * Es de un único hilo y daemon para no bloquear el cierre de la app.
+     * Executor de un solo hilo (Daemon) para realizar la carga de assets en segundo plano.
      */
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "assets-loader");
-        t.setDaemon(true);
+        t.setDaemon(true); // Permite que la JVM termine aunque este hilo siga vivo
         return t;
     });
 
     /**
-     * Estructura del manifest (assets/manifest.json).
-     * Contiene rutas relativas (respecto a / en resources) de imágenes y sonidos.
+     * Modelo de datos para mapear el archivo JSON de manifiesto.
      */
     public static class Manifest {
         public List<String> images = new ArrayList<>();
@@ -155,12 +151,10 @@ public class AssetsManager {
     }
 
     /**
-     * Crea un Task de JavaFX que:
-     * - Lee el manifest (assets/manifest.json).
-     * - Precarga imágenes y sonidos en caché.
-     * - Actualiza progreso y mensajes para UI (pantalla de carga).
+     * Crea una tarea asíncrona (Task) para cargar los assets definidos en el manifiesto.
+     * <p>Esta tarea actualiza su mensaje y progreso, ideal para vincular a una barra de carga.</p>
      *
-     * Nota: este método SOLO crea el Task; para ejecutarlo, envíalo al executor con {@link #submit(Task)}.
+     * @return Task lista para ser ejecutada.
      */
     public Task<Void> createLoadTask() {
         return new Task<>() {
@@ -205,9 +199,8 @@ public class AssetsManager {
     }
 
     /**
-     * Lee y parsea el manifest JSON desde resources (/assets/manifest.json).
-     *
-     * @return Manifest con listas de imágenes/sonidos, o null si no existe o hay error.
+     * Lee el archivo {@code /assets/manifest.json} del classpath.
+     * @return Objeto Manifest o null si falla la lectura.
      */
     private Manifest readManifest() {
         System.out.println("[AssetsManager] Leyendo manifest.json...");
@@ -223,16 +216,15 @@ public class AssetsManager {
     }
 
     /**
-     * Envía un Task al hilo de carga de assets.
-     * Útil para ejecutar {@link #createLoadTask()} sin bloquear la UI.
+     * Envía una tarea al executor para su procesamiento asíncrono.
+     * @param task Tarea a ejecutar.
      */
     public void submit(Task<?> task) {
         executor.submit(task);
     }
 
     /**
-     * Detiene el executor interno de carga.
-     * Se llama normalmente al finalizar la precarga para liberar recursos.
+     * Cierra ordenadamente el executor de carga.
      */
     public void shutdownExecutor() {
         try {
@@ -252,10 +244,10 @@ public class AssetsManager {
     // =========================
 
     /**
-     * Carga una imagen desde resources y la guarda en caché.
+     * Carga una imagen y la almacena en caché.
      *
-     * @param relativePath ruta relativa dentro de resources, por ejemplo "assets/images/foo.png"
-     * @return Image cargada o null si no existe / hay error.
+     * @param relativePath Ruta relativa (ej: "assets/images/logo.png").
+     * @return Objeto Image o null si no se encuentra.
      */
     public static Image loadImage(String relativePath) {
         return imageCache.computeIfAbsent(relativePath, path -> {
@@ -278,11 +270,11 @@ public class AssetsManager {
     // =========================
 
     /**
-     * Carga un sonido corto como AudioClip y lo guarda en caché.
-     * AudioClip es preferible para SFX por su baja latencia (especialmente WAV/AIFF/AU).
+     * Carga un sonido corto en memoria (AudioClip).
+     * Recomendado para efectos de sonido repetitivos y de baja latencia.
      *
-     * @param relativePath ruta relativa dentro de resources, por ejemplo "assets/sounds/coin.wav"
-     * @return AudioClip o null si no existe / hay error.
+     * @param relativePath Ruta relativa.
+     * @return AudioClip o null si falla.
      */
     public static AudioClip loadSound(String relativePath) {
         return soundCache.computeIfAbsent(relativePath, path -> {
@@ -300,17 +292,15 @@ public class AssetsManager {
     }
 
     // =========================
-    // SFX (corto) AudioClip + fallback MediaPlayer
+    // SFX (Híbrido AudioClip / MediaPlayer)
     // =========================
 
     /**
-     * Reproduce un efecto de sonido desde /assets/sounds/.
+     * Reproduce un efecto de sonido.
+     * <p>Intenta usar {@link AudioClip} para formatos RAW (wav, aiff) por rendimiento.
+     * Si no es posible (mp3) o falla, usa {@link MediaPlayer} como fallback.</p>
      *
-     * - Si el archivo es WAV/AIFF/AU intenta AudioClip (más rápido y con menos delay).
-     * - Si no, usa MediaPlayer como fallback (sirve para mp3, etc.).
-     * - Cuando usa MediaPlayer, se guarda en {@link #activeSfx} para evitar que el GC lo corte.
-     *
-     * @param fileName nombre del archivo (ej: "coin.wav", "victory.mp3")
+     * @param fileName Nombre del archivo en {@code assets/sounds/}.
      */
     public static void playSfx(String fileName) {
         final String rel = "assets/sounds/" + fileName;
@@ -325,7 +315,7 @@ public class AssetsManager {
             String lower = fileName.toLowerCase();
             boolean canUseAudioClip = lower.endsWith(".wav") || lower.endsWith(".aiff") || lower.endsWith(".au");
 
-            // Camino rápido: AudioClip (normalmente SFX cortos)
+            // Prioridad: AudioClip (Baja latencia)
             if (canUseAudioClip) {
                 AudioClip clip = loadSound(rel);
                 if (clip != null) {
@@ -337,12 +327,12 @@ public class AssetsManager {
                 System.err.println("[AssetsManager] AudioClip falló: " + fileName + " -> fallback MediaPlayer");
             }
 
-            // Fallback universal: MediaPlayer
+            // Fallback: MediaPlayer (Mayor latencia, soporta MP3)
             MediaPlayer mp = new MediaPlayer(new Media(url.toExternalForm()));
             mp.setVolume(sfxVolume);
             mp.setCycleCount(1);
 
-            activeSfx.add(mp);
+            activeSfx.add(mp); // Evitar GC
 
             mp.setOnEndOfMedia(() -> {
                 try { mp.stop(); mp.dispose(); } catch (Exception ignore) {}
@@ -364,14 +354,12 @@ public class AssetsManager {
     }
 
     /**
-     * Reproduce un SFX devolviendo el MediaPlayer, por si necesitas enganchar callbacks externos
-     * o consultar estado desde fuera.
+     * Reproduce un SFX devolviendo el control del MediaPlayer.
+     * Útil si se necesita detener el sonido manualmente o saber cuándo termina.
      *
-     * Importante: también se protege contra GC guardándolo en {@link #activeSfx}.
-     *
-     * @param fileName nombre del archivo dentro de /assets/sounds/
-     * @param volume volumen específico 0..1 (no usa el global)
-     * @return MediaPlayer activo o null si falla la carga.
+     * @param fileName Nombre del archivo.
+     * @param volume   Volumen específico para este sonido.
+     * @return MediaPlayer activo o null.
      */
     public static MediaPlayer playSfxWithPlayer(String fileName, double volume) {
         try {
@@ -414,12 +402,10 @@ public class AssetsManager {
     // =========================
 
     /**
-     * Carga una fuente desde /assets/fonts/ y la guarda en caché por tamaño.
-     * Si falla, devuelve la fuente por defecto de JavaFX.
-     *
-     * @param fileName archivo de fuente (ej: "pixel.ttf")
-     * @param size tamaño de fuente en puntos
-     * @return Font cargada o Font.getDefault() si falla
+     * Carga una fuente TTF/OTF.
+     * @param fileName Nombre del archivo en {@code assets/fonts/}.
+     * @param size Tamaño en puntos.
+     * @return Font cargada o la fuente por defecto si falla.
      */
     public static Font loadFont(String fileName, double size) {
         String key = fileName + "@" + size;
@@ -443,22 +429,32 @@ public class AssetsManager {
     // MÚSICA
     // =========================
 
+    /**
+     * Reproduce una pista de música, reiniciándola si ya estaba sonando.
+     */
     public static void playMusic(String fileName, boolean loop) {
         playMusicInternal(fileName, loop, true);
     }
 
+    /**
+     * Asegura que una pista esté sonando.
+     * Si ya está sonando la misma pista, no hace nada (no la reinicia).
+     */
     public static void ensureMusic(String fileName, boolean loop) {
         playMusicInternal(fileName, loop, false);
     }
 
+    /** Pausa la música actual. */
     public static void pauseMusic() {
         if (backgroundMusic != null) backgroundMusic.pause();
     }
 
+    /** Reanuda la música actual. */
     public static void resumeMusic() {
         if (backgroundMusic != null) backgroundMusic.play();
     }
 
+    /** Detiene y libera la música actual. */
     public static void stopMusic() {
         if (backgroundMusic != null) {
             try { backgroundMusic.stop(); } catch (Exception ignore) {}
@@ -469,6 +465,13 @@ public class AssetsManager {
         System.out.println("[AssetsManager] Música detenida");
     }
 
+    /**
+     * Lógica interna para reproducir música.
+     *
+     * @param fileName      Archivo de música.
+     * @param loop          Si debe repetirse.
+     * @param forceRestart  Si true, reinicia la pista aunque sea la misma que suena.
+     */
     private static void playMusicInternal(String fileName, boolean loop, boolean forceRestart) {
         String f = normalizeFileName(fileName);
         if (f == null) return;
@@ -533,9 +536,12 @@ public class AssetsManager {
     // =========================
 
     /**
-     * Reproduce un vídeo desde /assets/videos/.
-     * Si el recurso NO es file:, se copia a un fichero temporal y se reproduce desde ahí
-     * (evita ERROR_MEDIA_INVALID en algunos entornos con GStreamer).
+     * Reproduce un vídeo.
+     * <p>Si el recurso está dentro de un JAR, se extrae a un archivo temporal para que GStreamer pueda leerlo.</p>
+     *
+     * @param fileName Archivo en {@code assets/videos/}.
+     * @param loop     Si debe repetirse.
+     * @return MediaPlayer del vídeo.
      */
     public static MediaPlayer playVideo(String fileName, boolean loop) {
         stopVideo();
@@ -551,7 +557,7 @@ public class AssetsManager {
 
             videoPlayer = new MediaPlayer(new Media(mediaUri));
             videoPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
-            videoPlayer.setMute(true);
+            videoPlayer.setMute(true); // Se silencia por defecto (intro)
             videoPlayer.play();
 
             System.out.println("[AssetsManager] Vídeo: " + f + " (" + url.getProtocol() + ")");
@@ -563,6 +569,7 @@ public class AssetsManager {
         }
     }
 
+    /** Detiene el vídeo actual. */
     public static void stopVideo() {
         if (videoPlayer != null) {
             try { videoPlayer.stop(); } catch (Exception ignore) {}
@@ -573,9 +580,8 @@ public class AssetsManager {
     }
 
     /**
-     * Convierte una URL de recurso a un URI reproducible por JavaFX Media.
-     * - Si es file:, se usa tal cual.
-     * - Si es jar: u otro, se extrae a un fichero temporal y se devuelve file:...
+     * Convierte la URL del recurso a una URI válida para JavaFX Media.
+     * Si la URL es interna (jar:), extrae el archivo a temporal.
      */
     private static String toPlayableMediaUri(String cacheKey, URL resourceUrl) {
         String protocol = resourceUrl.getProtocol();
@@ -585,16 +591,13 @@ public class AssetsManager {
 
         return extractedMediaUriCache.computeIfAbsent(cacheKey, k -> {
             try (InputStream is = AssetsManager.class.getResourceAsStream(cacheKey)) {
-                if (is == null) {
-                    // Fallback: si no se puede abrir stream, intentamos la URL directa igualmente.
-                    return resourceUrl.toExternalForm();
-                }
+                if (is == null) return resourceUrl.toExternalForm();
 
                 String suffix = "";
                 int dot = cacheKey.lastIndexOf('.');
                 if (dot >= 0 && dot < cacheKey.length() - 1) {
                     suffix = cacheKey.substring(dot);
-                    if (suffix.length() > 10) suffix = ""; // seguridad
+                    if (suffix.length() > 10) suffix = "";
                 }
 
                 Path tmp = Files.createTempFile("layla_media_", suffix);
@@ -604,7 +607,6 @@ public class AssetsManager {
                 return tmp.toUri().toString();
 
             } catch (Exception e) {
-                // Si falla la extracción, devolvemos la URL original para no romper.
                 return resourceUrl.toExternalForm();
             }
         });

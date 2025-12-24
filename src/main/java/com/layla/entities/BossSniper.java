@@ -16,24 +16,43 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
 /**
- * Boss "Sniper":
- * - Mantiene distancia del jugador (huye si estás cerca, se acerca si estás lejos).
- * - En rango medio, hace strafe/orbita lateral.
- * - Ataque principal: ráfaga apuntada.
- * - Cada 3 ataques: lanza un orbe lento que explota en anillo.
+ * Jefe de tipo "Sniper" (Francotirador).
+ * <p>
+ * Comportamiento:
+ * <ul>
+ * <li>Mantiene la distancia con el jugador: huye si está muy cerca y se acerca si está muy lejos.</li>
+ * <li>En rango medio, orbita lateralmente (strafe) alrededor del jugador.</li>
+ * <li>Ataque principal: Ráfaga de proyectiles rápidos apuntados directamente.</li>
+ * <li>Ataque especial (cada 3 ataques): Lanza un orbe lento que explota en un anillo de balas.</li>
+ * </ul>
+ * </p>
  */
 public class BossSniper extends Boss {
 
-    // Distancias deseadas respecto al jugador.
+    // Distancias deseadas respecto al jugador para la IA de movimiento
     private static final double DESIRED_MIN_DIST = 220.0;
     private static final double DESIRED_MAX_DIST = 360.0;
 
-    // Timing del ataque.
+    // Intervalo de tiempo entre ataques
     private static final double ATTACK_INTERVAL_SEC = 1.7;
 
-    // Contador de ataques para alternar comportamiento y patrón.
+    /** Contador de ataques realizados para alternar patrones (ej. cada 3 ataques lanza el orbe). */
     private int attackCount = 0;
 
+    /**
+     * Crea un nuevo BossSniper.
+     * Configura el aspecto visual (azul) y la velocidad.
+     *
+     * @param x                 Posición X inicial.
+     * @param y                 Posición Y inicial.
+     * @param maxHp             Vida máxima.
+     * @param parent            Panel contenedor.
+     * @param playerPos         Supplier posición jugador.
+     * @param onDeath           Callback muerte.
+     * @param onSpawnProjectile Callback spawn proyectil.
+     * @param onRemoveProjectile Callback remove proyectil.
+     * @param bossId            ID del boss.
+     */
     public BossSniper(
             double x,
             double y,
@@ -47,7 +66,7 @@ public class BossSniper extends Boss {
     ) {
         super(x, y, maxHp, parent, playerPos, onDeath, onSpawnProjectile, onRemoveProjectile, bossId);
 
-        // Look distinto
+        // Look distinto: Azul oscuro con borde celeste
         this.view.setFill(Color.DARKSLATEBLUE);
         this.view.setStroke(Color.LIGHTBLUE);
         this.view.setStrokeWidth(4.0);
@@ -58,10 +77,10 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Update principal:
-     * - Robusto: si hp cae a 0 por cualquier vía, muere.
-     * - Movimiento según distancia.
-     * - Ataque por timer.
+     * Actualiza la lógica del Sniper.
+     * Gestiona la muerte segura, el movimiento estratégico y el temporizador de ataque.
+     *
+     * @param dt Delta time en segundos.
      */
     @Override
     public void update(double dt) {
@@ -78,10 +97,14 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Movimiento:
-     * - Si está muy cerca: se aleja.
-     * - Si está muy lejos: se acerca.
-     * - Si está en rango: orbita/strafe (perpendicular al vector hacia el jugador).
+     * Lógica de movimiento inteligente basada en zonas.
+     * <ul>
+     * <li><strong>Zona cercana:</strong> Huye del jugador.</li>
+     * <li><strong>Zona lejana:</strong> Se acerca al jugador.</li>
+     * <li><strong>Zona media:</strong> Se mueve lateralmente (strafe/orbita) para ser un blanco difícil.</li>
+     * </ul>
+     *
+     * @param dt Delta time.
      */
     private void updateMovement(double dt) {
         double[] p = playerPos.get();
@@ -102,19 +125,19 @@ public class BossSniper extends Boss {
         double moveY;
 
         if (dist < DESIRED_MIN_DIST) {
-            // huye
+            // Huye (vector opuesto al jugador)
             moveX = -ndx;
             moveY = -ndy;
         } else if (dist > DESIRED_MAX_DIST) {
-            // se acerca un poco para no quedarse fuera
+            // Se acerca (vector hacia el jugador)
             moveX = ndx;
             moveY = ndy;
         } else {
-            // strafe/orbita: perpendicular al vector al player
+            // Strafe/orbita: perpendicular al vector al player (-y, x)
             double px = -ndy;
             double py = ndx;
 
-            // alterna dirección según el número de ataques ya hechos (patrón simple)
+            // Alterna dirección según el número de ataques para variar el patrón
             double dir = (attackCount % 2 == 0) ? 1.0 : -1.0;
 
             moveX = px * dir;
@@ -126,7 +149,9 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Suma el timer y dispara cuando toca.
+     * Gestiona el temporizador para disparar.
+     *
+     * @param dt Delta time.
      */
     private void updateAttackTimer(double dt) {
         attackTimer += dt;
@@ -137,9 +162,8 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Ataque del sniper:
-     * - Cada 3 ataques: orbe lento que explota en anillo.
-     * - Si no: ráfaga apuntada con leve spread.
+     * Ejecuta el ataque.
+     * Alterna entre una ráfaga apuntada (ataque común) y un orbe explosivo (cada 3 ataques).
      */
     @Override
     protected void performAttack() {
@@ -147,7 +171,7 @@ public class BossSniper extends Boss {
 
         attackCount++;
 
-        // 1 de cada 3 ataques
+        // 1 de cada 3 ataques lanza el orbe especial
         if (attackCount % 3 == 0) {
             spawnExplodingOrb();
             return;
@@ -157,7 +181,7 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Ráfaga apuntada al jugador, con spread.
+     * Dispara una ráfaga de proyectiles directos hacia el jugador con una pequeña dispersión.
      */
     private void spawnAimedBurst() {
         double[] p = playerPos.get();
@@ -176,14 +200,14 @@ public class BossSniper extends Boss {
         int burst = (phase == 1) ? 3 : 5;
         double spreadDeg = (phase == 1) ? 8.0 : 12.0;
 
-        int mid = burst / 2; // burst 3 -> 1, burst 5 -> 2
+        int mid = burst / 2;
 
         for (int i = 0; i < burst; i++) {
             int off = i - mid;
 
             double a = Math.toRadians(off * spreadDeg);
 
-            // Rotar (aimX, aimY) por ángulo a
+            // Rotar el vector de apuntado (aimX, aimY) por ángulo 'a'
             double rx = aimX * Math.cos(a) - aimY * Math.sin(a);
             double ry = aimX * Math.sin(a) + aimY * Math.cos(a);
 
@@ -192,7 +216,7 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Spawnea el orbe que explota en anillo tras un delay.
+     * Crea y lanza un {@link ExplodingOrb} hacia la posición actual del jugador.
      */
     private void spawnExplodingOrb() {
         double[] p = playerPos.get();
@@ -211,10 +235,10 @@ public class BossSniper extends Boss {
         ExplodingOrb orb = new ExplodingOrb(
                 bx, by,
                 dirX, dirY,
-                110.0,
-                (phase == 1) ? 0.9 : 0.7,   // delay hasta explotar
-                (phase == 1) ? 10 : 14,     // balas
-                (phase == 1) ? 190.0 : 220.0,
+                110.0,                      // Velocidad lenta del orbe
+                (phase == 1) ? 0.9 : 0.7,   // Retardo hasta explotar
+                (phase == 1) ? 10 : 14,     // Cantidad de balas en explosión
+                (phase == 1) ? 190.0 : 220.0, // Velocidad de balas resultantes
                 parent,
                 onSpawnProjectile,
                 onRemoveProjectile,
@@ -226,7 +250,7 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Helper centralizado para crear y spawnear proyectiles.
+     * Helper para spawnear proyectiles estándar del Sniper.
      */
     private void spawnProjectile(
             double dirX,
@@ -254,7 +278,7 @@ public class BossSniper extends Boss {
     }
 
     /**
-     * Color normal tras daño.
+     * Restablece el color azul oscuro tras recibir daño.
      */
     @Override
     protected void updateColor() {
@@ -262,15 +286,12 @@ public class BossSniper extends Boss {
     }
 
     // =========================================================
-    // Orb que explota en anillo
+    // Clase interna: Orbe Explosivo
     // =========================================================
 
     /**
-     * Orbe:
-     * - Se mueve hacia delante.
-     * - Tras un delay, explota en anillo y se destruye.
-     *
-     * Importante: destrucción idempotente para evitar dobles onRemove().
+     * Proyectil especial (Orbe) que no hace daño directo por impacto (opcionalmente),
+     * sino que viaja una distancia/tiempo y explota liberando un anillo de balas.
      */
     private static final class ExplodingOrb implements GameEntity {
 
@@ -294,6 +315,21 @@ public class BossSniper extends Boss {
 
         private boolean destroyed = false;
 
+        /**
+         * Crea un orbe explosivo.
+         *
+         * @param x, y          Posición inicial.
+         * @param dirX, dirY    Dirección de movimiento.
+         * @param speed         Velocidad de movimiento.
+         * @param delay         Tiempo en segundos hasta la explosión.
+         * @param ringCount     Número de proyectiles generados al explotar.
+         * @param ringSpeed     Velocidad de los proyectiles generados.
+         * @param parent        Panel padre.
+         * @param onSpawn       Callback spawn.
+         * @param onRemove      Callback remove.
+         * @param owner         Boss dueño.
+         * @param bossId        ID del boss.
+         */
         ExplodingOrb(
                 double x,
                 double y,
@@ -337,10 +373,11 @@ public class BossSniper extends Boss {
         public void update(double dt) {
             if (destroyed) return;
 
-            // mover
+            // Movimiento lineal
             view.setLayoutX(view.getLayoutX() + dirX * speed * dt);
             view.setLayoutY(view.getLayoutY() + dirY * speed * dt);
 
+            // Cuenta atrás para detonación
             timeLeft -= dt;
             if (timeLeft <= 0.0) {
                 explode();
@@ -349,7 +386,7 @@ public class BossSniper extends Boss {
         }
 
         /**
-         * Explota en anillo (proyectiles radiales).
+         * Genera la explosión radial (anillo de balas).
          */
         private void explode() {
             double x = view.getLayoutX();

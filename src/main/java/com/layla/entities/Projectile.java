@@ -18,20 +18,21 @@ import javafx.scene.shape.Circle;
 
 /**
  * Proyectil genérico del juego.
- *
- * Soporta:
- * - Pierce (atraviesa X objetivos antes de destruirse)
- * - Bounce (rebota contra bordes del Pane un nº limitado de veces)
- * - Homing (solo para proyectiles NO enemigos)
- *
- * Nota importante de robustez:
- * Este objeto NO debe eliminarse directamente de la lista que itera el GameLoop.
- * En su lugar llama a onRemove(this), y el GameLoop debería encolar la eliminación.
+ * <p>
+ * Esta clase maneja toda la lógica de disparo, tanto de aliados como de enemigos.
+ * <p>
+ * Capacidades soportadas:
+ * <ul>
+ * <li><strong>Pierce:</strong> Atraviesa un número determinado de objetivos.</li>
+ * <li><strong>Bounce:</strong> Rebota contra los bordes de la pantalla.</li>
+ * <li><strong>Homing:</strong> Persigue automáticamente a los objetivos (solo proyectiles del jugador).</li>
+ * </ul>
  */
 public final class Projectile implements GameEntity {
 
     private static final double RADIUS = 5.0;
 
+    // Configuración de Homing (Persecución)
     private static final double HOMING_RANGE = 450.0;
     private static final double HOMING_TURN_SPEED = 5.0;
 
@@ -51,20 +52,39 @@ public final class Projectile implements GameEntity {
     private double dirX;
     private double dirY;
 
+    // Contadores de efectos restantes
     private int pierceRemaining;
     private int bounceRemaining;
 
     private final boolean homing;
     private final Supplier<List<GameEntity>> targetSupplier;
 
-    /** Evita golpear al mismo target múltiples veces (especialmente con pierce). */
+    /** Registro de entidades ya golpeadas para evitar daño múltiple por frame o en pierce. */
     private final Set<GameEntity> alreadyHit = new HashSet<>();
 
     private double timeAlive = 0.0;
 
-    /** Flag idempotente para evitar dobles onRemove(). */
+    /** Bandera para asegurar idempotencia en la eliminación. */
     private boolean removed = false;
 
+    /**
+     * Constructor completo con todas las opciones.
+     *
+     * @param dirX           Dirección X normalizada.
+     * @param dirY           Dirección Y normalizada.
+     * @param speed          Velocidad en px/s.
+     * @param lifetime       Tiempo de vida en segundos.
+     * @param damage         Daño al impactar.
+     * @param fromEnemy      True si es hostil al jugador.
+     * @param pane           Panel donde se mueve.
+     * @param onRemove       Callback para solicitar eliminación.
+     * @param owner          Entidad que disparó (inmune al propio disparo).
+     * @param sourceName     Nombre de la fuente (para logs/stats).
+     * @param pierce         Cantidad de enemigos a atravesar.
+     * @param bounce         Cantidad de rebotes en paredes.
+     * @param homing         True si persigue enemigos.
+     * @param targetSupplier Proveedor de lista de objetivos (para homing).
+     */
     public Projectile(
             double dirX,
             double dirY,
@@ -107,7 +127,8 @@ public final class Projectile implements GameEntity {
         updateColor();
     }
 
-    // Constructores de conveniencia
+    // Constructores de conveniencia (Overloads)
+
     public Projectile(
             double dirX, double dirY,
             double speed, double lifetime, double damage,
@@ -130,11 +151,16 @@ public final class Projectile implements GameEntity {
     }
 
     /**
-     * Update por frame:
-     * - Homing (si aplica)
-     * - Movimiento + rebotes en bordes
-     * - Caducidad por lifetime
-     * - Destrucción si sale fuera (sin rebote)
+     * Actualiza la posición y lógica del proyectil.
+     * <ol>
+     * <li>Aplica lógica Homing si corresponde.</li>
+     * <li>Mueve el proyectil.</li>
+     * <li>Gestiona rebotes en los bordes del Pane.</li>
+     * <li>Comprueba tiempo de vida (lifetime).</li>
+     * <li>Elimina si sale de los límites sin rebotar.</li>
+     * </ol>
+     *
+     * @param dt Delta time.
      */
     @Override
     public void update(double dt) {
@@ -152,11 +178,10 @@ public final class Projectile implements GameEntity {
 
         boolean bounced = false;
 
-        // Si el pane aún no está “layouted”, getWidth/getHeight pueden ser 0.
-        // Evitamos lógica rara de rebote en ese caso.
         final double width = pane.getWidth();
         final double height = pane.getHeight();
 
+        // Lógica de rebote (solo si el pane tiene dimensiones válidas)
         if (bounceRemaining > 0 && width > RADIUS * 2 && height > RADIUS * 2) {
             double minX = RADIUS;
             double minY = RADIUS;
@@ -171,8 +196,7 @@ public final class Projectile implements GameEntity {
 
             if (bounced) {
                 bounceRemaining--;
-                // Si quieres, aquí podrías actualizar color cuando se consumen bounces/pierce.
-                // updateColor();
+                // Opcional: updateColor() si cambia al rebotar
             }
         }
 
@@ -185,14 +209,14 @@ public final class Projectile implements GameEntity {
             return;
         }
 
-        // Si no rebotó y se fue fuera de bounds, se elimina.
+        // Si se sale de los límites y no rebotó, se elimina
         if (!bounced && width > 0 && height > 0 && isOutOfPaneBounds(width, height)) {
             requestRemove();
         }
     }
 
     /**
-     * Ajusta dirección de forma segura (si llega un vector casi 0, usa hacia arriba).
+     * Normaliza el vector de dirección. Si es cero, asigna una dirección por defecto (Arriba).
      */
     private void setDirectionNormalized(double x, double y) {
         double len = Math.hypot(x, y);
@@ -206,8 +230,10 @@ public final class Projectile implements GameEntity {
     }
 
     /**
-     * Homing hacia el target más cercano dentro de rango.
-     * Gira con velocidad limitada para no “snapear” instantáneo.
+     * Actualiza la dirección del proyectil para perseguir al objetivo más cercano.
+     * Gira gradualmente (no instantáneo) hacia el objetivo.
+     *
+     * @param dt Delta time.
      */
     private void updateHoming(double dt) {
         List<GameEntity> targets;
@@ -224,6 +250,7 @@ public final class Projectile implements GameEntity {
         GameEntity closest = null;
         double closestDistSq = HOMING_RANGE * HOMING_RANGE;
 
+        // Buscar target más cercano
         for (GameEntity e : targets) {
             if (e == null) continue;
 
@@ -245,6 +272,7 @@ public final class Projectile implements GameEntity {
 
         if (closest == null) return;
 
+        // Calcular ángulo hacia el target y girar
         Bounds cb = closest.getBounds();
         double tx = cb.getCenterX() - px;
         double ty = cb.getCenterY() - py;
@@ -268,10 +296,15 @@ public final class Projectile implements GameEntity {
     }
 
     /**
-     * Manejo de colisiones:
-     * - Ignora colisión con el propio owner
-     * - Evita repetir daño al mismo objetivo
-     * - Aplica daño según tipo
+     * Maneja la colisión con otras entidades.
+     * <ul>
+     * <li>Ignora colisión con el dueño (quien disparó).</li>
+     * <li>Ignora colisiones repetidas con el mismo objetivo.</li>
+     * <li>Aplica daño a enemigos o jugador según corresponda.</li>
+     * <li>Reduce contadores de Pierce o destruye el proyectil.</li>
+     * </ul>
+     *
+     * @param other Entidad con la que colisionó.
      */
     @Override
     public void onCollision(GameEntity other) {
@@ -282,6 +315,7 @@ public final class Projectile implements GameEntity {
         boolean hit = false;
         boolean forceDestroy = false;
 
+        // Lógica de impacto según facción
         if (!fromEnemy && other instanceof Enemy e) {
             if (!e.isDead()) {
                 e.applyDamage(damage);
@@ -297,7 +331,7 @@ public final class Projectile implements GameEntity {
             p.takeDamage(damage);
             hit = true;
         } else if (other instanceof Rock) {
-            // Por ahora las rocas absorben disparos (sin rebote físico en roca).
+            // Las rocas bloquean disparos
             hit = true;
             forceDestroy = true;
         }
@@ -311,18 +345,17 @@ public final class Projectile implements GameEntity {
             return;
         }
 
+        // Gestión de Pierce (perforación)
         if (pierceRemaining > 0) {
             pierceRemaining--;
-            // Si quieres que el color refleje pierce restante:
-            // updateColor();
         } else {
             requestRemove();
         }
     }
 
     /**
-     * Solicita eliminación del proyectil (idempotente).
-     * No elimina directamente de listas: delega al GameLoop mediante onRemove.
+     * Pide al sistema que elimine este proyectil.
+     * Idempotente: evita llamar al callback múltiples veces.
      */
     private void requestRemove() {
         if (removed) return;
@@ -338,7 +371,7 @@ public final class Projectile implements GameEntity {
     public double getSpeed() { return speed; }
 
     /**
-     * Comprueba si está claramente fuera del área visible del pane.
+     * Verifica si el proyectil ha salido completamente del área visible.
      */
     private boolean isOutOfPaneBounds(double width, double height) {
         double x = view.getLayoutX();
@@ -350,8 +383,7 @@ public final class Projectile implements GameEntity {
     }
 
     /**
-     * Color según tipo de proyectil (enemigo, homing, pierce/bounce...).
-     * Solo se llama al crear (si quieres, puedes llamarlo cuando cambien pierce/bounce).
+     * Actualiza el color del proyectil según sus propiedades para feedback visual.
      */
     private void updateColor() {
         if (fromEnemy) {

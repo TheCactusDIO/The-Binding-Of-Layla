@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.image.ImageView?>
@@ -14,12 +16,16 @@
            xmlns="http://javafx.com/javafx"
            xmlns:fx="http://javafx.com/fxml"
            fx:controller="com.layla.ui.ItemPickupOverlayController"
-           style="-fx-background-color: transparent;">
+           styleClass="overlay-root">
+
+    <stylesheets>
+        <URL value="@css/item_pickup_overlay.css"/>
+    </stylesheets>
 
     <children>
         <VBox spacing="12"
               alignment="CENTER"
-              style="-fx-background-color: rgba(20,20,20,0.35); -fx-background-radius: 12;"
+              styleClass="overlay-panel"
               StackPane.alignment="CENTER">
 
             <padding>
@@ -35,24 +41,21 @@
             <!-- Nombre del ítem -->
             <Label fx:id="itemNameLabel"
                    text="Nombre del ítem"
-                   style="-fx-text-fill: #ffd54f;
-                          -fx-font-size: 28;
-                          -fx-font-weight: bold;
-                          -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 10, 0.5, 0, 0);" />
+                   styleClass="overlay-title" />
 
             <!-- Descripción -->
             <Label fx:id="itemDescLabel"
                    text="Descripción del ítem"
                    wrapText="true"
                    maxWidth="360"
-                   style="-fx-text-fill: #f5f5f5;
-                          -fx-font-size: 16;
-                          -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 6, 0.5, 0, 0);" />
+                   styleClass="overlay-description" />
 
             <!-- Hint tipo Isaac -->
             <Label text="Pulsa ESPACIO / ENTER o haz clic para continuar"
-                   style="-fx-text-fill: #cccccc;
-                          -fx-font-size: 12;" />
+                   styleClass="overlay-hint" />
         </VBox>
     </children>
 </StackPane>
+
+
+

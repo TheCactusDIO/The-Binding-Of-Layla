@@ -12,17 +12,18 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
 /**
- * Indicador visual de spawn.
- *
- * <p>Muestra un círculo semi-transparente que "pulsa" durante un tiempo y,
- * al finalizar, elimina su nodo y dispara {@code onFinish}.</p>
- *
- * <p>Nota: no tiene colisiones (usa el default no-op de {@link GameEntity#onCollision(GameEntity)}).</p>
+ * Entidad visual que indica dónde aparecerá un enemigo.
+ * <p>
+ * Muestra un círculo rojo semi-transparente que pulsa durante un tiempo definido.
+ * Al terminar la duración, se elimina y ejecuta un callback (usualmente para spawnear al enemigo real).
+ * <p>
+ * Esta entidad no tiene colisiones.
  */
 public final class SpawnIndicator implements GameEntity {
 
     private static final double RADIUS = 12.0;
 
+    // Configuración visual (transparencia y pulsación)
     private static final double BASE_ALPHA = 0.2;
     private static final double PULSE_ALPHA = 0.4;
     private static final double STROKE_ALPHA_BONUS = 0.3;
@@ -39,13 +40,13 @@ public final class SpawnIndicator implements GameEntity {
     private boolean finished = false;
 
     /**
-     * Crea un indicador centrado en (x, y).
+     * Crea un indicador de spawn.
      *
-     * @param x centro X del indicador (layoutX)
-     * @param y centro Y del indicador (layoutY)
-     * @param duration duración en segundos (si es 0 o negativa, se completará en el primer update)
-     * @param parent contenedor donde se añade el nodo
-     * @param onFinish callback al finalizar (no null)
+     * @param x         Posición X.
+     * @param y         Posición Y.
+     * @param duration  Duración del efecto en segundos.
+     * @param parent    Panel contenedor.
+     * @param onFinish  Callback a ejecutar al finalizar el tiempo.
      */
     public SpawnIndicator(double x, double y, double duration, Pane parent, Consumer<SpawnIndicator> onFinish) {
         this.parent = Objects.requireNonNull(parent, "parent");
@@ -62,9 +63,12 @@ public final class SpawnIndicator implements GameEntity {
         this.view.setLayoutY(y);
 
         this.parent.getChildren().add(this.view);
-        this.view.toBack();
+        this.view.toBack(); // Dibujar detrás de otras entidades
     }
 
+    /**
+     * Actualiza la animación de pulsación y verifica el tiempo.
+     */
     @Override
     public void update(double dt) {
         if (finished) return;
@@ -76,9 +80,11 @@ public final class SpawnIndicator implements GameEntity {
             return;
         }
 
-        double progress = timerSeconds / durationSeconds; // puede pasar de 1.0, no pasa nada
+        // Calcular progreso y aumentar frecuencia de parpadeo al final
+        double progress = timerSeconds / durationSeconds;
         double frequency = FREQ_BASE + (FREQ_EXTRA * progress);
 
+        // Efecto visual (cambio de alpha)
         double alpha = BASE_ALPHA + PULSE_ALPHA * Math.abs(Math.sin(timerSeconds * frequency));
         double strokeAlpha = clamp01(alpha + STROKE_ALPHA_BONUS);
 
@@ -90,26 +96,19 @@ public final class SpawnIndicator implements GameEntity {
         }
     }
 
+    /**
+     * Finaliza el indicador, lo remueve de la vista y llama al callback.
+     */
     private void finish() {
         finished = true;
         parent.getChildren().remove(view);
         onFinish.accept(this);
     }
 
-    /** @return centro X (layoutX) del indicador. */
-    public double getX() {
-        return view.getLayoutX();
-    }
+    public double getX() { return view.getLayoutX(); }
+    public double getY() { return view.getLayoutY(); }
 
-    /** @return centro Y (layoutY) del indicador. */
-    public double getY() {
-        return view.getLayoutY();
-    }
-
-    @Override
-    public Node getView() {
-        return view;
-    }
+    @Override public Node getView() { return view; }
 
     private static double clamp01(double v) {
         return Math.max(0.0, Math.min(1.0, v));

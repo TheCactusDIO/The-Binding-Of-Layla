@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
@@ -6,7 +8,10 @@
 <StackPane fx:controller="com.layla.ui.SettingsController"
            xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
-           style="-fx-background-color: rgba(0,0,0,0.85);">
+           styleClass="settings-root">
+    <stylesheets>
+        <URL value="@css/settings.css"/>
+    </stylesheets>
     <AnchorPane>
         <children>
 
@@ -15,22 +20,22 @@
                         pannable="true"
                         vbarPolicy="AS_NEEDED"
                         hbarPolicy="NEVER"
-                        style="-fx-background-color: transparent; -fx-background: transparent;"
+                        styleClass="transparent-scroll"
                         AnchorPane.topAnchor="20"
                         AnchorPane.leftAnchor="20"
                         AnchorPane.rightAnchor="20"
                         AnchorPane.bottomAnchor="20">
                 <content>
 
-                    <VBox spacing="14" maxWidth="600" style="-fx-margin: 0 auto;">
+                    <VBox spacing="14" maxWidth="600" styleClass="settings-content">
                         <children>
                             <Label text="SETTINGS"
-                                   style="-fx-text-fill: white; -fx-font-size: 24; -fx-font-weight: bold; -fx-font-family: 'Upheaval TT (BRK)';"/>
+                                   styleClass="settings-title"/>
 
                             <Separator/>
 
-                            <VBox spacing="10" style="-fx-background-color: #222; -fx-background-radius: 8; -fx-padding: 15;">
-                                <Label text="AUDIO" styleClass="section-header" style="-fx-text-fill: #ffd54f;"/>
+                            <VBox spacing="10" styleClass="settings-card">
+                                <Label text="AUDIO" styleClass="section-header section-header-gold"/>
 
                                 <GridPane hgap="15" vgap="10">
                                     <columnConstraints>
@@ -38,49 +43,49 @@
                                         <ColumnConstraints percentWidth="70"/>
                                     </columnConstraints>
                                     <children>
-                                        <Label text="Music Volume" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <Label text="Music Volume" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
                                         <Slider fx:id="musicSlider" min="0" max="1" value="0.5" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                        <Label text="SFX Volume" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                        <Label text="SFX Volume" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
                                         <Slider fx:id="sfxSlider" min="0" max="1" value="0.8" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                                     </children>
                                 </GridPane>
                             </VBox>
 
-                            <VBox spacing="10" style="-fx-background-color: #222; -fx-background-radius: 8; -fx-padding: 15;">
-                                <Label text="DISPLAY" styleClass="section-header" style="-fx-text-fill: #ffd54f;"/>
-                                <CheckBox fx:id="fullscreenCheck" text="Fullscreen" style="-fx-text-fill: white;"/>
+                            <VBox spacing="10" styleClass="settings-card">
+                                <Label text="DISPLAY" styleClass="section-header section-header-gold"/>
+                                <CheckBox fx:id="fullscreenCheck" text="Fullscreen" styleClass="settings-checkbox"/>
                             </VBox>
 
                             <Separator/>
 
-                            <TitledPane fx:id="devToolsPane" text="CUSTOM RUN / DEVELOPER TOOLS" expanded="false" style="-fx-text-fill: white;">
+                            <TitledPane fx:id="devToolsPane" text="CUSTOM RUN / DEVELOPER TOOLS" expanded="false" styleClass="settings-titled-pane">
                                 <VBox spacing="15">
 
-                                    <VBox spacing="8" style="-fx-background-color: #333; -fx-padding: 10; -fx-background-radius: 6;">
-                                        <Label text="GAME RULES" style="-fx-text-fill: #ffd54f; -fx-font-weight: bold;"/>
+                                    <VBox spacing="8" styleClass="settings-subcard">
+                                        <Label text="GAME RULES" styleClass="settings-subtitle"/>
                                         <GridPane hgap="10" vgap="8">
                                             <columnConstraints>
                                                 <ColumnConstraints percentWidth="50"/>
                                                 <ColumnConstraints percentWidth="50"/>
                                             </columnConstraints>
                                             <children>
-                                                <Label text="Spawn Rate Multiplier (x)" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Label text="Spawn Rate Multiplier (x)" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="spawnRateSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                                <Label text="Waves per Floor" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Label text="Waves per Floor" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="wavesSpinner" editable="true" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                                <Label text="Global Enemy HP (x)" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Label text="Global Enemy HP (x)" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="globalHpMultSpinner" editable="true" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                                                <Label text="Global Enemy Dmg (x)" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                                <Label text="Global Enemy Dmg (x)" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="globalDmgMultSpinner" editable="true" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
                                             </children>
                                         </GridPane>
                                     </VBox>
 
-                                    <Label text="DEBUG PLAYER STATS" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
+                                    <Label text="DEBUG PLAYER STATS" styleClass="settings-muted-title"/>
 
                                     <GridPane hgap="10" vgap="8">
                                         <columnConstraints>
@@ -88,26 +93,26 @@
                                             <ColumnConstraints percentWidth="60"/>
                                         </columnConstraints>
                                         <children>
-                                            <Label text="HP" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="HP" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="maxHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                            <Label text="Move Speed" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="Move Speed" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="moveSpeedField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                            <Label text="Fire Rate" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="Fire Rate" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="fireRateField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                                            <Label text="Proj Speed" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="Proj Speed" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="projSpeedField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
 
-                                            <Label text="Proj Damage" GridPane.rowIndex="4" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="Proj Damage" GridPane.rowIndex="4" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="projDamageField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-                                            <Label text="Proj Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" style="-fx-text-fill: white;"/>
+                                            <Label text="Proj Range (s)" GridPane.rowIndex="5" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="projRangeField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
 
                                             <HBox spacing="8.0" GridPane.rowIndex="6" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="CENTER_LEFT">
-                                                <Label text="Run Coins:" style="-fx-text-fill: #ffd54f;"/>
+                                                <Label text="Run Coins:" styleClass="settings-accent-label"/>
                                                 <Spinner fx:id="coinsSpinner" prefWidth="100.0"/>
                                             </HBox>
                                         </children>
@@ -116,12 +121,12 @@
                                     <Separator/>
 
                                     <VBox spacing="10">
-                                        <Label text="ENEMY PROFILES (Individual)" style="-fx-text-fill: #aaa; -fx-font-weight: bold;"/>
+                                        <Label text="ENEMY PROFILES (Individual)" styleClass="settings-muted-title"/>
                                         <HBox spacing="10" alignment="CENTER_LEFT">
                                             <ComboBox fx:id="enemyTypeCombo" prefWidth="180"/>
-                                            <CheckBox fx:id="stationaryCheck" text="Static" style="-fx-text-fill: white;"/>
+                                            <CheckBox fx:id="stationaryCheck" text="Static" styleClass="settings-checkbox"/>
                                             <Region HBox.hgrow="ALWAYS"/>
-                                            <Button fx:id="saveBtn" text="Save JSON" styleClass="menu-button" style="-fx-font-size: 12;"/>
+                                            <Button fx:id="saveBtn" text="Save JSON" styleClass="menu-button btn-small"/>
                                         </HBox>
 
                                         <GridPane hgap="10" vgap="8">
@@ -130,27 +135,27 @@
                                                 <ColumnConstraints percentWidth="60"/>
                                             </columnConstraints>
                                             <children>
-                                                <Label text="Base HP" GridPane.rowIndex="0" style="-fx-text-fill: white;"/>
+                                                <Label text="Base HP" GridPane.rowIndex="0" styleClass="settings-label"/>
                                                 <TextField fx:id="profileHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                                <Label text="Speed" GridPane.rowIndex="1" style="-fx-text-fill: white;"/>
+                                                <Label text="Speed" GridPane.rowIndex="1" styleClass="settings-label"/>
                                                 <TextField fx:id="profileSpeedField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                                <Label text="Contact Dmg" GridPane.rowIndex="2" style="-fx-text-fill: white;"/>
+                                                <Label text="Contact Dmg" GridPane.rowIndex="2" styleClass="settings-label"/>
                                                 <TextField fx:id="profileContactField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                                                <Label text="Proj Dmg" GridPane.rowIndex="3" style="-fx-text-fill: white;"/>
+                                                <Label text="Proj Dmg" GridPane.rowIndex="3" styleClass="settings-label"/>
                                                 <TextField fx:id="profileProjDmgField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
                                             </children>
                                         </GridPane>
                                     </VBox>
 
-                                    <CheckBox fx:id="persistCheck" text="Auto-save stats.json" style="-fx-text-fill: #888;"/>
-                                    <Button text="Reset Defaults" onAction="#onReset" styleClass="menu-button" style="-fx-background-color: #522;"/>
+                                    <CheckBox fx:id="persistCheck" text="Auto-save stats.json" styleClass="settings-muted-checkbox"/>
+                                    <Button text="Reset Defaults" onAction="#onReset" styleClass="menu-button btn-danger"/>
                                 </VBox>
                             </TitledPane>
 
-                            <HBox spacing="15" alignment="CENTER_RIGHT" style="-fx-padding: 10 0 0 0;">
+                            <HBox spacing="15" alignment="CENTER_RIGHT" styleClass="settings-actions">
                                 <Button text="Cancel" onAction="#onCancel" styleClass="menu-button, btn-secondary"/>
                                 <Button text="APPLY &amp; SAVE" onAction="#onApply" styleClass="menu-button, btn-primary"/>
                             </HBox>
@@ -166,3 +171,6 @@
         </children>
     </AnchorPane>
 </StackPane>
+
+
+

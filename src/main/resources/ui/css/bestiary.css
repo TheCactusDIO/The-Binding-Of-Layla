@@ -1,0 +1,48 @@
+.bestiary-root {
+    -fx-background-color: transparent;
+}
+
+.bestiary-content {
+    -fx-padding: 20;
+}
+
+.transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.transparent-pane {
+    -fx-background-color: transparent;
+}
+
+.detail-title {
+    -fx-text-fill: #ffd54f;
+    -fx-font-family: "Upheaval TT (BRK)";
+    -fx-font-size: 28px;
+}
+
+.soft-separator {
+    -fx-opacity: 0.3;
+}
+
+.stat-label {
+    -fx-text-fill: #aaa;
+    -fx-font-weight: bold;
+    -fx-min-width: 140;
+}
+
+.stat-value {
+    -fx-text-fill: white;
+}
+
+.stat-value-danger {
+    -fx-text-fill: #ff5555;
+}
+
+.stat-value-gold {
+    -fx-text-fill: #ffd54f;
+}
+
+.bestiary-close-button {
+    -fx-padding: 8 20;
+}

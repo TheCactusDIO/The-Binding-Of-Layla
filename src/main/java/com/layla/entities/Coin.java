@@ -13,21 +13,19 @@ import javafx.scene.shape.Circle;
 
 /**
  * Entidad de moneda recogible.
- *
- * <p>Comportamiento:</p>
+ * <p>
+ * Características:
  * <ul>
- *   <li>Flota suavemente alrededor de su {@code baseY} (feedback visual).</li>
- *   <li>Si el jugador intersecta sus bounds, dispara {@code onPickup} exactamente una vez.</li>
- *   <li>Tras recogerse, elimina su nodo del {@code parent} (la eliminación del GameLoop suele gestionarse fuera).</li>
+ * <li>Flotación visual suave (efecto sine wave en Y).</li>
+ * <li>Detección de colisión con el jugador para ser recogida.</li>
+ * <li>La lógica de negocio (sumar dinero) se delega al callback {@code onPickup}.</li>
  * </ul>
- *
- * <p>Nota de diseño: la moneda no modifica stats ni balance por sí misma; delega en {@code onPickup}
- * para mantener esta entidad simple (render/colisión) y que la lógica viva en servicios/controladores.</p>
+ * </p>
  */
 public class Coin implements GameEntity {
 
     // =========================
-    // Constantes visuales / animación
+    // Constantes visuales
     // =========================
     private static final double RADIUS = 6.0;
     private static final double STROKE_WIDTH = 1.5;
@@ -36,14 +34,14 @@ public class Coin implements GameEntity {
     private static final double FLOAT_AMPLITUDE = 3.0;
 
     // =========================
-    // Dependencias / callbacks
+    // Dependencias
     // =========================
     private final Pane parent;
-    private final Player player;            // puede ser null
+    private final Player player;            // Referencia para colisiones
     private final Consumer<Coin> onPickup;
 
     // =========================
-    // Estado / view
+    // Estado
     // =========================
     private final Circle view;
     private final int value;
@@ -53,14 +51,14 @@ public class Coin implements GameEntity {
     private boolean pickedUp;
 
     /**
-     * Constructor “limpio” (sin dependencias legacy).
+     * Constructor principal.
      *
-     * @param x posición X inicial (layout)
-     * @param y posición Y inicial (layout). También se usa como base de flotación.
-     * @param value valor de la moneda
-     * @param parent contenedor JavaFX donde se renderiza
-     * @param player jugador para detectar recogida (puede ser {@code null})
-     * @param onPickup callback al recoger (no puede ser {@code null})
+     * @param x         Posición X inicial.
+     * @param y         Posición Y inicial (base de flotación).
+     * @param value     Valor monetario de la moneda.
+     * @param parent    Panel contenedor.
+     * @param player    Instancia del jugador (puede ser null, pero entonces no se recoge).
+     * @param onPickup  Callback a ejecutar al recogerse.
      */
     public Coin(double x, double y, int value, Pane parent, Player player, Consumer<Coin> onPickup) {
         this.parent = Objects.requireNonNull(parent, "parent");
@@ -81,12 +79,12 @@ public class Coin implements GameEntity {
     }
 
     /**
-     * Constructor legacy: mantiene compatibilidad si aún se pasa {@link StatsService}.
+     * Constructor legacy para compatibilidad.
+     * <p>
+     * <strong>Deprecated:</strong> {@code StatsService} ya no se usa internamente, se debe usar el constructor sin él.
+     * </p>
      *
-     * <p>IMPORTANTE: {@code StatsService} no se usa dentro de {@code Coin}.
-     * Se mantiene solo para no romper call sites antiguos. Migrar al constructor nuevo cuando puedas.</p>
-     *
-     * @deprecated usar {@link #Coin(double, double, int, Pane, Player, Consumer)}
+     * @deprecated Usar {@link #Coin(double, double, int, Pane, Player, Consumer)}
      */
     @Deprecated
     public Coin(double x, double y, int value, Pane parent, StatsService statsService, Player player, Consumer<Coin> onPickup) {
@@ -94,40 +92,37 @@ public class Coin implements GameEntity {
     }
 
     /**
-     * Tick de la moneda:
-     * <ul>
-     *   <li>Actualiza flotación.</li>
-     *   <li>Chequea recogida (si hay jugador y no está muerto).</li>
-     * </ul>
+     * Actualiza la animación y comprueba colisiones.
      *
-     * @param dt delta time en segundos
+     * @param dt Delta time.
      */
     @Override
     public void update(double dt) {
         if (pickedUp || dt <= 0) return;
 
+        // Animación de flotación
         floatTimer += dt * FLOAT_SPEED;
         view.setLayoutY(baseY + Math.sin(floatTimer) * FLOAT_AMPLITUDE);
 
         if (player == null || player.isDead()) return;
 
+        // Detección de recogida
         if (view.getBoundsInParent().intersects(player.getBounds())) {
             pickedUp = true;
             onPickup.accept(this);
             parent.getChildren().remove(view);
+            // Nota: La eliminación de la lista de entidades del GameLoop debe gestionarse externamente (ej. onRemove callback)
         }
     }
 
-    /**
-     * Devuelve el nodo visual de la moneda.
-     */
     @Override
     public Node getView() {
         return view;
     }
 
     /**
-     * @return valor de la moneda para que el callback aplique la recompensa.
+     * Obtiene el valor de la moneda.
+     * @return Cantidad de dinero que otorga.
      */
     public int getValue() {
         return value;

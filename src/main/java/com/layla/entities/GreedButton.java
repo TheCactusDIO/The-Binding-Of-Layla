@@ -18,23 +18,24 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
 /**
- * Botón interactivo tipo "Greed" que reacciona a la proximidad/colisión del jugador.
- *
- * <p>Comportamiento:</p>
+ * Botón interactivo tipo "Greed" (Codicia) que reacciona a la proximidad del jugador.
+ * <p>
+ * Funcionalidad:
  * <ul>
- *   <li>Cuando el jugador lo pisa (distancia al centro &lt; umbral) y no hay cooldown, dispara {@code onPressed}.</li>
- *   <li>El controlador externo decide qué significa “pulsar” (activar oleada, salir de sala, etc.).</li>
- *   <li>Soporta dos modos visuales:
- *     <ul>
- *       <li>Modo normal Greed: cambia estética según {@link #setActiveState(boolean)}.</li>
- *       <li>Modo salida: {@link #setAsExit()} cambia icono/estética y no se ve afectado por activeState.</li>
- *     </ul>
- *   </li>
+ * <li>Se activa cuando el jugador camina sobre él (colisión).</li>
+ * <li>Tiene un tiempo de enfriamiento (cooldown) para evitar pulsaciones múltiples accidentales.</li>
+ * <li>El efecto de la pulsación se delega al callback {@code onPressed}.</li>
+ * </ul>
+ * <p>
+ * Modos visuales:
+ * <ul>
+ * <li><strong>Modo Estándar:</strong> Botón rojo. Cambia de aspecto si hay una oleada activa (hundido/peligro) o si está listo (levantado).</li>
+ * <li><strong>Modo Salida:</strong> Botón azul. Indica el fin del nivel o transición de piso. Ignora el estado de "peligro".</li>
  * </ul>
  */
 public class GreedButton implements GameEntity {
 
-    // --- Visual tuning ---
+    // --- Ajustes Visuales ---
     private static final double VIEW_SIZE = 44.0;
     private static final double VIEW_HALF = VIEW_SIZE / 2.0;
 
@@ -55,23 +56,23 @@ public class GreedButton implements GameEntity {
 
     private double cooldown = 0.0;
 
-    /** True = ronda/oleada activa (hundido/peligro). False = listo/levantado. */
+    /** Estado de actividad: true = oleada en curso (botón hundido/peligro), false = listo para pulsar. */
     private boolean activeState = false;
 
-    /** True si este botón representa salida (siguiente piso). */
+    /** Si es true, el botón funciona como salida del nivel (color azul). */
     private boolean exitMode = false;
 
-    // Para no re-aplicar estilos cada frame si no cambió nada
+    // Caché para optimizar el redibujado
     private boolean lastActiveState = false;
     private boolean lastExitMode = false;
 
     /**
-     * Crea un botón Greed en coordenadas (x,y) y lo añade al {@code parent}.
+     * Crea un nuevo botón Greed.
      *
-     * @param x      centro X del botón
-     * @param y      centro Y del botón
-     * @param parent contenedor JavaFX
-     * @param onPressed callback al “pisar/pulsar” el botón (si es null, no hace nada)
+     * @param x         Posición X central.
+     * @param y         Posición Y central.
+     * @param parent    Panel contenedor.
+     * @param onPressed Acción a ejecutar al ser pulsado.
      */
     public GreedButton(double x, double y, Pane parent, Consumer<GreedButton> onPressed) {
         Objects.requireNonNull(parent, "parent");
@@ -103,17 +104,22 @@ public class GreedButton implements GameEntity {
         view.getChildren().addAll(base, button, icon);
         parent.getChildren().add(view);
 
-        // Inicializa estilos coherentes
+        // Inicializa el estado visual
         applyVisualState(true);
     }
 
+    /**
+     * Actualiza el cooldown y el estado visual si es necesario.
+     *
+     * @param dt Delta time.
+     */
     @Override
     public void update(double dt) {
         if (dt > 0.0 && cooldown > 0.0) {
             cooldown = Math.max(0.0, cooldown - dt);
         }
 
-        // Solo recalcula estilos si cambió algo
+        // Aplica cambios visuales solo si el estado ha cambiado
         applyVisualState(false);
     }
 
@@ -127,6 +133,11 @@ public class GreedButton implements GameEntity {
         return view.getBoundsInParent();
     }
 
+    /**
+     * Detecta la colisión con el jugador para activar el botón.
+     *
+     * @param other La otra entidad.
+     */
     @Override
     public void onCollision(GameEntity other) {
         if (!(other instanceof Player)) {
@@ -142,6 +153,7 @@ public class GreedButton implements GameEntity {
             return;
         }
 
+        // Comprobación de distancia simple (centro a centro)
         double dist = Math.hypot(b1.getCenterX() - b2.getCenterX(), b1.getCenterY() - b2.getCenterY());
         if (dist < PRESS_DISTANCE) {
             onPressed.accept(this);
@@ -150,9 +162,10 @@ public class GreedButton implements GameEntity {
     }
 
     /**
-     * Cambia el estado visual normal del botón (solo afecta si NO está en modo salida).
+     * Establece el estado de actividad (hundido/peligro vs levantado).
+     * Solo tiene efecto visual si NO está en modo salida.
      *
-     * @param active true = oleada activa/peligro (hundido), false = listo (levantado)
+     * @param active true para indicar oleada activa/peligro.
      */
     public void setActiveState(boolean active) {
         this.activeState = active;
@@ -160,8 +173,8 @@ public class GreedButton implements GameEntity {
     }
 
     /**
-     * Convierte este botón en un botón de salida (siguiente piso).
-     * <p>Importante: en el código original el azul se perdía en {@code update()}; aquí ya no.</p>
+     * Configura el botón como salida del nivel.
+     * Cambia el icono y el color a azul.
      */
     public void setAsExit() {
         this.exitMode = true;
@@ -169,6 +182,11 @@ public class GreedButton implements GameEntity {
         applyVisualState(true);
     }
 
+    /**
+     * Aplica los estilos visuales según el estado actual.
+     *
+     * @param force Si es true, fuerza la actualización aunque el estado no haya cambiado.
+     */
     private void applyVisualState(boolean force) {
         if (!force && activeState == lastActiveState && exitMode == lastExitMode) {
             return;
@@ -177,7 +195,7 @@ public class GreedButton implements GameEntity {
         lastExitMode = exitMode;
 
         if (exitMode) {
-            // Modo salida: no depende de activeState
+            // Estilo de Salida (Azul)
             base.setStroke(Color.BLACK);
             button.setWidth(BUTTON_SIZE_READY);
             button.setHeight(BUTTON_SIZE_READY);
@@ -187,14 +205,14 @@ public class GreedButton implements GameEntity {
         }
 
         if (activeState) {
-            // Hundido / peligro
+            // Estilo Activo/Peligro (Rojo intenso, hundido)
             button.setFill(Color.RED);
             button.setWidth(BUTTON_SIZE_ACTIVE);
             button.setHeight(BUTTON_SIZE_ACTIVE);
             base.setStroke(Color.DARKRED);
             icon.setFill(Color.web("#500000"));
         } else {
-            // Listo / levantado
+            // Estilo Listo (Rojo apagado, levantado)
             button.setFill(Color.rgb(180, 40, 40));
             button.setWidth(BUTTON_SIZE_READY);
             button.setHeight(BUTTON_SIZE_READY);

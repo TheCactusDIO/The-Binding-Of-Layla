@@ -16,15 +16,15 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
 /**
- * NPC decorativo (sin colisiones) que pasea, se queda quieto o duerme,
- * mostrando animación desde un spritesheet.
- *
- * <p>Notas de diseño:</p>
+ * NPC decorativo (gato) que deambula, se detiene o duerme.
+ * <p>
+ * Características:
  * <ul>
- *   <li>Se renderiza en un {@link Canvas} para dibujar frames del spritesheet.</li>
- *   <li>No interactúa con colisiones: {@link #getBounds()} devuelve un bounds de tamaño 0.</li>
- *   <li>El movimiento se limita a un área (Pane) usando un margen simple.</li>
+ * <li>Renderizado mediante {@link Canvas} para dibujar frames de un spritesheet.</li>
+ * <li>Entidad "fantasma": {@link #getBounds()} devuelve tamaño 0 para no tener colisiones físicas.</li>
+ * <li>Se mueve dentro de un área definida (Pane) rebotando o cambiando de estado al llegar al borde.</li>
  * </ul>
+ * </p>
  */
 public class ChocoCat implements GameEntity {
 
@@ -33,26 +33,26 @@ public class ChocoCat implements GameEntity {
 
     private static final ThreadLocalRandom RNG = ThreadLocalRandom.current();
 
-    // Probabilidades de estado
+    // Probabilidades de transición de estado
     private static final double WALK_CHANCE = 0.40;
-    private static final double IDLE_CHANCE = 0.30; // el resto es dormir
+    private static final double IDLE_CHANCE = 0.30; // El resto es SLEEPING
 
-    // Límites por defecto si el Pane aún no tiene tamaño (no “layouted”)
+    // Dimensiones por defecto si el área de juego no está inicializada
     private static final double DEFAULT_AREA_WIDTH = 1280.0;
     private static final double DEFAULT_AREA_HEIGHT = 720.0;
 
-    // Margen simple para evitar que se vaya a los bordes
+    // Margen de seguridad para no pegarse a los bordes
     private static final double BOUNDS_MARGIN = 20.0;
 
-    // Sprite config
+    // Configuración del SpriteSheet
     private static final int FRAME_WIDTH = 169;
     private static final int FRAME_HEIGHT = 123;
     private static final double RENDER_SCALE = 0.35;
 
-    // Movimiento/animación
+    // Velocidades y tiempos de animación
     private static final double MOVE_SPEED = 40.0;
-    private static final double ANIM_SPEED_SLEEPING = 1.0; // cambia frame cada ~1s
-    private static final double ANIM_SPEED_DEFAULT = 0.2;  // cambia frame cada ~0.2s
+    private static final double ANIM_SPEED_SLEEPING = 1.0; // Lento (respirar)
+    private static final double ANIM_SPEED_DEFAULT = 0.2;  // Normal (caminar)
 
     private final Pane gameArea;
     private final Canvas view;
@@ -70,12 +70,12 @@ public class ChocoCat implements GameEntity {
     private double animTimeSeconds = 0.0;
 
     /**
-     * Crea el ChocoCat en la posición inicial y carga el spritesheet.
+     * Crea un ChocoCat y carga sus recursos gráficos.
      *
-     * @param startX   X inicial (layoutX)
-     * @param startY   Y inicial (layoutY)
-     * @param gameArea pane donde se moverá y se dibujará
-     * @throws NullPointerException si {@code gameArea} es null
+     * @param startX   Posición X inicial.
+     * @param startY   Posición Y inicial.
+     * @param gameArea Panel que delimita su movimiento.
+     * @throws NullPointerException si {@code gameArea} es null.
      */
     public ChocoCat(double startX, double startY, Pane gameArea) {
         this.gameArea = Objects.requireNonNull(gameArea, "gameArea");
@@ -92,18 +92,18 @@ public class ChocoCat implements GameEntity {
         }
 
         pickNextState();
-        drawCurrentFrame(); // pinta algo desde el frame 0
+        drawCurrentFrame(); // Dibuja el estado inicial
     }
 
     /**
-     * Tick del NPC:
+     * Actualiza el comportamiento del NPC.
      * <ul>
-     *   <li>Cambia de estado cuando el timer expira</li>
-     *   <li>Si camina, se mueve y evita salirse del área</li>
-     *   <li>Actualiza la animación y dibuja el frame</li>
+     * <li>Gestiona temporizadores de estado (caminar, dormir, idle).</li>
+     * <li>Mueve la entidad si está caminando.</li>
+     * <li>Actualiza el frame de animación.</li>
      * </ul>
      *
-     * @param dt delta time en segundos
+     * @param dt Delta time en segundos.
      */
     @Override
     public void update(double dt) {
@@ -124,7 +124,7 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Devuelve el nodo visual del NPC (Canvas).
+     * Devuelve la vista del gato (Canvas).
      */
     @Override
     public Node getView() {
@@ -132,8 +132,8 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Devuelve bounds de tamaño 0 para que sea “fantasma” (sin colisiones).
-     * Se posiciona en el layout del Canvas por consistencia.
+     * Devuelve límites vacíos (0x0) para evitar colisiones físicas con el jugador o proyectiles.
+     * Se usa la posición del canvas para la referencia.
      */
     @Override
     public Bounds getBounds() {
@@ -141,7 +141,10 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Actualiza el movimiento cuando el estado es WALKING, respetando límites simples.
+     * Mueve al gato y verifica colisiones con los bordes del área de juego.
+     * Si toca un borde, cambia de estado inmediatamente.
+     *
+     * @param dt Delta time.
      */
     private void updateWalking(double dt) {
         double nextX = view.getLayoutX() + velX * dt;
@@ -154,7 +157,7 @@ public class ChocoCat implements GameEntity {
         double bottomLimit = areaH - BOUNDS_MARGIN;
 
         if (nextX < BOUNDS_MARGIN || nextX > rightLimit || nextY < BOUNDS_MARGIN || nextY > bottomLimit) {
-            // Mantengo tu comportamiento: al “chocar”, cambia a un estado aleatorio (no solo girar).
+            // Si choca con un borde, elige un nuevo estado (ej. girar o pararse)
             pickNextState();
             return;
         }
@@ -164,12 +167,7 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Elige el siguiente estado con probabilidades:
-     * <ul>
-     *   <li>40% caminar</li>
-     *   <li>30% idle</li>
-     *   <li>30% dormir</li>
-     * </ul>
+     * Selecciona aleatoriamente el siguiente estado basado en probabilidades predefinidas.
      */
     private void pickNextState() {
         double roll = RNG.nextDouble();
@@ -184,7 +182,7 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Entra en estado WALKING con dirección aleatoria y duración aleatoria.
+     * Inicia el estado WALKING: elige una dirección cardinal aleatoria y velocidad.
      */
     private void startWalking() {
         currentState = State.WALKING;
@@ -200,7 +198,7 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Entra en estado IDLE con duración aleatoria.
+     * Inicia el estado IDLE: se queda quieto un tiempo breve.
      */
     private void startIdle() {
         currentState = State.IDLE;
@@ -210,7 +208,7 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Entra en estado SLEEPING con duración aleatoria.
+     * Inicia el estado SLEEPING: se queda quieto un tiempo largo (dormido).
      */
     private void startSleeping() {
         currentState = State.SLEEPING;
@@ -220,12 +218,9 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Avanza el tiempo de animación y dibuja el frame correcto según:
-     * <ul>
-     *   <li>Fila 0: UP (0-1) y RIGHT (2-3)</li>
-     *   <li>Fila 1: DOWN (0-1) y LEFT (2-3)</li>
-     *   <li>Fila 2: SLEEP (0-1)</li>
-     * </ul>
+     * Avanza el tiempo de animación y solicita el redibujado del frame.
+     *
+     * @param dt Delta time.
      */
     private void updateAnimation(double dt) {
         animTimeSeconds += dt;
@@ -233,21 +228,28 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Calcula row/col actuales y dibuja el frame.
+     * Determina qué fila y columna del spritesheet dibujar según estado y dirección.
+     * <p>Mapeo:</p>
+     * <ul>
+     * <li>Fila 0: UP (cols 0-1), RIGHT (cols 2-3)</li>
+     * <li>Fila 1: DOWN (cols 0-1), LEFT (cols 2-3)</li>
+     * <li>Fila 2: SLEEP (cols 0-1)</li>
+     * </ul>
      */
     private void drawCurrentFrame() {
         int row;
         int col;
 
         double speedFactor = (currentState == State.SLEEPING) ? ANIM_SPEED_SLEEPING : ANIM_SPEED_DEFAULT;
-        int frameStep = ((int) (animTimeSeconds / speedFactor)) % 2; // 0..1
+        // Alterna entre 0 y 1 para la animación básica de 2 frames
+        int frameStep = ((int) (animTimeSeconds / speedFactor)) % 2;
 
         if (currentState == State.SLEEPING) {
             row = 2;
             col = frameStep;
         } else {
             if (currentState == State.IDLE) {
-                frameStep = 0; // quieto: primer frame de la pareja
+                frameStep = 0; // Si está quieto, usa siempre el primer frame
             }
             switch (currentDirection) {
                 case UP    -> { row = 0; col = 0 + frameStep; }
@@ -262,16 +264,16 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Dibuja un frame concreto del spritesheet en el Canvas.
+     * Dibuja una región del spritesheet en el Canvas.
      *
-     * @param row fila del spritesheet
-     * @param col columna del spritesheet
+     * @param row Fila del sprite (base 0).
+     * @param col Columna del sprite (base 0).
      */
     private void drawFrame(int row, int col) {
         gc.clearRect(0, 0, view.getWidth(), view.getHeight());
 
         if (spriteSheet == null) {
-            // Fallback visual si falla la carga
+            // Fallback: círculo naranja si no hay imagen
             gc.setFill(Color.ORANGE);
             gc.fillOval(0, 0, 30, 30);
             return;
@@ -288,9 +290,9 @@ public class ChocoCat implements GameEntity {
     }
 
     /**
-     * Carga el spritesheet probando rutas típicas.
+     * Intenta cargar el spritesheet desde rutas comunes.
      *
-     * @return la imagen o {@code null} si falla.
+     * @return La imagen cargada o null si falla.
      */
     private Image loadSpriteSheet() {
         Image img = AssetsManager.loadImage("/assets/images/choco_sheet.png");

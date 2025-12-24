@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
@@ -15,24 +17,28 @@
            xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.BestiaryController"
-           style="-fx-background-color: transparent;">
+           styleClass="bestiary-root">
+
+    <stylesheets>
+        <URL value="@css/bestiary.css"/>
+    </stylesheets>
 
     <VBox spacing="0" alignment="TOP_CENTER" maxWidth="1000" maxHeight="650">
 
-        <HBox spacing="20" VBox.vgrow="ALWAYS" style="-fx-padding: 20;">
+        <HBox spacing="20" VBox.vgrow="ALWAYS" styleClass="bestiary-content">
 
             <!-- LISTA -->
             <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
                 <Label text="ENCOUNTERS" styleClass="section-header"/>
 
                 <ScrollPane fitToWidth="true"
-                            style="-fx-background-color: transparent; -fx-background: transparent;"
+                            styleClass="transparent-scroll"
                             hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
                     <content>
                         <FlowPane fx:id="gridPane"
                                   hgap="12" vgap="12"
                                   alignment="TOP_LEFT"
-                                  style="-fx-background-color: transparent;"/>
+                                  styleClass="transparent-pane"/>
                     </content>
                 </ScrollPane>
             </VBox>
@@ -57,50 +63,49 @@
                        text="SELECT AN ENEMY"
                        wrapText="true"
                        textAlignment="CENTER"
-                       style="-fx-text-fill: #ffd54f; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 28px;"/>
+                       styleClass="detail-title"/>
 
-                <Separator style="-fx-opacity: 0.3;"/>
+                <Separator styleClass="soft-separator"/>
 
                 <VBox spacing="8" alignment="CENTER_LEFT" maxWidth="280">
                     <HBox>
-                        <Label text="ENCOUNTERS:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="statSeen" text="0" style="-fx-text-fill: white;"/>
+                        <Label text="ENCOUNTERS:" styleClass="stat-label"/>
+                        <Label fx:id="statSeen" text="0" styleClass="stat-value"/>
                     </HBox>
                     <HBox>
-                        <Label text="KILLS:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="statKills" text="0" style="-fx-text-fill: white;"/>
+                        <Label text="KILLS:" styleClass="stat-label"/>
+                        <Label fx:id="statKills" text="0" styleClass="stat-value"/>
                     </HBox>
                     <HBox>
-                        <Label text="DEATHS BY:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="statDeaths" text="0" style="-fx-text-fill: #ff5555;"/>
+                        <Label text="DEATHS BY:" styleClass="stat-label"/>
+                        <Label fx:id="statDeaths" text="0" styleClass="stat-value-danger"/>
                     </HBox>
                 </VBox>
 
-                <Separator style="-fx-opacity: 0.3;"/>
+                <Separator styleClass="soft-separator"/>
 
                 <VBox spacing="8" alignment="CENTER_LEFT" maxWidth="280">
                     <HBox>
-                        <Label text="BASE HP:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="attrHp" text="-" style="-fx-text-fill: #ffd54f;"/>
+                        <Label text="BASE HP:" styleClass="stat-label"/>
+                        <Label fx:id="attrHp" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                     <HBox>
-                        <Label text="CONTACT DMG:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="attrDmg" text="-" style="-fx-text-fill: #ffd54f;"/>
+                        <Label text="CONTACT DMG:" styleClass="stat-label"/>
+                        <Label fx:id="attrDmg" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                     <HBox>
-                        <Label text="PROJ DMG:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="attrProjDmg" text="-" style="-fx-text-fill: #ffd54f;"/>
+                        <Label text="PROJ DMG:" styleClass="stat-label"/>
+                        <Label fx:id="attrProjDmg" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                     <HBox>
-                        <Label text="SPEED:" style="-fx-text-fill: #aaa; -fx-font-weight: bold; -fx-min-width: 140;"/>
-                        <Label fx:id="attrSpeed" text="-" style="-fx-text-fill: #ffd54f;"/>
+                        <Label text="SPEED:" styleClass="stat-label"/>
+                        <Label fx:id="attrSpeed" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                 </VBox>
 
                 <Button text="CLOSE"
                         onAction="#onCloseDetails"
-                        styleClass="menu-button"
-                        style="-fx-padding: 8 20;"/>
+                        styleClass="menu-button bestiary-close-button"/>
 
             </VBox>
 
@@ -108,3 +113,5 @@
     </VBox>
 
 </StackPane>
+
+

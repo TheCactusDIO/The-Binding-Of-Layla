@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ProgressBar?>
@@ -12,12 +14,18 @@
       prefWidth="600"
       prefHeight="300">
 
+    <stylesheets>
+        <URL value="@css/loading.css"/>
+    </stylesheets>
+
     <padding>
         <Insets top="24" right="24" bottom="24" left="24" />
     </padding>
 
-    <!-- Texto hardcodeado en español -->
-    <Label text="Cargando recursos..." style="-fx-font-size: 16px;" />
+    <!-- Texto -->
+    <Label text="Cargando recursos..." styleClass="loading-title" />
     <ProgressBar fx:id="progressBar" prefWidth="400" maxWidth="500" progress="0" />
-    <Label fx:id="statusLabel" text="" style="-fx-font-size: 12px; -fx-text-fill: #666666;" />
+    <Label fx:id="statusLabel" text="" styleClass="loading-status" />
 </VBox>
+
+

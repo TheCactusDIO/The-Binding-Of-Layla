@@ -10,22 +10,23 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
 /**
- * Jefe final con una máquina de estados simple:
+ * Jefe Final del juego.
+ * <p>
+ * Implementa una máquina de estados con patrones más agresivos:
  * <ul>
- *   <li>IDLE: pausa breve.</li>
- *   <li>CHASE: persigue al jugador.</li>
- *   <li>ATTACK_SPIRAL: dispara un patrón en espiral (más agresivo en fase 2).</li>
- *   <li>ATTACK_SLAM: carga y hace un desplazamiento rápido al último punto conocido del jugador.</li>
+ * <li><strong>IDLE:</strong> Pausa breve para reevaluar.</li>
+ * <li><strong>CHASE:</strong> Persigue al jugador directamente.</li>
+ * <li><strong>ATTACK_SPIRAL:</strong> Dispara un patrón continuo en espiral (más complejo en fase 2).</li>
+ * <li><strong>ATTACK_SLAM:</strong> Carga y embiste rápidamente hacia la última posición conocida del jugador.</li>
  * </ul>
- *
- * <p>Notas:</p>
- * <ul>
- *   <li>La {@code phase} se hereda de {@link Boss} (cambia al bajar de 50% de vida).</li>
- *   <li>Los proyectiles se spawnean vía {@code onSpawnProjectile} y se eliminan vía {@code onRemoveProjectile}.</li>
- * </ul>
+ * </p>
+ * <p>
+ * Hereda de {@link Boss} la gestión de vida, muerte y cambio de fase (al 50% de HP).
+ * </p>
  */
 public class FinalBoss extends Boss {
 
+    /** Estados posibles de la IA del jefe final. */
     private enum State {
         IDLE,
         CHASE,
@@ -34,7 +35,7 @@ public class FinalBoss extends Boss {
     }
 
     // -------------------------
-    // Tuning
+    // Configuración y Tuning
     // -------------------------
 
     private static final ThreadLocalRandom RNG = ThreadLocalRandom.current();
@@ -58,7 +59,7 @@ public class FinalBoss extends Boss {
     private static final double BULLET_DAMAGE = 1.0;
 
     // -------------------------
-    // State
+    // Estado interno
     // -------------------------
 
     private State state = State.IDLE;
@@ -67,22 +68,23 @@ public class FinalBoss extends Boss {
     private double spiralAngle = 0.0;
     private double spiralShotTimer = 0.0;
 
+    // Variables para el ataque Slam
     private double slamTargetX;
     private double slamTargetY;
     private boolean slamCharging = false;
 
     /**
-     * Crea el jefe final.
+     * Constructor del Jefe Final.
      *
-     * @param x posición inicial X
-     * @param y posición inicial Y
-     * @param maxHp vida máxima
-     * @param parent contenedor JavaFX donde se renderiza la entidad
-     * @param playerPos proveedor de posición del jugador (x,y)
-     * @param onDeath callback al morir
-     * @param onSpawnProjectile callback para añadir proyectiles/entidades al GameLoop
-     * @param onRemoveProjectile callback para eliminar proyectiles/entidades del GameLoop
-     * @param bossId identificador del boss (para lastHitSource, stats, etc.)
+     * @param x                 Posición X inicial.
+     * @param y                 Posición Y inicial.
+     * @param maxHp             Vida máxima.
+     * @param parent            Panel contenedor.
+     * @param playerPos         Supplier posición jugador.
+     * @param onDeath           Callback muerte.
+     * @param onSpawnProjectile Callback spawn proyectil.
+     * @param onRemoveProjectile Callback remove proyectil.
+     * @param bossId            ID del boss.
      */
     public FinalBoss(
             double x,
@@ -97,6 +99,7 @@ public class FinalBoss extends Boss {
     ) {
         super(x, y, maxHp, parent, playerPos, onDeath, onSpawnProjectile, onRemoveProjectile, bossId);
 
+        // Aspecto visual más grande e intimidante
         this.view.setRadius(55.0);
         this.view.setFill(Color.BLACK);
         this.view.setStroke(Color.DARKRED);
@@ -105,6 +108,11 @@ public class FinalBoss extends Boss {
         this.speed = BASE_SPEED;
     }
 
+    /**
+     * Actualiza el estado del jefe final.
+     *
+     * @param dt Delta time.
+     */
     @Override
     public void update(double dt) {
         if (dead || hp <= 0 || dt <= 0) {
@@ -130,16 +138,19 @@ public class FinalBoss extends Boss {
     }
 
     /**
-     * Selecciona el siguiente estado con probabilidades distintas por fase.
+     * Decide el siguiente estado basándose en probabilidades.
+     * Las probabilidades cambian según la fase del jefe (más agresivo en fase 2).
      */
     private void pickNextState() {
         double rnd = RNG.nextDouble();
 
         if (phase == 2) {
+            // Fase 2: Menos persecución, más ataques especiales
             if (rnd < 0.40) enterState(State.CHASE, 2.0);
             else if (rnd < 0.70) enterState(State.ATTACK_SPIRAL, 3.0);
-            else enterState(State.ATTACK_SLAM, 0.0); // duración la decide el propio slam
+            else enterState(State.ATTACK_SLAM, 0.0); // Duración controlada por la lógica del slam
         } else {
+            // Fase 1: Más equilibrado
             if (rnd < 0.50) enterState(State.CHASE, 3.0);
             else if (rnd < 0.80) enterState(State.ATTACK_SPIRAL, 2.5);
             else enterState(State.IDLE, 1.0);
@@ -147,10 +158,10 @@ public class FinalBoss extends Boss {
     }
 
     /**
-     * Entra en un estado y configura timers/telegraph.
+     * Transiciona a un nuevo estado y configura sus temporizadores iniciales.
      *
-     * @param newState nuevo estado
-     * @param duration duración del estado (en segundos). En SLAM se ignora (usa tiempos internos).
+     * @param newState El nuevo estado a adoptar.
+     * @param duration Duración del estado en segundos (ignorado para SLAM).
      */
     private void enterState(State newState, double duration) {
         this.state = newState;
@@ -163,15 +174,17 @@ public class FinalBoss extends Boss {
         this.stateTimer = duration;
 
         if (newState == State.ATTACK_SPIRAL) {
-            view.setStroke(Color.MAGENTA);
+            view.setStroke(Color.MAGENTA); // Feedback visual de ataque
             spiralShotTimer = 0.0;
         } else {
-            updateColor();
+            updateColor(); // Restaura color normal
         }
     }
 
     /**
-     * Persigue al jugador a velocidad base (más rápida en fase 2).
+     * Mueve al jefe hacia la posición actual del jugador.
+     *
+     * @param dt Delta time.
      */
     private void moveTowardsPlayer(double dt) {
         double[] pPos = playerPos.get();
@@ -190,15 +203,18 @@ public class FinalBoss extends Boss {
     }
 
     /**
-     * Patrón de disparo en espiral. En fase 2 dispara además en cruz.
+     * Ejecuta el ataque de espiral.
+     * Dispara proyectiles rotando el ángulo de emisión constantemente.
+     * En Fase 2 dispara 4 balas simultáneas en cruz, girando.
      *
-     * <p>Robusto: usa un timer acumulado para disparar cada {@value #SPIRAL_SHOT_INTERVAL}s.</p>
+     * @param dt Delta time.
      */
     private void fireSpiral(double dt) {
         double mult = (phase == 2) ? PHASE2_SPIRAL_ANGULAR_MULT : 1.0;
         spiralAngle += SPIRAL_ANGULAR_SPEED * dt * mult;
 
         spiralShotTimer += dt;
+        // Bucle while para mantener cadencia exacta incluso si el frame es largo
         while (spiralShotTimer >= SPIRAL_SHOT_INTERVAL) {
             spiralShotTimer -= SPIRAL_SHOT_INTERVAL;
 
@@ -209,6 +225,7 @@ public class FinalBoss extends Boss {
             spawnBullet(-dirX, -dirY);
 
             if (phase == 2) {
+                // Fuego cruzado adicional
                 spawnBullet(dirY, -dirX);
                 spawnBullet(-dirY, dirX);
             }
@@ -216,13 +233,13 @@ public class FinalBoss extends Boss {
     }
 
     /**
-     * Spawnea una bala enemiga desde la posición actual del boss.
+     * Crea y dispara un proyectil del jefe.
      */
     private void spawnBullet(double dx, double dy) {
         Projectile p = new Projectile(
                 dx, dy,
                 BULLET_SPEED, BULLET_LIFETIME, BULLET_DAMAGE,
-                true,
+                true, // hostil
                 parent,
                 onRemoveProjectile,
                 this,
@@ -235,12 +252,8 @@ public class FinalBoss extends Boss {
     }
 
     /**
-     * Preparación del slam:
-     * <ul>
-     *   <li>Guarda la posición del jugador en ese instante.</li>
-     *   <li>Telegraph: se pone blanco.</li>
-     *   <li>Timer de carga: {@value #SLAM_CHARGE_TIME}s.</li>
-     * </ul>
+     * Inicia la secuencia de ataque SLAM.
+     * Fija el objetivo (posición del jugador) y comienza la carga (telegraph).
      */
     private void prepareSlam() {
         double[] pPos = playerPos.get();
@@ -248,34 +261,41 @@ public class FinalBoss extends Boss {
         slamTargetY = pPos[1];
 
         slamCharging = true;
-        view.setFill(Color.WHITE);
+        view.setFill(Color.WHITE); // Aviso visual (flash)
 
         stateTimer = SLAM_CHARGE_TIME;
     }
 
     /**
-     * Ejecuta el slam: carga y luego se desplaza rápidamente al punto objetivo.
-     * Al llegar o expirar el timeout, aterriza y lanza el ataque base del boss.
+     * Maneja la ejecución del SLAM.
+     * 1. Espera el tiempo de carga.
+     * 2. Se mueve muy rápido hacia el objetivo fijado.
+     * 3. Al llegar, realiza un ataque de área y vuelve a elegir estado.
+     *
+     * @param dt Delta time.
      */
     private void handleSlam(double dt) {
         if (slamCharging) {
+            // Esperando que termine la carga (telegraph)
             if (stateTimer <= 0.0) {
                 slamCharging = false;
-                stateTimer = SLAM_MOVE_TIMEOUT;
+                stateTimer = SLAM_MOVE_TIMEOUT; // Tiempo máximo para llegar
                 updateColor();
             }
             return;
         }
 
+        // Movimiento rápido hacia el punto objetivo
         double dx = slamTargetX - view.getLayoutX();
         double dy = slamTargetY - view.getLayoutY();
         double dist = Math.sqrt(dx * dx + dy * dy);
 
+        // Si llegó o se acabó el tiempo
         if (dist < SLAM_REACH_DISTANCE || stateTimer <= 0.0) {
             view.setLayoutX(slamTargetX);
             view.setLayoutY(slamTargetY);
 
-            // Explosión/ataque tras el aterrizaje (usa comportamiento del Boss base)
+            // Impacto: ejecuta el ataque estándar del Boss base (explosión de proyectiles)
             super.performAttack();
             pickNextState();
             return;
@@ -285,6 +305,9 @@ public class FinalBoss extends Boss {
         view.setLayoutY(view.getLayoutY() + (dy / dist) * SLAM_SPEED * dt);
     }
 
+    /**
+     * Actualiza el color del jefe según su fase.
+     */
     @Override
     protected void updateColor() {
         if (phase == 2) {

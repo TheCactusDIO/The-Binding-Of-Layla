@@ -1,0 +1,8 @@
+.loading-title {
+    -fx-font-size: 16px;
+}
+
+.loading-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: #666666;
+}

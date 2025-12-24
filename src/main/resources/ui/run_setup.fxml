@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
@@ -12,16 +14,19 @@
 <StackPane fx:id="root"
            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.layla.ui.RunSetupController"
-           style="-fx-background-color: #111111;">
+           styleClass="run-setup-root">
+
+    <stylesheets>
+        <URL value="@css/run_setup.css"/>
+    </stylesheets>
 
     <VBox spacing="25" alignment="CENTER">
 
         <Label text="NUEVA PARTIDA"
-               style="-fx-text-fill: white; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 48px;
-                      -fx-effect: dropshadow(gaussian, black, 5, 0.5, 0, 0);"/>
+               styleClass="run-title"/>
 
         <Label text="SELECCIONA PERSONAJE"
-               style="-fx-text-fill: #888; -fx-font-weight: bold;"/>
+               styleClass="run-subtitle"/>
 
         <HBox spacing="40" alignment="CENTER">
 
@@ -30,23 +35,19 @@
                   spacing="12" alignment="TOP_CENTER"
                   prefWidth="220" prefHeight="260"
                   onMouseClicked="#onSelectLayla"
-                  style="-fx-background-color: #222;
-                         -fx-border-color: #444; -fx-border-width: 3;
-                         -fx-background-radius: 12; -fx-border-radius: 12;
-                         -fx-cursor: hand;">
+                  styleClass="character-card">
                 <padding>
                     <Insets top="25" right="20" bottom="25" left="20"/>
                 </padding>
 
                 <Label text="LAYLA"
-                       style="-fx-text-fill: #ffd54f;
-                              -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 28px;"/>
-                <Separator style="-fx-opacity: 0.3;"/>
+                       styleClass="character-name character-name-layla"/>
+                <Separator styleClass="soft-separator"/>
                 <Label text="Estadísticas equilibradas."
                        wrapText="true" textAlignment="CENTER"
-                       style="-fx-text-fill: #ddd; -fx-font-size: 14px;"/>
+                       styleClass="character-description"/>
                 <Label text="VIDA: 3 corazones"
-                       style="-fx-text-fill: #ff5555; -fx-font-weight: bold;"/>
+                       styleClass="character-hp"/>
             </VBox>
 
             <!-- THE FRAGILE -->
@@ -54,58 +55,52 @@
                   spacing="12" alignment="TOP_CENTER"
                   prefWidth="220" prefHeight="260"
                   onMouseClicked="#onSelectFragile"
-                  style="-fx-background-color: #222;
-                         -fx-border-color: #444; -fx-border-width: 3;
-                         -fx-background-radius: 12; -fx-border-radius: 12;
-                         -fx-cursor: hand;">
+                  styleClass="character-card">
                 <padding>
                     <Insets top="25" right="20" bottom="25" left="20"/>
                 </padding>
 
                 <Label text="THE FRAGILE"
-                       style="-fx-text-fill: #aaddff;
-                              -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 26px;"/>
-                <Separator style="-fx-opacity: 0.3;"/>
+                       styleClass="character-name character-name-fragile"/>
+                <Separator styleClass="soft-separator"/>
                 <Label text="Mucho daño, muy poca vida."
                        wrapText="true" textAlignment="CENTER"
-                       style="-fx-text-fill: #ddd; -fx-font-size: 14px;"/>
+                       styleClass="character-description"/>
                 <Label text="VIDA: 1 corazón"
-                       style="-fx-text-fill: #ff5555; -fx-font-weight: bold;"/>
+                       styleClass="character-hp"/>
 
                 <!-- Se muestra sólo si está bloqueado -->
                 <Label fx:id="fragileLockLabel"
                        text="BLOQUEADO"
                        wrapText="true" textAlignment="CENTER"
-                       style="-fx-text-fill: #555;
-                              -fx-font-size: 12px; -fx-font-style: italic;
-                              -fx-background-color: #111; -fx-padding: 4;
-                              -fx-background-radius: 4;"/>
+                       styleClass="character-lock"/>
             </VBox>
         </HBox>
 
         <CheckBox fx:id="hardModeCheck"
                   text="Modo difícil"
-                  style="-fx-text-fill: white; -fx-font-size: 16px; -fx-cursor: hand;"/>
+                  styleClass="run-checkbox"/>
 
-        <HBox spacing="20" alignment="CENTER" style="-fx-padding: 20 0 0 0;">
+        <HBox spacing="20" alignment="CENTER" styleClass="run-actions">
 
             <Button text="VOLVER"
                     onAction="#onBack"
-                    styleClass="menu-button, btn-back"
+                    styleClass="menu-button, btn-back, btn, btn-secondary"
                     prefWidth="140"/>
 
             <Button text="MODO PERSONALIZADO"
                     onAction="#onCustomMode"
-                    styleClass="menu-button"
-                    style="-fx-text-fill: #ffd54f; -fx-border-color: #bfa34b;"/>
+                    styleClass="menu-button, btn, btn-secondary, btn-accent"/>
 
             <Button fx:id="playButton"
                     text="EMPEZAR"
                     onAction="#onPlay"
-                    styleClass="menu-button, btn-success"
-                    prefWidth="200"
-                    style="-fx-font-size: 22px;"/>
+                    styleClass="menu-button, btn-success, btn, btn-primary, btn-large"
+                    prefWidth="200"/>
         </HBox>
 
     </VBox>
 </StackPane>
+
+
+

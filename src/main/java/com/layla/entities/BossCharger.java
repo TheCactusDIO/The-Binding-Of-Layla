@@ -18,21 +18,20 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
 /**
- * Boss tipo "Charger":
- * - Persigue (CHASE)
- * - Hace windup (WINDUP)
- * - Dash hacia el jugador (DASH) dejando minas
- * - Cooldown (COOLDOWN)
- *
- * Extra:
- * - En CHASE, a intervalos lanza un abanico de balas lento.
- * - Al terminar el dash, hace shockwave.
+ * Jefe de tipo "Charger" (Embestidor).
+ * <p>
+ * Este jefe sigue un patrón de máquina de estados:
+ * <ol>
+ * <li><strong>CHASE:</strong> Persigue al jugador lentamente y dispara abanicos de balas.</li>
+ * <li><strong>WINDUP:</strong> Se detiene y se prepara para embestir (telegrafía).</li>
+ * <li><strong>DASH:</strong> Embiste a alta velocidad en línea recta, soltando minas.</li>
+ * <li><strong>COOLDOWN:</strong> Descansa brevemente antes de volver a perseguir.</li>
+ * </ol>
+ * </p>
  */
 public class BossCharger extends Boss {
 
-    /**
-     * Estados del boss.
-     */
+    /** Enumeración de los estados posibles del jefe. */
     private enum State {
         CHASE,
         WINDUP,
@@ -40,29 +39,45 @@ public class BossCharger extends Boss {
         COOLDOWN
     }
 
+    /** Estado actual del jefe. */
     private State state = State.CHASE;
 
-    // Timers del estado
+    // Timers para controlar la duración de cada estado
     private double windupTimer = 0.0;
     private double dashTimer = 0.0;
     private double cooldownTimer = 0.0;
 
-    // Dirección del dash fijada al terminar el windup
+    /** Dirección X fijada para el dash. */
     private double dashDirX = 0.0;
+    /** Dirección Y fijada para el dash. */
     private double dashDirY = 0.0;
 
-    // Ajustable: velocidad del dash
+    /** Velocidad de desplazamiento durante el dash. */
     private double dashSpeed = 420.0;
 
-    // Drop mines durante dash
+    /** Temporizador para controlar el soltado de minas durante el dash. */
     private double mineDropTimer = 0.0;
 
     /**
-     * Lista de minas activas (solo para poder limpiarlas en die()).
-     * IMPORTANTE: antes esto se filtraba porque nunca se removían al explotar.
+     * Lista de minas activas.
+     * Se usa para forzar su eliminación si el jefe muere antes de que exploten.
      */
     private final List<Mine> mines = new ArrayList<>();
 
+    /**
+     * Constructor del BossCharger.
+     * Configura el aspecto visual (verde) y la velocidad base.
+     *
+     * @param x                 Posición X inicial.
+     * @param y                 Posición Y inicial.
+     * @param maxHp             Vida máxima.
+     * @param parent            Panel contenedor.
+     * @param playerPos         Supplier posición jugador.
+     * @param onDeath           Callback muerte.
+     * @param onSpawnProjectile Callback spawn proyectil.
+     * @param onRemoveProjectile Callback remove proyectil.
+     * @param bossId            ID del jefe.
+     */
     public BossCharger(
             double x,
             double y,
@@ -76,26 +91,27 @@ public class BossCharger extends Boss {
     ) {
         super(x, y, maxHp, parent, playerPos, onDeath, onSpawnProjectile, onRemoveProjectile, bossId);
 
-        // Visual propio
+        // Visual propio: Verde
         this.view.setFill(Color.DARKGREEN);
         this.view.setStroke(Color.BLACK);
         this.view.setStrokeWidth(4.0);
         this.view.setStrokeType(StrokeType.INSIDE);
         this.view.setEffect(new DropShadow(22, Color.LIMEGREEN));
 
-        // Velocidad base de chase
+        // Velocidad base de persecución (más lento que el Boss normal)
         this.speed = 40.0;
     }
 
     /**
-     * Update principal del boss.
-     * Se asegura de llamar a die() si hp cae a 0 por cualquier motivo.
+     * Actualización principal. Ejecuta la lógica correspondiente al estado actual.
+     *
+     * @param dt Delta time en segundos.
      */
     @Override
     public void update(double dt) {
         if (dead) return;
 
-        // Robustez: si hp <= 0, no te quedes en "zombie state"
+        // Robustez: asegurar muerte si hp <= 0
         if (hp <= 0.0) {
             die();
             return;
@@ -109,7 +125,7 @@ public class BossCharger extends Boss {
             case COOLDOWN -> updateCooldown(dt);
         }
 
-        // Ataque secundario (solo en CHASE)
+        // Ataque secundario (disparo) solo durante la fase de persecución
         attackTimer += dt;
         if (state == State.CHASE && attackTimer > 2.4) {
             performAttack();
@@ -118,9 +134,10 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Estado CHASE:
-     * - Sigue al jugador.
-     * - Cuando el cooldown permite, si está a rango, inicia windup.
+     * Lógica del estado CHASE.
+     * Persigue al jugador y decide si transicionar a WINDUP para iniciar una embestida.
+     *
+     * @param dt Delta time.
      */
     private void updateChase(double dt) {
         double[] pPos = playerPos.get();
@@ -134,36 +151,37 @@ public class BossCharger extends Boss {
         double dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 0.001) dist = 0.001;
 
-        // Movimiento hacia jugador
+        // Movimiento hacia el jugador
         view.setLayoutX(bx + (dx / dist) * speed * dt);
         view.setLayoutY(by + (dy / dist) * speed * dt);
 
-        // Si aún hay cooldown, lo descontamos aquí también por seguridad
+        // Si hay cooldown pendiente, no puede iniciar dash
         if (cooldownTimer > 0.0) {
             cooldownTimer -= dt;
             return;
         }
 
-        // Decide empezar dash si está a distancia razonable
+        // Si está lo suficientemente cerca, inicia la preparación (Windup)
         if (dist < 520.0) {
             state = State.WINDUP;
             windupTimer = (phase == 1) ? 0.55 : 0.40;
 
-            // Tell visual: cambia color durante windup
+            // Feedback visual: color más claro
             view.setFill(Color.YELLOWGREEN);
         }
     }
 
     /**
-     * Estado WINDUP:
-     * - Espera un pequeño tiempo.
-     * - Fija dirección hacia el jugador al final del windup.
+     * Lógica del estado WINDUP.
+     * Espera quieto un momento y calcula la dirección hacia el jugador.
+     *
+     * @param dt Delta time.
      */
     private void updateWindup(double dt) {
         windupTimer -= dt;
         if (windupTimer > 0.0) return;
 
-        // Fijar dirección al jugador en el instante de iniciar el dash
+        // Al terminar el windup, fija la dirección hacia donde estaba el jugador
         double[] pPos = playerPos.get();
 
         double bx = view.getLayoutX();
@@ -178,49 +196,50 @@ public class BossCharger extends Boss {
         dashDirX = dx / dist;
         dashDirY = dy / dist;
 
+        // Transición a DASH
         state = State.DASH;
         dashTimer = (phase == 1) ? 0.65 : 0.85;
-
         mineDropTimer = 0.0;
 
-        // Vuelve a color normal
+        // Restaura color
         view.setFill(Color.DARKGREEN);
     }
 
     /**
-     * Estado DASH:
-     * - Avanza en línea recta.
-     * - Deja minas cada X segundos.
-     * - Al terminar, hace shockwave y entra en cooldown.
+     * Lógica del estado DASH.
+     * Mueve al jefe rápidamente en la dirección fijada y suelta minas periódicamente.
+     *
+     * @param dt Delta time.
      */
     private void updateDash(double dt) {
         dashTimer -= dt;
 
-        // Mover dash
+        // Movimiento rectilíneo rápido
         double bx = view.getLayoutX();
         double by = view.getLayoutY();
         view.setLayoutX(bx + dashDirX * dashSpeed * dt);
         view.setLayoutY(by + dashDirY * dashSpeed * dt);
 
-        // Drop mines durante dash
+        // Soltar minas
         mineDropTimer -= dt;
         if (mineDropTimer <= 0.0) {
             mineDropTimer = (phase == 1) ? 0.18 : 0.12;
             spawnMine(view.getLayoutX(), view.getLayoutY());
         }
 
-        // Fin del dash
+        // Al terminar el dash
         if (dashTimer <= 0.0) {
-            doShockwave();
-
+            doShockwave(); // Onda de choque final
             state = State.COOLDOWN;
             cooldownTimer = (phase == 1) ? 1.2 : 0.9;
         }
     }
 
     /**
-     * Estado COOLDOWN:
-     * - Espera un tiempo antes de volver a CHASE.
+     * Lógica del estado COOLDOWN.
+     * Espera un tiempo antes de volver a perseguir.
+     *
+     * @param dt Delta time.
      */
     private void updateCooldown(double dt) {
         cooldownTimer -= dt;
@@ -230,10 +249,8 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Ataque secundario mientras CHASE:
-     * - Abanico de balas lentas hacia el jugador.
-     *
-     * Nota: lo he blindado para evitar divisiones raras si cambias shots a 1.
+     * Realiza el ataque secundario (durante CHASE).
+     * Dispara un abanico de proyectiles lentos hacia el jugador.
      */
     @Override
     protected void performAttack() {
@@ -254,20 +271,20 @@ public class BossCharger extends Boss {
         int shots = (phase == 1) ? 5 : 7;
         double spreadDeg = 35.0;
 
-        // Si por lo que sea shots se convierte en 1, disparo único (sin división por 0)
+        // Caso borde: un solo disparo
         if (shots <= 1) {
             spawnProjectile(aimX, aimY, 210.0, 3.2, 1.0, bx, by);
             return;
         }
 
-        int mid = shots / 2; // para 5 => 2, para 7 => 3
+        int mid = shots / 2;
         for (int i = 0; i < shots; i++) {
             int off = i - mid;
 
             double stepDeg = spreadDeg / Math.max(1, mid);
             double a = Math.toRadians(off * stepDeg);
 
-            // Rotación del vector (aimX, aimY)
+            // Rotación vectorial para el spread
             double rx = aimX * Math.cos(a) - aimY * Math.sin(a);
             double ry = aimX * Math.sin(a) + aimY * Math.cos(a);
 
@@ -276,7 +293,7 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Shockwave radial al terminar el dash.
+     * Genera una onda de choque radial (shockwave) al finalizar el dash.
      */
     private void doShockwave() {
         int count = (phase == 1) ? 10 : 14;
@@ -292,7 +309,7 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Helper centralizado para crear y spawnear proyectiles sin duplicar código.
+     * Método auxiliar para instanciar proyectiles del Charger.
      */
     private void spawnProjectile(double dirX, double dirY, double speed, double radius, double damage, double x, double y) {
         Projectile proj = new Projectile(
@@ -313,23 +330,23 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Spawnea una mina y la registra como "activa" para poder limpiarla en die().
+     * Genera una mina en la posición dada y la registra en la lista de minas activas.
      *
-     * Importante:
-     * - La mina llamará a un callback cuando se destruya para quitarse de la lista.
+     * @param x Posición X.
+     * @param y Posición Y.
      */
     private void spawnMine(double x, double y) {
         Mine m = new Mine(
                 x, y,
-                (phase == 1) ? 1.15 : 0.9,
-                (phase == 1) ? 8 : 10,
-                (phase == 1) ? 170.0 : 200.0,
+                (phase == 1) ? 1.15 : 0.9, // Tiempo hasta explosión
+                (phase == 1) ? 8 : 10,     // Proyectiles al explotar
+                (phase == 1) ? 170.0 : 200.0, // Velocidad proyectiles
                 parent,
                 onSpawnProjectile,
                 onRemoveProjectile,
                 this,
                 bossId,
-                destroyedMine -> mines.remove(destroyedMine) // ✅ evita leak
+                destroyedMine -> mines.remove(destroyedMine) // Callback para auto-eliminarse de la lista
         );
 
         mines.add(m);
@@ -337,13 +354,11 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Al morir:
-     * - Destruye minas que queden vivas (idempotente).
-     * - Limpia lista.
-     * - Llama a super.die().
+     * Al morir, destruye todas las minas activas para limpiar el escenario y delega a la clase padre.
      */
     @Override
     protected void die() {
+        // Copia de la lista para evitar ConcurrentModificationException al iterar y borrar
         for (Mine m : new ArrayList<>(mines)) {
             m.forceDestroy();
         }
@@ -352,7 +367,7 @@ public class BossCharger extends Boss {
     }
 
     /**
-     * Restablece el color tras recibir daño.
+     * Restablece el color a verde oscuro tras recibir daño.
      */
     @Override
     protected void updateColor() {
@@ -360,15 +375,11 @@ public class BossCharger extends Boss {
     }
 
     // =========================================================
-    // Mina: tras delay explota en anillo
+    // Clase interna: Mina
     // =========================================================
 
     /**
-     * Mina que explota tras un delay y genera un anillo de proyectiles.
-     *
-     * Nota:
-     * - Es idempotente: destroy() puede llamarse varias veces sin romper nada.
-     * - Notifica a BossCharger para quitarse de la lista "mines".
+     * Entidad "Mina" que explota tras un retardo, generando un anillo de proyectiles.
      */
     private static final class Mine implements GameEntity {
 
@@ -381,6 +392,7 @@ public class BossCharger extends Boss {
         private final Boss owner;
         private final String bossId;
 
+        /** Callback para notificarse a sí misma fuera de la lista del BossCharger. */
         private final Consumer<Mine> onDestroyed;
 
         private double timer;
@@ -389,6 +401,21 @@ public class BossCharger extends Boss {
 
         private boolean destroyed = false;
 
+        /**
+         * Crea una mina.
+         *
+         * @param x Posición X.
+         * @param y Posición Y.
+         * @param delay Tiempo en segundos antes de explotar.
+         * @param ringCount Número de proyectiles.
+         * @param ringSpeed Velocidad de los proyectiles.
+         * @param parent Panel padre.
+         * @param onSpawn Callback spawn.
+         * @param onRemove Callback remove.
+         * @param owner Boss dueño.
+         * @param bossId ID del boss.
+         * @param onDestroyed Callback de limpieza.
+         */
         Mine(
                 double x,
                 double y,
@@ -435,7 +462,7 @@ public class BossCharger extends Boss {
         }
 
         /**
-         * Explosión radial de la mina.
+         * Genera la explosión radial.
          */
         private void explode() {
             double x = view.getLayoutX();
@@ -463,15 +490,15 @@ public class BossCharger extends Boss {
         }
 
         /**
-         * Fuerza la destrucción (usado por BossCharger.die()).
+         * Fuerza la destrucción inmediata (usado al limpiar el nivel o morir el boss).
          */
         void forceDestroy() {
             destroy();
         }
 
         /**
-         * Destruye visualmente y pide eliminación del GameLoop.
-         * Idempotente: solo se ejecuta una vez.
+         * Destruye la entidad visualmente y la remueve del juego.
+         * Es idempotente.
          */
         private void destroy() {
             if (destroyed) return;
@@ -480,7 +507,7 @@ public class BossCharger extends Boss {
             parent.getChildren().remove(view);
             onRemove.accept(this);
 
-            // ✅ importantísimo: quitarse de la lista del boss
+            // Notifica al BossCharger para que la saque de su lista interna
             onDestroyed.accept(this);
         }
 

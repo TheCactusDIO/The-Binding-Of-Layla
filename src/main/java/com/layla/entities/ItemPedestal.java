@@ -21,11 +21,19 @@ import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Rectangle;
 
 /**
- * Pedestal de ítem estilo Isaac:
+ * Pedestal que sostiene un ítem recogible (estilo Binding of Isaac).
+ * <p>
+ * Visual:
  * <ul>
- *   <li>Base con sombra.</li>
- *   <li>Icono flotando con efecto "bobbing".</li>
- *   <li>Al colisionar con {@link Player}, concede el ítem vía {@link StatsService} y se elimina.</li>
+ * <li>Base rectangular con sombra.</li>
+ * <li>Icono del ítem flotando sobre la base (animación "bobbing").</li>
+ * <li>Brillo (Glow) alrededor del ítem para destacar importancia.</li>
+ * </ul>
+ * <p>
+ * Interacción:
+ * <ul>
+ * <li>Al colisionar con el jugador, intenta conceder el ítem.</li>
+ * <li>Si se concede con éxito, se reproduce sonido y se elimina el pedestal.</li>
  * </ul>
  */
 public final class ItemPedestal implements GameEntity {
@@ -33,10 +41,8 @@ public final class ItemPedestal implements GameEntity {
     private static final double WIDTH  = 40.0;
     private static final double HEIGHT = 40.0;
 
-    /** Frecuencia del bobbing (ciclos por segundo). */
+    // Configuración de animación
     private static final double BOB_FREQ = 2.5;
-
-    /** Amplitud del bobbing (px). */
     private static final double BOB_AMPL = 4.0;
 
     private static final Consumer<GameEntity> NO_OP_REMOVE = e -> {};
@@ -49,6 +55,7 @@ public final class ItemPedestal implements GameEntity {
 
     private final Pane parent;
 
+    // Estructura visual compuesta
     private final StackPane root = new StackPane();
     private final Rectangle base;
     private final Ellipse shadow;
@@ -58,11 +65,13 @@ public final class ItemPedestal implements GameEntity {
     private double bobTime = 0.0;
 
     /**
-     * @param itemId ítem a mostrar y conceder
-     * @param parent contenedor JavaFX donde se renderiza el pedestal
-     * @param statsService servicio que aplica el ítem al jugador/estadísticas
-     * @param onRemove callback para retirar la entidad del GameLoop (si es null, no hace nada)
-     * @param playSfx callback para reproducir SFX por key (si es null, no hace nada)
+     * Crea un pedestal de ítem.
+     *
+     * @param itemId       Identificador del ítem a mostrar.
+     * @param parent       Panel contenedor.
+     * @param statsService Servicio para aplicar los efectos del ítem.
+     * @param onRemove     Callback para eliminar la entidad.
+     * @param playSfx      Callback para reproducir efectos de sonido.
      */
     public ItemPedestal(ItemId itemId,
                         Pane parent,
@@ -77,6 +86,7 @@ public final class ItemPedestal implements GameEntity {
         this.onRemove = (onRemove != null) ? onRemove : NO_OP_REMOVE;
         this.playSfx = (playSfx != null) ? playSfx : NO_OP_SFX;
 
+        // Construcción visual
         shadow = new Ellipse(WIDTH * 0.45, HEIGHT * 0.18);
         shadow.setFill(Color.color(0, 0, 0, 0.45));
         shadow.setTranslateY(HEIGHT * 0.20);
@@ -95,6 +105,7 @@ public final class ItemPedestal implements GameEntity {
         icon.setPreserveRatio(true);
         icon.setTranslateY(-HEIGHT * 0.35);
 
+        // Efecto de brillo
         DropShadow glow = new DropShadow();
         glow.setRadius(16);
         glow.setColor(Color.color(1.0, 1.0, 0.7, 0.8));
@@ -108,6 +119,9 @@ public final class ItemPedestal implements GameEntity {
         parent.getChildren().add(root);
     }
 
+    /**
+     * Carga el icono del ítem desde los recursos.
+     */
     private void loadIcon() {
         String path = ItemRegistry.getIconPath(itemId);
         if (path == null) {
@@ -126,24 +140,21 @@ public final class ItemPedestal implements GameEntity {
         }
     }
 
-    /** Posiciona el pedestal (layout) en el mundo. */
+    /**
+     * Ubica el pedestal en coordenadas específicas.
+     */
     public void setPosition(double x, double y) {
         root.setLayoutX(x);
         root.setLayoutY(y);
     }
 
-    public double getWidth() {
-        return WIDTH;
-    }
+    public double getWidth() { return WIDTH; }
+    public double getHeight() { return HEIGHT; }
+    public ItemId getItemId() { return itemId; }
 
-    public double getHeight() {
-        return HEIGHT;
-    }
-
-    public ItemId getItemId() {
-        return itemId;
-    }
-
+    /**
+     * Actualiza la animación de flotación del icono.
+     */
     @Override
     public void update(double dt) {
         if (taken || dt <= 0.0) {
@@ -155,22 +166,19 @@ public final class ItemPedestal implements GameEntity {
         icon.setTranslateY(-HEIGHT * 0.35 + offset);
     }
 
-    @Override
-    public Node getView() {
-        return root;
-    }
+    @Override public Node getView() { return root; }
+    @Override public Bounds getBounds() { return root.getBoundsInParent(); }
 
-    @Override
-    public Bounds getBounds() {
-        return root.getBoundsInParent();
-    }
-
+    /**
+     * Gestiona la recogida del ítem al colisionar con el jugador.
+     */
     @Override
     public void onCollision(GameEntity other) {
         if (taken || !(other instanceof Player)) {
             return;
         }
 
+        // Intentar dar el ítem (StatsService puede rechazarlo si es repetido o por lógica de juego)
         boolean granted = statsService.grantItem(itemId);
         if (!granted) {
             return;
@@ -179,9 +187,10 @@ public final class ItemPedestal implements GameEntity {
         taken = true;
         playSfx.accept("item");
 
-        // Fallback visual: evita que se quede el nodo si onRemove solo quita del GameLoop.
+        // Eliminar visualmente inmediatamente
         parent.getChildren().remove(root);
 
+        // Solicitar eliminación lógica
         onRemove.accept(this);
     }
 }

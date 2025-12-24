@@ -1,0 +1,23 @@
+.ranking-root {
+    -fx-background-color: transparent;
+}
+
+.ranking-title {
+    -fx-font-size: 24px;
+    -fx-text-fill: #ffd54f;
+}
+
+.ranking-table {
+    -fx-background-color: #222;
+    -fx-border-color: #444;
+    -fx-border-radius: 4;
+}
+
+.col-center {
+    -fx-alignment: CENTER;
+}
+
+.col-right-bold {
+    -fx-alignment: CENTER-RIGHT;
+    -fx-font-weight: bold;
+}

@@ -1,0 +1,77 @@
+.settings-root {
+    -fx-background-color: rgba(0,0,0,0.85);
+}
+
+.transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.settings-content {
+    -fx-margin: 0 auto;
+}
+
+.settings-title {
+    -fx-text-fill: white;
+    -fx-font-size: 24;
+    -fx-font-weight: bold;
+    -fx-font-family: "Upheaval TT (BRK)";
+}
+
+.settings-card {
+    -fx-background-color: #222;
+    -fx-background-radius: 8;
+    -fx-padding: 15;
+}
+
+.section-header-gold {
+    -fx-text-fill: #ffd54f;
+}
+
+.settings-checkbox {
+    -fx-text-fill: white;
+}
+
+.settings-titled-pane {
+    -fx-text-fill: white;
+}
+
+.settings-subcard {
+    -fx-background-color: #333;
+    -fx-padding: 10;
+    -fx-background-radius: 6;
+}
+
+.settings-subtitle {
+    -fx-text-fill: #ffd54f;
+    -fx-font-weight: bold;
+}
+
+.settings-muted-title {
+    -fx-text-fill: #aaa;
+    -fx-font-weight: bold;
+}
+
+.settings-label {
+    -fx-text-fill: white;
+}
+
+.settings-accent-label {
+    -fx-text-fill: #ffd54f;
+}
+
+.settings-muted-checkbox {
+    -fx-text-fill: #888;
+}
+
+.btn-small {
+    -fx-font-size: 12;
+}
+
+.btn-danger {
+    -fx-background-color: #522;
+}
+
+.settings-actions {
+    -fx-padding: 10 0 0 0;
+}

@@ -18,26 +18,45 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.StrokeType;
 
 /**
- * Boss "Hive":
- * - Se mantiene a una distancia objetivo del jugador.
- * - Dispara ráfagas en espiral.
- * - Spawnea drones que orbitan y disparan hacia afuera.
+ * Jefe de tipo "Hive" (Colmena).
+ * <p>
+ * Características:
+ * <ul>
+ * <li>Se mantiene a una distancia media del jugador (ni muy cerca ni muy lejos).</li>
+ * <li>Dispara ráfagas de proyectiles en espiral.</li>
+ * <li>Invoca y mantiene "Drones" que orbitan a su alrededor y disparan independientemente.</li>
+ * </ul>
+ * </p>
  */
 public class BossHive extends Boss {
 
-    // Ajustes del boss
+    // Configuración de los drones
     private static final int DRONES_COUNT = 4;
     private static final double DRONES_ORBIT_RADIUS = 95.0;
 
-    // Lista de drones vivos (para limpiar en die()).
+    /** Lista de drones activos para limpieza al morir. */
     private final List<Drone> drones = new ArrayList<>();
 
-    // Para spawnear drones una sola vez.
+    /** Bandera para asegurar que los drones se spawnean solo una vez. */
     private boolean dronesSpawned = false;
 
-    // Ángulo acumulado de la espiral.
+    /** Ángulo acumulado para generar el efecto de espiral en los disparos. */
     private double spiralAngle = 0.0;
 
+    /**
+     * Constructor del BossHive.
+     * Configura el aspecto visual (púrpura) y una velocidad menor.
+     *
+     * @param x                 Posición X.
+     * @param y                 Posición Y.
+     * @param maxHp             Vida máxima.
+     * @param parent            Panel padre.
+     * @param playerPos         Supplier posición jugador.
+     * @param onDeath           Callback muerte.
+     * @param onSpawnProjectile Callback spawn.
+     * @param onRemoveProjectile Callback remove.
+     * @param bossId            ID del boss.
+     */
     public BossHive(
             double x,
             double y,
@@ -57,26 +76,26 @@ public class BossHive extends Boss {
         this.view.setStrokeType(StrokeType.INSIDE);
         this.view.setEffect(new DropShadow(24, Color.MEDIUMPURPLE));
 
-        this.speed = 28.0; // más lento
+        this.speed = 28.0; // Más lento que el promedio
     }
 
     /**
      * Update principal.
-     * - Si hp cae a 0 por cualquier motivo, llama a die() (robustez).
-     * - Spawnea drones una sola vez.
-     * - Se mueve para mantener distancia media.
-     * - Dispara espiral.
+     * Gestiona el spawn único de drones, el movimiento y los ataques.
+     *
+     * @param dt Delta time.
      */
     @Override
     public void update(double dt) {
         if (dead) return;
 
-        // Robustez: evita quedar "zombie" si hp llega a 0 fuera de takeDamage()
+        // Robustez: verificar muerte por hp <= 0
         if (hp <= 0.0) {
             die();
             return;
         }
 
+        // Spawn inicial de los drones
         if (!dronesSpawned) {
             dronesSpawned = true;
             spawnDrones();
@@ -87,7 +106,10 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Movimiento: se acerca o se aleja para mantenerse alrededor de una distancia objetivo.
+     * Lógica de movimiento inteligente.
+     * Intenta mantener una distancia "targetDist" del jugador.
+     *
+     * @param dt Delta time.
      */
     private void updateMovement(double dt) {
         double[] p = playerPos.get();
@@ -103,7 +125,7 @@ public class BossHive extends Boss {
 
         double targetDist = (phase == 1) ? 280.0 : 320.0;
 
-        // move = 1 => acercarse, -1 => alejarse, 0 => quedarse
+        // move = 1 (acercarse), -1 (alejarse), 0 (quieto)
         double move;
         if (dist > targetDist + 40.0) move = 1.0;
         else if (dist < targetDist - 40.0) move = -1.0;
@@ -116,7 +138,9 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Gestiona el timer del ataque y ejecuta la espiral.
+     * Gestiona el temporizador de ataque y dispara la espiral.
+     *
+     * @param dt Delta time.
      */
     private void updateAttacks(double dt) {
         attackTimer += dt;
@@ -127,7 +151,8 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Ataque en espiral.
+     * Ejecuta el ataque de espiral.
+     * Genera múltiples proyectiles en anillo que rotan ligeramente en cada disparo.
      */
     @Override
     protected void performAttack() {
@@ -136,7 +161,7 @@ public class BossHive extends Boss {
         int count = (phase == 1) ? 10 : 14;
         double projSpeed = (phase == 1) ? 190.0 : 220.0;
 
-        // Cada ataque gira un poco
+        // Incrementa el ángulo para que el siguiente disparo esté rotado (efecto espiral)
         spiralAngle += (phase == 1) ? 0.35 : 0.55;
 
         double bx = view.getLayoutX();
@@ -149,9 +174,7 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Spawnea los drones orbitando alrededor del boss.
-     * Importante:
-     * - Cada drone avisa cuando se destruye para quitarse de la lista "drones".
+     * Crea e invoca los drones que orbitarán al jefe.
      */
     private void spawnDrones() {
         for (int i = 0; i < DRONES_COUNT; i++) {
@@ -165,7 +188,7 @@ public class BossHive extends Boss {
                     onSpawnProjectile,
                     onRemoveProjectile,
                     bossId,
-                    destroyed -> drones.remove(destroyed) // ✅ evita leaks y dobles referencias
+                    destroyed -> drones.remove(destroyed) // Callback para auto-eliminarse de la lista
             );
 
             drones.add(d);
@@ -174,7 +197,7 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Helper centralizado para crear y spawnear proyectiles sin duplicar código.
+     * Helper para disparar proyectiles del BossHive.
      */
     private void spawnProjectile(double dirX, double dirY, double speed, double radius, double damage, double x, double y) {
         Projectile p = new Projectile(
@@ -193,10 +216,7 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Al morir:
-     * - Destruye drones vivos (idempotente).
-     * - Limpia lista.
-     * - Llama a super.die().
+     * Al morir, destruye todos los drones asociados.
      */
     @Override
     protected void die() {
@@ -208,7 +228,7 @@ public class BossHive extends Boss {
     }
 
     /**
-     * Color normal tras daño.
+     * Restablece el color a púrpura tras daño.
      */
     @Override
     protected void updateColor() {
@@ -216,15 +236,11 @@ public class BossHive extends Boss {
     }
 
     // =========================================================
-    // Drone orbitando que dispara hacia afuera
+    // Clase interna: Drone
     // =========================================================
 
     /**
-     * Drone:
-     * - Orbita al boss.
-     * - Dispara hacia afuera según su ángulo.
-     *
-     * Nota: destrucción idempotente para evitar dobles onRemove().
+     * Entidad Drone que orbita alrededor de su jefe dueño y dispara hacia el exterior.
      */
     private static final class Drone implements GameEntity {
 
@@ -244,6 +260,18 @@ public class BossHive extends Boss {
         private double fireTimer = 0.0;
         private boolean destroyed = false;
 
+        /**
+         * Crea un Drone.
+         *
+         * @param boss       Instancia del jefe al que orbita.
+         * @param startAngle Ángulo inicial en la órbita.
+         * @param radius     Radio de la órbita.
+         * @param parent     Panel padre.
+         * @param onSpawn    Callback spawn.
+         * @param onRemove   Callback remove.
+         * @param bossId     ID del boss.
+         * @param onDestroyed Callback limpieza.
+         */
         Drone(
                 BossHive boss,
                 double startAngle,
@@ -278,13 +306,13 @@ public class BossHive extends Boss {
         public void update(double dt) {
             if (destroyed) return;
 
-            // Si el boss ya no existe, el drone se auto-destruye una sola vez
+            // Auto-destrucción si el jefe muere
             if (boss.dead || boss.hp <= 0.0) {
                 forceDestroy();
                 return;
             }
 
-            // Orbitar
+            // Actualizar posición orbital
             double rotSpeed = (boss.phase == 1) ? 1.4 : 2.1;
             angle += rotSpeed * dt;
             syncPos();
@@ -299,7 +327,7 @@ public class BossHive extends Boss {
         }
 
         /**
-         * Sincroniza posición orbital respecto al boss.
+         * Sincroniza la posición del drone basándose en la posición del jefe y el ángulo orbital.
          */
         private void syncPos() {
             double bx = boss.view.getLayoutX();
@@ -309,7 +337,7 @@ public class BossHive extends Boss {
         }
 
         /**
-         * Dispara hacia afuera (dirección del ángulo actual).
+         * Dispara un proyectil en la dirección vectorial hacia afuera de la órbita.
          */
         private void shoot() {
             double vx = Math.cos(angle);
@@ -334,7 +362,7 @@ public class BossHive extends Boss {
         }
 
         /**
-         * Destruye el drone de forma segura e idempotente.
+         * Destruye el drone inmediatamente.
          */
         void forceDestroy() {
             if (destroyed) return;
@@ -342,8 +370,6 @@ public class BossHive extends Boss {
 
             parent.getChildren().remove(view);
             onRemove.accept(this);
-
-            // ✅ importante: quitarse de la lista del boss
             onDestroyed.accept(this);
         }
 

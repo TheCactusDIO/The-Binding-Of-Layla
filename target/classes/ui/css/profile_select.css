@@ -1,0 +1,40 @@
+.profile-root {
+    -fx-background-color: #111111;
+}
+
+.profile-title {
+    -fx-text-fill: white;
+    -fx-font-family: "Upheaval TT (BRK)";
+    -fx-font-size: 42px;
+    -fx-effect: dropshadow(gaussian, black, 5, 0.5, 0, 0);
+}
+
+.slot-button {
+    -fx-background-color: #222;
+    -fx-border-color: #444;
+    -fx-border-width: 2;
+    -fx-cursor: hand;
+}
+
+.slot-name {
+    -fx-text-fill: #ffd54f;
+    -fx-font-weight: bold;
+    -fx-font-size: 22px;
+}
+
+.slot-stats {
+    -fx-text-fill: #aaa;
+    -fx-font-size: 14px;
+}
+
+.slot-control-button {
+    -fx-font-size: 11px;
+    -fx-background-color: #333;
+    -fx-text-fill: white;
+    -fx-cursor: hand;
+}
+
+.slot-control-danger {
+    -fx-background-color: #522;
+    -fx-text-fill: #ffaaaa;
+}

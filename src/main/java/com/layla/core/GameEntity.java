@@ -5,36 +5,36 @@ import javafx.geometry.Bounds;
 import javafx.scene.Node;
 
 /**
- * Contrato base para entidades actualizadas por el game loop y, opcionalmente, colisionables.
+ * Interfaz base para todas las entidades del juego.
+ * <p>Define el contrato básico para ser gestionado por el {@link GameLoop}: actualización lógica y representación visual/física.</p>
  */
 public interface GameEntity {
 
     /**
-     * Bounds de respaldo para entidades sin vista (mantiene el código de colisiones seguro ante null).
+     * Límites vacíos y seguros para entidades que no tienen representación visual o física.
+     * Evita devolver null en {@link #getBounds()}.
      */
     Bounds EMPTY_BOUNDS = new BoundingBox(-1_000_000_000, -1_000_000_000, 0, 0);
 
     /**
-     * Actualiza la entidad.
+     * Método de actualización lógica llamado en cada frame.
      *
-     * @param dt delta time en segundos
+     * @param dt Delta time en segundos (tiempo transcurrido desde el último frame).
      */
     void update(double dt);
 
     /**
-     * Devuelve el nodo JavaFX que representa visualmente a la entidad.
+     * Obtiene el nodo JavaFX que representa visualmente a la entidad.
      *
-     * @return nodo de la entidad (puede ser null)
+     * @return Nodo gráfico o null si la entidad es invisible/lógica.
      */
     Node getView();
 
     /**
-     * Devuelve los límites de colisión.
+     * Obtiene los límites de colisión de la entidad.
+     * <p>Por defecto delega en los bounds del nodo visual ({@link #getView()}).</p>
      *
-     * <p>Por defecto, se usan los bounds del nodo JavaFX en el padre.</p>
-     * <p>Si la entidad no tiene vista, devuelve unos bounds vacíos seguros.</p>
-     *
-     * @return bounds de colisión
+     * @return Bounds para cálculos de colisión.
      */
     default Bounds getBounds() {
         Node v = getView();
@@ -42,9 +42,10 @@ public interface GameEntity {
     }
 
     /**
-     * Hook opcional de colisión.
+     * Callback invocado cuando esta entidad colisiona con otra.
+     * <p>La implementación por defecto no hace nada.</p>
      *
-     * @param other otra entidad con la que colisiona
+     * @param other La otra entidad involucrada en la colisión.
      */
     default void onCollision(GameEntity other) {}
 }
