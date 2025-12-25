@@ -20,7 +20,7 @@ import javafx.scene.layout.Pane;
  *
  * <p>Responsabilidades principales:</p>
  * <ul>
- *   <li>Gestionar el cooldown entre disparos en función del {@link PlayerStatId#FIRE_RATE}.</li>
+ *   <li>Gestionar el cooldown entre disparos en función del {@link PlayerStatId#CADENCIA}.</li>
  *   <li>Guardar y actualizar la dirección de apuntado (aim) a partir del vector de movimiento o un aim explícito.</li>
  *   <li>Spawnear proyectiles con sus parámetros (velocidad, vida, daño, etc.) según las stats actuales.</li>
  *   <li>Soportar disparo múltiple (spread), pierce, bounce y homing.</li>
@@ -120,8 +120,8 @@ public final class ShootingService {
      * <p>Reglas:</p>
      * <ul>
      *   <li>Si el cooldown interno ({@link #timer}) sigue activo, no dispara.</li>
-     *   <li>El cooldown se calcula como {@code 1 / FIRE_RATE}. Si {@code FIRE_RATE <= 0}, no dispara.</li>
-     *   <li>El número de proyectiles por disparo se toma de {@link PlayerStatId#PROJECTILE_COUNT} (mínimo 1).</li>
+     *   <li>El cooldown se calcula como {@code 1 / CADENCIA}. Si {@code CADENCIA <= 0}, no dispara.</li>
+     *   <li>El número de proyectiles por disparo se toma de {@link PlayerStatId#NUMERO_DE_PROYECTILES} (mínimo 1).</li>
      *   <li>Aplica una dispersión (spread) fija según el número de proyectiles.</li>
      * </ul>
      *
@@ -144,18 +144,18 @@ public final class ShootingService {
         Objects.requireNonNull(loop, "loop");
         Objects.requireNonNull(owner, "owner");
 
-        double fireRate = statsService.getStat(PlayerStatId.FIRE_RATE);
+        double fireRate = statsService.getStat(PlayerStatId.CADENCIA);
         double fireCooldown = fireRate > 0.0 ? (1.0 / fireRate) : Double.POSITIVE_INFINITY;
         if (timer > 0.0 || !Double.isFinite(fireCooldown) || fireCooldown <= 0.0) return false;
 
-        double projectileSpeed = statsService.getStat(PlayerStatId.PROJECTILE_SPEED);
-        double lifetime = statsService.getStat(PlayerStatId.PROJECTILE_RANGE);
-        double damage = statsService.getStat(PlayerStatId.PROJECTILE_DAMAGE);
+        double projectileSpeed = statsService.getStat(PlayerStatId.VELOCIDAD_DEL_PROYECTIL);
+        double lifetime = statsService.getStat(PlayerStatId.RANGO_DEL_PROYECTIL);
+        double damage = statsService.getStat(PlayerStatId.DAÑO_DEL_PROYECTIL);
 
-        int pierce = (int) statsService.getStat(PlayerStatId.PROJECTILE_PIERCE);
-        int bounce = (int) statsService.getStat(PlayerStatId.PROJECTILE_BOUNCE);
-        int count = Math.max(1, (int) statsService.getStat(PlayerStatId.PROJECTILE_COUNT));
-        boolean homing = statsService.getStat(PlayerStatId.PROJECTILE_HOMING) > 0;
+        int pierce = (int) statsService.getStat(PlayerStatId.PENETRACIÓN_DEL_PROYECTIL);
+        int bounce = (int) statsService.getStat(PlayerStatId.REBOTE_DEL_PROYECTIL);
+        int count = Math.max(1, (int) statsService.getStat(PlayerStatId.NUMERO_DE_PROYECTILES));
+        boolean homing = statsService.getStat(PlayerStatId.AUTOAPUNTADO_DEL_PROYECTIL) > 0;
 
         double ax = aimX;
         double ay = aimY;

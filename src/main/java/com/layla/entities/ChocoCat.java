@@ -50,7 +50,7 @@ public class ChocoCat implements GameEntity {
     private static final double RENDER_SCALE = 0.35;
 
     // Velocidades y tiempos de animación
-    private static final double MOVE_SPEED = 40.0;
+    private static final double VELOCIDAD_DE_MOVIMIENTO = 40.0;
     private static final double ANIM_SPEED_SLEEPING = 1.0; // Lento (respirar)
     private static final double ANIM_SPEED_DEFAULT = 0.2;  // Normal (caminar)
 
@@ -190,10 +190,10 @@ public class ChocoCat implements GameEntity {
 
         int dir = RNG.nextInt(4);
         switch (dir) {
-            case 0 -> { currentDirection = Direction.UP;    velX = 0.0;        velY = -MOVE_SPEED; }
-            case 1 -> { currentDirection = Direction.DOWN;  velX = 0.0;        velY =  MOVE_SPEED; }
-            case 2 -> { currentDirection = Direction.LEFT;  velX = -MOVE_SPEED; velY = 0.0;        }
-            default -> { currentDirection = Direction.RIGHT; velX =  MOVE_SPEED; velY = 0.0;        }
+            case 0 -> { currentDirection = Direction.UP;    velX = 0.0;        velY = -VELOCIDAD_DE_MOVIMIENTO; }
+            case 1 -> { currentDirection = Direction.DOWN;  velX = 0.0;        velY =  VELOCIDAD_DE_MOVIMIENTO; }
+            case 2 -> { currentDirection = Direction.LEFT;  velX = -VELOCIDAD_DE_MOVIMIENTO; velY = 0.0;        }
+            default -> { currentDirection = Direction.RIGHT; velX =  VELOCIDAD_DE_MOVIMIENTO; velY = 0.0;        }
         }
     }
 

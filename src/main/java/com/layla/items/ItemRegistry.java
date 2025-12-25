@@ -49,9 +49,9 @@ public final class ItemRegistry {
                 "Odd Mushroom (Thin)",
                 "Cadencia de fuego ↑ + Velocidad ↑ + Daño ↓.",
                 List.of(
-                        StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 2.0),
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, 30.0),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 0.9)
+                        StatModifier.multiplicative(PlayerStatId.CADENCIA, 2.0),
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 30.0),
+                        StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.9)
                 )),
                 "/assets/images/odd_mushroom_thin.png"
         );
@@ -60,10 +60,10 @@ public final class ItemRegistry {
                 "Odd Mushroom (Large)",
                 "Vida máx. ↑ + Daño ↑ + Alcance ↑ + Velocidad ↓.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 20.0),
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, -20.0)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0),
+                        StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 20.0),
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, -20.0)
                 )),
                 "/assets/images/odd_mushroom_large.png"
         );
@@ -72,8 +72,8 @@ public final class ItemRegistry {
                 "Growth Hormones",
                 "Daño ↑ + Velocidad ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0),
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0)
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0),
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 20.0)
                 )),
                 "/assets/images/growth_hormones.png"
         );
@@ -82,8 +82,8 @@ public final class ItemRegistry {
                 "Jesus Juice",
                 "Daño ↑ + Alcance ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.5),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 40.0)
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.5),
+                        StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 40.0)
                 )),
                 "/assets/images/jesus_juice.png"
         );
@@ -92,8 +92,8 @@ public final class ItemRegistry {
                 "Roid Rage",
                 "Velocidad ↑ + Alcance ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 20.0)
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 20.0),
+                        StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 20.0)
                 )),
                 "/assets/images/roid_rage.png"
         );
@@ -102,7 +102,7 @@ public final class ItemRegistry {
         register(shopLocked(ItemId.THE_BELT,
                 "The Belt",
                 "Velocidad ↑.",
-                List.of(StatModifier.additive(PlayerStatId.MOVE_SPEED, 25.0)),
+                List.of(StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 25.0)),
                 ACH_FLOOR_MASTER_1),
                 "/assets/images/the_belt.png"
         );
@@ -110,7 +110,7 @@ public final class ItemRegistry {
         register(shop(ItemId.WOODEN_SPOON,
                 "Wooden Spoon",
                 "Velocidad ↑.",
-                List.of(StatModifier.additive(PlayerStatId.MOVE_SPEED, 25.0))),
+                List.of(StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 25.0))),
                 "/assets/images/wooden_spoon.png"
         );
 
@@ -120,8 +120,8 @@ public final class ItemRegistry {
                 "Stigmata",
                 "Vida máx. ↑ + Daño ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.3)
                 ),
                 ACH_TRY_AGAIN),
                 "/assets/images/stigmata.png"
@@ -131,9 +131,9 @@ public final class ItemRegistry {
                 "Blue Cap",
                 "Vida máx. ↑ + Lágrimas ↑ + Velocidad de proyectil ↓.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.FIRE_RATE, 0.7),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 0.8)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.CADENCIA, 0.7),
+                        StatModifier.multiplicative(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, 0.8)
                 )),
                 "/assets/images/blue_cap.png"
         );
@@ -142,8 +142,8 @@ public final class ItemRegistry {
                 "Stem Cells",
                 "Vida máx. ↑ + Velocidad de proyectil ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 1.16)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.multiplicative(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, 1.16)
                 )),
                 "/assets/images/stem_cells.png"
         );
@@ -152,10 +152,10 @@ public final class ItemRegistry {
                 "SMB Super Fan",
                 "Todas las estadísticas ↑... pero te sientes más lento.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3),
-                        StatModifier.additive(PlayerStatId.FIRE_RATE, 0.2),
-                        StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 0.85)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.3),
+                        StatModifier.additive(PlayerStatId.CADENCIA, 0.2),
+                        StatModifier.multiplicative(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 0.85)
                 )),
                 "/assets/images/smb_super_fan.png"
         );
@@ -164,10 +164,10 @@ public final class ItemRegistry {
                 "Capricorn",
                 "Todas las estadísticas ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.5),
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, 15.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 1.0)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.5),
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 15.0),
+                        StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 1.0)
                 )),
                 "/assets/images/capricorn.png"
         );
@@ -178,8 +178,8 @@ public final class ItemRegistry {
                 "Meat!",
                 "Vida máx. ↑ + Daño ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.3)
                 ),
                 ACH_FIRST_KILL),
                 "/assets/images/meat.png"
@@ -190,10 +190,10 @@ public final class ItemRegistry {
                 "The Halo",
                 "Todas las estadísticas ↑.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3),
-                        StatModifier.additive(PlayerStatId.FIRE_RATE, 0.2),
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, 15.0)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.3),
+                        StatModifier.additive(PlayerStatId.CADENCIA, 0.2),
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 15.0)
                 ),
                 ACH_NOVICE_HUNTER),
                 "/assets/images/halo.png"
@@ -203,8 +203,8 @@ public final class ItemRegistry {
                 "Bucket of Lard",
                 "Mucha vida ↑, velocidad ↓.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 4.0),
-                        StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 0.85)
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 4.0),
+                        StatModifier.multiplicative(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 0.85)
                 )),
                 "/assets/images/lard.png"
         );
@@ -214,8 +214,8 @@ public final class ItemRegistry {
                 "Cricket's Head",
                 "Daño masivo.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.5),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 1.5)
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.5),
+                        StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.5)
                 ),
                 ACH_POCKET_MONEY),
                 "/assets/images/crickets_head.png"
@@ -225,8 +225,8 @@ public final class ItemRegistry {
                 "Synthoil",
                 "Daño + Alcance.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 50.0)
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0),
+                        StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 50.0)
                 )),
                 "/assets/images/synthoil.png"
         );
@@ -234,7 +234,7 @@ public final class ItemRegistry {
         register(shop(ItemId.PENTAGRAM,
                 "Pentagram",
                 "Daño ↑.",
-                List.of(StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0))),
+                List.of(StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0))),
                 "/assets/images/pentagram.png"
         );
 
@@ -243,8 +243,8 @@ public final class ItemRegistry {
                 "The Inner Eye",
                 "Triple disparo, pero menor cadencia de fuego.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 2.0),
-                        StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.7)
+                        StatModifier.additive(PlayerStatId.NUMERO_DE_PROYECTILES, 2.0),
+                        StatModifier.multiplicative(PlayerStatId.CADENCIA, 0.7)
                 )),
                 "/assets/images/tripleshot.png"
         );
@@ -254,8 +254,8 @@ public final class ItemRegistry {
                 "Mutant Spider",
                 "Cuádruple disparo, mucho más lento.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 3.0),
-                        StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.55)
+                        StatModifier.additive(PlayerStatId.NUMERO_DE_PROYECTILES, 3.0),
+                        StatModifier.multiplicative(PlayerStatId.CADENCIA, 0.55)
                 ),
                 ACH_GEAR_UP),
                 "/assets/images/quadshot.png"
@@ -264,14 +264,14 @@ public final class ItemRegistry {
         register(shop(ItemId.CUPIDS_ARROW,
                 "Cupid's Arrow",
                 "Disparos perforantes.",
-                List.of(StatModifier.additive(PlayerStatId.PROJECTILE_PIERCE, 1.0))),
+                List.of(StatModifier.additive(PlayerStatId.PENETRACIÓN_DEL_PROYECTIL, 1.0))),
                 "/assets/images/piercing.png"
         );
 
         register(shop(ItemId.RUBBER_CEMENT,
                 "Rubber Cement",
                 "Lágrimas rebotantes.",
-                List.of(StatModifier.additive(PlayerStatId.PROJECTILE_BOUNCE, 1.0))),
+                List.of(StatModifier.additive(PlayerStatId.REBOTE_DEL_PROYECTIL, 1.0))),
                 "/assets/images/bouncing.png"
         );
 
@@ -279,7 +279,7 @@ public final class ItemRegistry {
         register(shopLocked(ItemId.SPOON_BENDER,
                 "Spoon Bender",
                 "Disparos teledirigidos.",
-                List.of(StatModifier.additive(PlayerStatId.PROJECTILE_HOMING, 1.0)),
+                List.of(StatModifier.additive(PlayerStatId.AUTOAPUNTADO_DEL_PROYECTIL, 1.0)),
                 ACH_BIG_SPENDER),
                 "/assets/images/homing.png"
         );
@@ -292,7 +292,7 @@ public final class ItemRegistry {
         register(bossLocked(ItemId.THE_WAFER,
                 "The Wafer",
                 "¡¡¡VIDA ↑!!!.",
-                List.of(StatModifier.additive(PlayerStatId.MAX_HEALTH, 6.0)),
+                List.of(StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 6.0)),
                 ACH_BOSS_SLAYER),
                 "/assets/images/wafer.png"
         );
@@ -301,10 +301,10 @@ public final class ItemRegistry {
                 "Magic Mushroom",
                 "¡Todas las estadísticas ↑! (Fuerte)",
                 List.of(
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 1.5),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 30.0),
-                        StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.5),
+                        StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 30.0),
+                        StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 20.0
                         )
                 )),
                 "/assets/images/magic_mushroom.png"
@@ -315,11 +315,11 @@ public final class ItemRegistry {
                 "Sacred Heart",
                 "Teledirigido + Daño + Vida.",
                 List.of(
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 2.3),
-                        StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
-                        StatModifier.additive(PlayerStatId.PROJECTILE_HOMING, 1.0),
-                        StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.6),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 0.75)
+                        StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 2.3),
+                        StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
+                        StatModifier.additive(PlayerStatId.AUTOAPUNTADO_DEL_PROYECTIL, 1.0),
+                        StatModifier.multiplicative(PlayerStatId.CADENCIA, 0.6),
+                        StatModifier.multiplicative(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, 0.75)
                 ),
                 ACH_THE_END),
                 "/assets/images/sacred_heart.png"
@@ -328,7 +328,7 @@ public final class ItemRegistry {
         register(boss(ItemId.TWENTY_TWENTY,
                 "20/20",
                 "Doble disparo.",
-                List.of(StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 1.0))),
+                List.of(StatModifier.additive(PlayerStatId.NUMERO_DE_PROYECTILES, 1.0))),
                 "/assets/images/20_20.png"
         );
 
@@ -337,9 +337,9 @@ public final class ItemRegistry {
                 "Polyphemus",
                 "Mega lágrimas.",
                 List.of(
-                        StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 4.0),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 2.0),
-                        StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.4)
+                        StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 4.0),
+                        StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 2.0),
+                        StatModifier.multiplicative(PlayerStatId.CADENCIA, 0.4)
                 ),
                 ACH_SURVIVOR),
                 "/assets/images/polyphemus.png"
@@ -349,8 +349,8 @@ public final class ItemRegistry {
                 "Soy Milk",
                 "Daño ↓, cadencia de fuego muy ↑.",
                 List.of(
-                        StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 5.0),
-                        StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 0.2)
+                        StatModifier.multiplicative(PlayerStatId.CADENCIA, 5.0),
+                        StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.2)
                 )),
                 "/assets/images/soy_milk.png"
         );

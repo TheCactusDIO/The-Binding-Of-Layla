@@ -105,7 +105,7 @@ loadScripts(document, 'script');</script>
  <p>Estas estadísticas afectan al movimiento, el disparo (proyectiles) y la supervivencia.</p>
 
  <p><strong>Nota:</strong> las unidades exactas dependen de la implementación del sistema de combate
- (por ejemplo, si <code>PROJECTILE_RANGE</code> se interpreta como segundos de vida o como distancia).</p></div>
+ (por ejemplo, si <code>RANGO_DEL_PROYECTIL</code> se interpreta como segundos de vida o como distancia).</p></div>
 </section>
 <section class="summary">
 <ul class="summary-list">
@@ -126,43 +126,43 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Enum Constant</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code><a href="#FIRE_RATE" class="member-name-link">FIRE_RATE</a></code></div>
+<div class="col-first even-row-color"><code><a href="#CADENCIA" class="member-name-link">CADENCIA</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">Cadencia de disparo (disparos por segundo).</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#MAX_HEALTH" class="member-name-link">MAX_HEALTH</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#VIDA_MAXIMA" class="member-name-link">VIDA_MAXIMA</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Vida máxima del jugador (por ejemplo, HP; si usas corazones, define la conversión en tu HUD).</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#MOVE_SPEED" class="member-name-link">MOVE_SPEED</a></code></div>
+<div class="col-first even-row-color"><code><a href="#VELOCIDAD_DE_MOVIMIENTO" class="member-name-link">VELOCIDAD_DE_MOVIMIENTO</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">Velocidad de movimiento del jugador (normalmente en px/s).</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#PROJECTILE_BOUNCE" class="member-name-link">PROJECTILE_BOUNCE</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#REBOTE_DEL_PROYECTIL" class="member-name-link">REBOTE_DEL_PROYECTIL</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Número de rebotes que puede realizar un proyectil.</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#PROJECTILE_COUNT" class="member-name-link">PROJECTILE_COUNT</a></code></div>
+<div class="col-first even-row-color"><code><a href="#NUMERO_DE_PROYECTILES" class="member-name-link">NUMERO_DE_PROYECTILES</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">Número de proyectiles por disparo.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#PROJECTILE_DAMAGE" class="member-name-link">PROJECTILE_DAMAGE</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#DAÑO_DEL_PROYECTIL" class="member-name-link">DAÑO_DEL_PROYECTIL</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Daño por impacto del proyectil (HP por golpe).</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#PROJECTILE_HOMING" class="member-name-link">PROJECTILE_HOMING</a></code></div>
+<div class="col-first even-row-color"><code><a href="#AUTOAPUNTADO_DEL_PROYECTIL" class="member-name-link">AUTOAPUNTADO_DEL_PROYECTIL</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">Capacidad de “perseguir” enemigos (proyectil con guiado).</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#PROJECTILE_PIERCE" class="member-name-link">PROJECTILE_PIERCE</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#PENETRACIÓN_DEL_PROYECTIL" class="member-name-link">PENETRACIÓN_DEL_PROYECTIL</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Número de enemigos que atraviesa un proyectil antes de desaparecer.</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#PROJECTILE_RANGE" class="member-name-link">PROJECTILE_RANGE</a></code></div>
+<div class="col-first even-row-color"><code><a href="#RANGO_DEL_PROYECTIL" class="member-name-link">RANGO_DEL_PROYECTIL</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">Alcance del proyectil (segundos de vida o distancia efectiva, según tu lógica).</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#PROJECTILE_SPEED" class="member-name-link">PROJECTILE_SPEED</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#VELOCIDAD_DEL_PROYECTIL" class="member-name-link">VELOCIDAD_DEL_PROYECTIL</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Velocidad del proyectil (normalmente en px/s).</div>
 </div>
@@ -227,72 +227,72 @@ the order they are declared.</div>
 <h2>Enum Constant Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="MOVE_SPEED">
-<h3>MOVE_SPEED</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">MOVE_SPEED</span></div>
+<section class="detail" id="VELOCIDAD_DE_MOVIMIENTO">
+<h3>VELOCIDAD_DE_MOVIMIENTO</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">VELOCIDAD_DE_MOVIMIENTO</span></div>
 <div class="block">Velocidad de movimiento del jugador (normalmente en px/s).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="MAX_HEALTH">
-<h3>MAX_HEALTH</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">MAX_HEALTH</span></div>
+<section class="detail" id="VIDA_MAXIMA">
+<h3>VIDA_MAXIMA</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">VIDA_MAXIMA</span></div>
 <div class="block">Vida máxima del jugador (por ejemplo, HP; si usas corazones, define la conversión en tu HUD).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="FIRE_RATE">
-<h3>FIRE_RATE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">FIRE_RATE</span></div>
+<section class="detail" id="CADENCIA">
+<h3>CADENCIA</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">CADENCIA</span></div>
 <div class="block">Cadencia de disparo (disparos por segundo).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_SPEED">
-<h3>PROJECTILE_SPEED</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_SPEED</span></div>
+<section class="detail" id="VELOCIDAD_DEL_PROYECTIL">
+<h3>VELOCIDAD_DEL_PROYECTIL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">VELOCIDAD_DEL_PROYECTIL</span></div>
 <div class="block">Velocidad del proyectil (normalmente en px/s).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_RANGE">
-<h3>PROJECTILE_RANGE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_RANGE</span></div>
+<section class="detail" id="RANGO_DEL_PROYECTIL">
+<h3>RANGO_DEL_PROYECTIL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">RANGO_DEL_PROYECTIL</span></div>
 <div class="block">Alcance del proyectil (segundos de vida o distancia efectiva, según tu lógica).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_DAMAGE">
-<h3>PROJECTILE_DAMAGE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_DAMAGE</span></div>
+<section class="detail" id="DAÑO_DEL_PROYECTIL">
+<h3>DAÑO_DEL_PROYECTIL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">DAÑO_DEL_PROYECTIL</span></div>
 <div class="block">Daño por impacto del proyectil (HP por golpe).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_COUNT">
-<h3>PROJECTILE_COUNT</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_COUNT</span></div>
+<section class="detail" id="NUMERO_DE_PROYECTILES">
+<h3>NUMERO_DE_PROYECTILES</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">NUMERO_DE_PROYECTILES</span></div>
 <div class="block">Número de proyectiles por disparo.</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_PIERCE">
-<h3>PROJECTILE_PIERCE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_PIERCE</span></div>
+<section class="detail" id="PENETRACIÓN_DEL_PROYECTIL">
+<h3>PENETRACIÓN_DEL_PROYECTIL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PENETRACIÓN_DEL_PROYECTIL</span></div>
 <div class="block">Número de enemigos que atraviesa un proyectil antes de desaparecer.</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_BOUNCE">
-<h3>PROJECTILE_BOUNCE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_BOUNCE</span></div>
+<section class="detail" id="REBOTE_DEL_PROYECTIL">
+<h3>REBOTE_DEL_PROYECTIL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">REBOTE_DEL_PROYECTIL</span></div>
 <div class="block">Número de rebotes que puede realizar un proyectil.</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PROJECTILE_HOMING">
-<h3>PROJECTILE_HOMING</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">PROJECTILE_HOMING</span></div>
+<section class="detail" id="AUTOAPUNTADO_DEL_PROYECTIL">
+<h3>AUTOAPUNTADO_DEL_PROYECTIL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">AUTOAPUNTADO_DEL_PROYECTIL</span></div>
 <div class="block">Capacidad de “perseguir” enemigos (proyectil con guiado).</div>
 </section>
 </li>
@@ -336,7 +336,7 @@ the order they are declared.</div>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="PlayerStatId.html" title="enum class in com.layla.model">PlayerStatId</a></span>&nbsp;<span class="element-name">valueOf</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name)</span></div>
 <div class="block">Returns the enum constant of this class with the specified name.
 The string must match <i>exactly</i> an identifier used to declare an
-enum constant in this class.  (Extraneous whitespace characters are 
+enum constant in this class.  (Extraneous whitespace characters are
 not permitted.)</div>
 <dl class="notes">
 <dt>Parameters:</dt>

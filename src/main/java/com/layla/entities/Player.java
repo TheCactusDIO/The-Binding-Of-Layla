@@ -280,7 +280,7 @@ public final class Player implements GameEntity {
      */
     private void handleMovement(double dt) {
         double[] mv = moveSupplier.get(); // Vector de input normalizado
-        double maxSpeed = statsService.getStat(PlayerStatId.MOVE_SPEED);
+        double maxSpeed = statsService.getStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO);
 
         double targetVx = mv[0] * maxSpeed;
         double targetVy = mv[1] * maxSpeed;
@@ -506,7 +506,7 @@ public final class Player implements GameEntity {
      * Necesario si algún ítem aumenta la vida máxima dinámicamente.
      */
     private void syncMaxHealthFromStats() {
-        double desiredMax = statsService.getStat(PlayerStatId.MAX_HEALTH);
+        double desiredMax = statsService.getStat(PlayerStatId.VIDA_MAXIMA);
         if (Math.abs(desiredMax - maxHealth) > 1e-6) {
             setMaxHealth(desiredMax);
         }

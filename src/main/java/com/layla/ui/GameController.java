@@ -575,13 +575,13 @@ public class GameController implements ViewLifecycle {
 
         if (charType == CharacterType.THE_FRAGILE) {
             initialMaxHp = 2.0;
-            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.5);
-            statsService.setBaseStat(PlayerStatId.MOVE_SPEED, statsService.getBaseStat(PlayerStatId.MOVE_SPEED) * 1.1);
+            statsService.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.5);
+            statsService.setBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, statsService.getBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO) * 1.1);
         } else {
-            statsService.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, 1.0);
+            statsService.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0);
         }
 
-        statsService.setBaseStat(PlayerStatId.MAX_HEALTH, initialMaxHp);
+        statsService.setBaseStat(PlayerStatId.VIDA_MAXIMA, initialMaxHp);
         player.setMaxHealth(statsService.getMaxHealth());
         player.setHealth(Math.min(player.getHealth(), player.getMaxHealth()));
     }

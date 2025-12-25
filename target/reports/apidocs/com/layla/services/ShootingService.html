@@ -98,7 +98,7 @@ loadScripts(document, 'script');</script>
 
  <p>Responsabilidades principales:</p>
  <ul>
-   <li>Gestionar el cooldown entre disparos en función del <a href="../model/PlayerStatId.html#FIRE_RATE"><code>PlayerStatId.FIRE_RATE</code></a>.</li>
+   <li>Gestionar el cooldown entre disparos en función del <a href="../model/PlayerStatId.html#CADENCIA"><code>PlayerStatId.CADENCIA</code></a>.</li>
    <li>Guardar y actualizar la dirección de apuntado (aim) a partir del vector de movimiento o un aim explícito.</li>
    <li>Spawnear proyectiles con sus parámetros (velocidad, vida, daño, etc.) según las stats actuales.</li>
    <li>Soportar disparo múltiple (spread), pierce, bounce y homing.</li>
@@ -339,8 +339,8 @@ loadScripts(document, 'script');</script>
  <p>Reglas:</p>
  <ul>
    <li>Si el cooldown interno (<a href="#timer"><code>timer</code></a>) sigue activo, no dispara.</li>
-   <li>El cooldown se calcula como <code>1 / FIRE_RATE</code>. Si <code>FIRE_RATE &lt;= 0</code>, no dispara.</li>
-   <li>El número de proyectiles por disparo se toma de <a href="../model/PlayerStatId.html#PROJECTILE_COUNT"><code>PlayerStatId.PROJECTILE_COUNT</code></a> (mínimo 1).</li>
+   <li>El cooldown se calcula como <code>1 / CADENCIA</code>. Si <code>CADENCIA &lt;= 0</code>, no dispara.</li>
+   <li>El número de proyectiles por disparo se toma de <a href="../model/PlayerStatId.html#NUMERO_DE_PROYECTILES"><code>PlayerStatId.NUMERO_DE_PROYECTILES</code></a> (mínimo 1).</li>
    <li>Aplica una dispersión (spread) fija según el número de proyectiles.</li>
  </ul></div>
 <dl class="notes">

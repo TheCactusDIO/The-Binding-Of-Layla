@@ -135,12 +135,12 @@ public final class StatsService {
     /**
      * Restaura estadísticas base por defecto y limpia modificadores e items.
      * <p>
-     * Mantiene el comportamiento actual: además fija {@link PlayerStatId#PROJECTILE_COUNT} a 1.0.
+     * Mantiene el comportamiento actual: además fija {@link PlayerStatId#NUMERO_DE_PROYECTILES} a 1.0.
      * </p>
      */
     public void resetDefaults() {
         baseStats.resetDefaults();
-        baseStats.setBase(PlayerStatId.PROJECTILE_COUNT, 1.0);
+        baseStats.setBase(PlayerStatId.NUMERO_DE_PROYECTILES, 1.0);
 
         runtimeModifiers.clear();
         ownedItems.clear();
@@ -250,32 +250,32 @@ public final class StatsService {
      */
     private double clamp(PlayerStatId statId, double value) {
         return switch (statId) {
-            case MOVE_SPEED, FIRE_RATE, PROJECTILE_SPEED,
-                 PROJECTILE_RANGE, PROJECTILE_DAMAGE, MAX_HEALTH,
-                 PROJECTILE_COUNT, PROJECTILE_PIERCE, PROJECTILE_BOUNCE, PROJECTILE_HOMING
+            case VELOCIDAD_DE_MOVIMIENTO, CADENCIA, VELOCIDAD_DEL_PROYECTIL,
+                 RANGO_DEL_PROYECTIL, DAÑO_DEL_PROYECTIL, VIDA_MAXIMA,
+                 NUMERO_DE_PROYECTILES, PENETRACIÓN_DEL_PROYECTIL, REBOTE_DEL_PROYECTIL, AUTOAPUNTADO_DEL_PROYECTIL
                  -> Math.max(0.0, value);
             default -> value;
         };
     }
 
     /** @return velocidad de movimiento final. */
-    public double getMoveSpeed()        { return getStat(PlayerStatId.MOVE_SPEED); }
+    public double getMoveSpeed()        { return getStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO); }
     /** @return vida máxima final. */
-    public double getMaxHealth()        { return getStat(PlayerStatId.MAX_HEALTH); }
+    public double getMaxHealth()        { return getStat(PlayerStatId.VIDA_MAXIMA); }
     /** @return cadencia final (disparos/segundo). */
-    public double getFireRate()         { return getStat(PlayerStatId.FIRE_RATE); }
+    public double getFireRate()         { return getStat(PlayerStatId.CADENCIA); }
     /** @return velocidad del proyectil final. */
-    public double getProjectileSpeed()  { return getStat(PlayerStatId.PROJECTILE_SPEED); }
+    public double getProjectileSpeed()  { return getStat(PlayerStatId.VELOCIDAD_DEL_PROYECTIL); }
     /** @return alcance/vida del proyectil final. */
-    public double getProjectileRange()  { return getStat(PlayerStatId.PROJECTILE_RANGE); }
+    public double getProjectileRange()  { return getStat(PlayerStatId.RANGO_DEL_PROYECTIL); }
     /** @return daño del proyectil final. */
-    public double getProjectileDamage() { return getStat(PlayerStatId.PROJECTILE_DAMAGE); }
+    public double getProjectileDamage() { return getStat(PlayerStatId.DAÑO_DEL_PROYECTIL); }
     /** @return penetración del proyectil final. */
-    public double getProjectilePierce() { return getStat(PlayerStatId.PROJECTILE_PIERCE); }
+    public double getProjectilePierce() { return getStat(PlayerStatId.PENETRACIÓN_DEL_PROYECTIL); }
     /** @return rebotes del proyectil final. */
-    public double getProjectileBounce() { return getStat(PlayerStatId.PROJECTILE_BOUNCE); }
+    public double getProjectileBounce() { return getStat(PlayerStatId.REBOTE_DEL_PROYECTIL); }
     /** @return número de proyectiles por disparo final. */
-    public double getProjectileCount()  { return getStat(PlayerStatId.PROJECTILE_COUNT); }
+    public double getProjectileCount()  { return getStat(PlayerStatId.NUMERO_DE_PROYECTILES); }
     /** @return capacidad de homing final. */
-    public double getProjectileHoming() { return getStat(PlayerStatId.PROJECTILE_HOMING); }
+    public double getProjectileHoming() { return getStat(PlayerStatId.AUTOAPUNTADO_DEL_PROYECTIL); }
 }

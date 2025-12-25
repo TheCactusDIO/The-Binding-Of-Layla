@@ -203,11 +203,11 @@ public final class SettingsController {
         put(maxHpField, bal.maxHp);
 
         var baseStats = stats.getBaseStats();
-        put(moveSpeedField, baseStats.getBase(PlayerStatId.MOVE_SPEED));
-        put(fireRateField,  baseStats.getBase(PlayerStatId.FIRE_RATE));
-        put(projSpeedField, baseStats.getBase(PlayerStatId.PROJECTILE_SPEED));
-        put(projDamageField,baseStats.getBase(PlayerStatId.PROJECTILE_DAMAGE));
-        put(projRangeField, baseStats.getBase(PlayerStatId.PROJECTILE_RANGE));
+        put(moveSpeedField, baseStats.getBase(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO));
+        put(fireRateField,  baseStats.getBase(PlayerStatId.CADENCIA));
+        put(projSpeedField, baseStats.getBase(PlayerStatId.VELOCIDAD_DEL_PROYECTIL));
+        put(projDamageField,baseStats.getBase(PlayerStatId.DAÑO_DEL_PROYECTIL));
+        put(projRangeField, baseStats.getBase(PlayerStatId.RANGO_DEL_PROYECTIL));
 
         if (coinsSpinner != null && coinsSpinner.getValueFactory() != null) {
             int coinsToShow = (initialCoins != null) ? initialCoins : Math.max(0, bal.startCoins);
@@ -262,13 +262,13 @@ public final class SettingsController {
         double hp = get(maxHpField, bal.maxHp);
         bal.maxHp = hp;
         bal.startHp = hp;
-        stats.setBaseStat(PlayerStatId.MAX_HEALTH, hp);
+        stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, hp);
 
-        stats.setBaseStat(PlayerStatId.MOVE_SPEED,        get(moveSpeedField, stats.getBaseStat(PlayerStatId.MOVE_SPEED)));
-        stats.setBaseStat(PlayerStatId.FIRE_RATE,         get(fireRateField,  stats.getBaseStat(PlayerStatId.FIRE_RATE)));
-        stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED,  get(projSpeedField, stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED)));
-        stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, get(projDamageField,stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE)));
-        stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE,  get(projRangeField, stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE)));
+        stats.setBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO,        get(moveSpeedField, stats.getBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO)));
+        stats.setBaseStat(PlayerStatId.CADENCIA,         get(fireRateField,  stats.getBaseStat(PlayerStatId.CADENCIA)));
+        stats.setBaseStat(PlayerStatId.VELOCIDAD_DEL_PROYECTIL,  get(projSpeedField, stats.getBaseStat(PlayerStatId.VELOCIDAD_DEL_PROYECTIL)));
+        stats.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, get(projDamageField,stats.getBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL)));
+        stats.setBaseStat(PlayerStatId.RANGO_DEL_PROYECTIL,  get(projRangeField, stats.getBaseStat(PlayerStatId.RANGO_DEL_PROYECTIL)));
 
         // --- Monedas ---
         if (coinsSpinner != null && coinsSpinner.getValue() != null) {
@@ -529,14 +529,14 @@ public final class SettingsController {
                 if (dto.maxHp != null) {
                     bal.maxHp = dto.maxHp;
                     bal.startHp = dto.maxHp;
-                    stats.setBaseStat(PlayerStatId.MAX_HEALTH, dto.maxHp);
+                    stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, dto.maxHp);
                 }
 
-                if (dto.moveSpeed != null) stats.setBaseStat(PlayerStatId.MOVE_SPEED, dto.moveSpeed);
-                if (dto.fireRate != null)  stats.setBaseStat(PlayerStatId.FIRE_RATE, dto.fireRate);
-                if (dto.projSpeed != null) stats.setBaseStat(PlayerStatId.PROJECTILE_SPEED, dto.projSpeed);
-                if (dto.projDamage != null)stats.setBaseStat(PlayerStatId.PROJECTILE_DAMAGE, dto.projDamage);
-                if (dto.projRange != null) stats.setBaseStat(PlayerStatId.PROJECTILE_RANGE, dto.projRange);
+                if (dto.moveSpeed != null) stats.setBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, dto.moveSpeed);
+                if (dto.fireRate != null)  stats.setBaseStat(PlayerStatId.CADENCIA, dto.fireRate);
+                if (dto.projSpeed != null) stats.setBaseStat(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, dto.projSpeed);
+                if (dto.projDamage != null)stats.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, dto.projDamage);
+                if (dto.projRange != null) stats.setBaseStat(PlayerStatId.RANGO_DEL_PROYECTIL, dto.projRange);
             }
         } catch (Exception e) {
             System.err.println("[SettingsController] Error cargando stats.json: " + e.getMessage());
@@ -554,11 +554,11 @@ public final class SettingsController {
 
             PersistedDevStats dto = new PersistedDevStats();
             dto.maxHp = AppContext.balance().maxHp;
-            dto.moveSpeed = stats.getBaseStat(PlayerStatId.MOVE_SPEED);
-            dto.fireRate = stats.getBaseStat(PlayerStatId.FIRE_RATE);
-            dto.projSpeed = stats.getBaseStat(PlayerStatId.PROJECTILE_SPEED);
-            dto.projDamage = stats.getBaseStat(PlayerStatId.PROJECTILE_DAMAGE);
-            dto.projRange = stats.getBaseStat(PlayerStatId.PROJECTILE_RANGE);
+            dto.moveSpeed = stats.getBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO);
+            dto.fireRate = stats.getBaseStat(PlayerStatId.CADENCIA);
+            dto.projSpeed = stats.getBaseStat(PlayerStatId.VELOCIDAD_DEL_PROYECTIL);
+            dto.projDamage = stats.getBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL);
+            dto.projRange = stats.getBaseStat(PlayerStatId.RANGO_DEL_PROYECTIL);
 
             try (Writer w = Files.newBufferedWriter(DEV_STATS_PATH)) {
                 GSON.toJson(dto, w);

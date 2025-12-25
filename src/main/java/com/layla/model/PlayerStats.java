@@ -25,21 +25,21 @@ public final class PlayerStats {
     /**
      * Restaura los valores base por defecto.
      * <p>
-     * Importante: este método <b>no</b> fija {@link PlayerStatId#PROJECTILE_COUNT}; eso lo estás
+     * Importante: este método <b>no</b> fija {@link PlayerStatId#NUMERO_DE_PROYECTILES}; eso lo estás
      * haciendo desde {@code StatsService.resetDefaults()} (como en tu código).
      * </p>
      */
     public void resetDefaults() {
-        setBase(PlayerStatId.MOVE_SPEED, 300.0);
-        setBase(PlayerStatId.MAX_HEALTH, 6.0);
-        setBase(PlayerStatId.FIRE_RATE, 15.0);
-        setBase(PlayerStatId.PROJECTILE_SPEED, 400.0);
-        setBase(PlayerStatId.PROJECTILE_RANGE, 10.0);
-        setBase(PlayerStatId.PROJECTILE_DAMAGE, 3.0);
+        setBase(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 300.0);
+        setBase(PlayerStatId.VIDA_MAXIMA, 6.0);
+        setBase(PlayerStatId.CADENCIA, 15.0);
+        setBase(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, 400.0);
+        setBase(PlayerStatId.RANGO_DEL_PROYECTIL, 10.0);
+        setBase(PlayerStatId.DAÑO_DEL_PROYECTIL, 3.0);
 
         // Estadísticas relacionadas con el comportamiento del proyectil.
-        setBase(PlayerStatId.PROJECTILE_PIERCE, 0.0);
-        setBase(PlayerStatId.PROJECTILE_BOUNCE, 0.0);
+        setBase(PlayerStatId.PENETRACIÓN_DEL_PROYECTIL, 0.0);
+        setBase(PlayerStatId.REBOTE_DEL_PROYECTIL, 0.0);
     }
 
     /**
