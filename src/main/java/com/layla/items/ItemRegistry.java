@@ -11,20 +11,20 @@ import com.layla.model.StatModifier;
 import com.layla.services.AchievementService;
 
 /**
- * Static registry of every passive item definition.
+ * Registro estático de todas las definiciones de objetos pasivos.
  *
- * <p>Responsibilities:</p>
+ * <p>Responsabilidades:</p>
  * <ul>
- *   <li>Stores {@link ItemDefinition} metadata for each {@link ItemId}.</li>
- *   <li>Stores icon paths used by UI/pedestals.</li>
- *   <li>Filters items by {@link ItemPoolType} and optional {@link AchievementService} locks.</li>
+ *   <li>Guarda los metadatos de {@link ItemDefinition} para cada {@link ItemId}.</li>
+ *   <li>Guarda las rutas de iconos usadas por la UI/pedestales.</li>
+ *   <li>Filtra objetos por {@link ItemPoolType} y bloqueos opcionales por logros ({@link AchievementService}).</li>
  * </ul>
  */
 public final class ItemRegistry {
 
     private static final String DEFAULT_ICON_PATH = "/assets/images/item1.png";
 
-    // --- Achievement IDs (must match AchievementService) ---
+    // --- IDs de logros (deben coincidir con AchievementService) ---
     private static final String ACH_FIRST_KILL      = "ACH_FIRST_KILL";
     private static final String ACH_NOVICE_HUNTER   = "ACH_NOVICE_HUNTER";
     private static final String ACH_FLOOR_MASTER_1  = "ACH_FLOOR_MASTER_1";
@@ -41,13 +41,13 @@ public final class ItemRegistry {
 
     static {
         // =========================================================
-        // SHOP POOL (antes TREASURE)  +  locks por logros
+        // POOL DE TIENDA (antes TREASURE)  +  bloqueos por logros
         // =========================================================
 
-        // --- WAVE 3: Mushrooms & Speed ---
+        // --- OLEADA 3: Hongos y velocidad ---
         register(shop(ItemId.ODD_MUSHROOM_THIN,
                 "Odd Mushroom (Thin)",
-                "Fire Rate Up + Speed Up + DMG Down.",
+                "Cadencia de fuego ↑ + Velocidad ↑ + Daño ↓.",
                 List.of(
                         StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 2.0),
                         StatModifier.additive(PlayerStatId.MOVE_SPEED, 30.0),
@@ -58,7 +58,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.ODD_MUSHROOM_LARGE,
                 "Odd Mushroom (Large)",
-                "HP Up + DMG Up + Range Up + Speed Down.",
+                "Vida máx. ↑ + Daño ↑ + Alcance ↑ + Velocidad ↓.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0),
@@ -70,7 +70,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.GROWTH_HORMONES,
                 "Growth Hormones",
-                "DMG Up + Speed Up.",
+                "Daño ↑ + Velocidad ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0),
                         StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0)
@@ -80,7 +80,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.JESUS_JUICE,
                 "Jesus Juice",
-                "DMG Up + Range Up.",
+                "Daño ↑ + Alcance ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.5),
                         StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 40.0)
@@ -90,7 +90,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.ROID_RAGE,
                 "Roid Rage",
-                "Speed Up + Range Up.",
+                "Velocidad ↑ + Alcance ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MOVE_SPEED, 20.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 20.0)
@@ -98,10 +98,10 @@ public final class ItemRegistry {
                 "/assets/images/roid_rage.png"
         );
 
-        // LOCK: completar piso 1
+        // BLOQUEO: completar piso 1
         register(shopLocked(ItemId.THE_BELT,
                 "The Belt",
-                "Speed Up.",
+                "Velocidad ↑.",
                 List.of(StatModifier.additive(PlayerStatId.MOVE_SPEED, 25.0)),
                 ACH_FLOOR_MASTER_1),
                 "/assets/images/the_belt.png"
@@ -109,16 +109,16 @@ public final class ItemRegistry {
 
         register(shop(ItemId.WOODEN_SPOON,
                 "Wooden Spoon",
-                "Speed Up.",
+                "Velocidad ↑.",
                 List.of(StatModifier.additive(PlayerStatId.MOVE_SPEED, 25.0))),
                 "/assets/images/wooden_spoon.png"
         );
 
-        // --- Isaac classics (Wave 2) ---
-        // LOCK: primera muerte
+        // --- Clásicos de Isaac (Oleada 2) ---
+        // BLOQUEO: primera muerte
         register(shopLocked(ItemId.STIGMATA,
                 "Stigmata",
-                "HP Up + DMG Up.",
+                "Vida máx. ↑ + Daño ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3)
@@ -129,7 +129,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.BLUE_CAP,
                 "Blue Cap",
-                "HP Up + Tears Up + Shot Speed Down.",
+                "Vida máx. ↑ + Lágrimas ↑ + Velocidad de proyectil ↓.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.FIRE_RATE, 0.7),
@@ -140,7 +140,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.STEM_CELLS,
                 "Stem Cells",
-                "HP Up + Shot Speed Up.",
+                "Vida máx. ↑ + Velocidad de proyectil ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.multiplicative(PlayerStatId.PROJECTILE_SPEED, 1.16)
@@ -150,7 +150,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.SMB_SUPER_FAN,
                 "SMB Super Fan",
-                "All stats up... but you feel slower.",
+                "Todas las estadísticas ↑... pero te sientes más lento.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3),
@@ -162,7 +162,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.CAPRICORN,
                 "Capricorn",
-                "All stats up.",
+                "Todas las estadísticas ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.5),
@@ -172,11 +172,11 @@ public final class ItemRegistry {
                 "/assets/images/capricorn.png"
         );
 
-        // --- Isaac classics (Wave 1) ---
-        // LOCK: primera kill
+        // --- Clásicos de Isaac (Oleada 1) ---
+        // BLOQUEO: primera kill
         register(shopLocked(ItemId.MEAT,
                 "Meat!",
-                "HP Up + DMG Up.",
+                "Vida máx. ↑ + Daño ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3)
@@ -185,10 +185,10 @@ public final class ItemRegistry {
                 "/assets/images/meat.png"
         );
 
-        // LOCK: 50 kills
+        // BLOQUEO: 50 kills
         register(shopLocked(ItemId.THE_HALO,
                 "The Halo",
-                "All stats up.",
+                "Todas las estadísticas ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.3),
@@ -201,7 +201,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.BUCKET_OF_LARD,
                 "Bucket of Lard",
-                "HP way up, speed down.",
+                "Mucha vida ↑, velocidad ↓.",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 4.0),
                         StatModifier.multiplicative(PlayerStatId.MOVE_SPEED, 0.85)
@@ -209,10 +209,10 @@ public final class ItemRegistry {
                 "/assets/images/lard.png"
         );
 
-        // LOCK: 25 monedas en una run
+        // BLOQUEO: 25 monedas en una run
         register(shopLocked(ItemId.CRICKETS_HEAD,
                 "Cricket's Head",
-                "Massive damage.",
+                "Daño masivo.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 0.5),
                         StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 1.5)
@@ -223,7 +223,7 @@ public final class ItemRegistry {
 
         register(shop(ItemId.SYNTHOIL,
                 "Synthoil",
-                "DMG + Range.",
+                "Daño + Alcance.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0),
                         StatModifier.additive(PlayerStatId.PROJECTILE_RANGE, 50.0)
@@ -233,15 +233,15 @@ public final class ItemRegistry {
 
         register(shop(ItemId.PENTAGRAM,
                 "Pentagram",
-                "DMG up.",
+                "Daño ↑.",
                 List.of(StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 1.0))),
                 "/assets/images/pentagram.png"
         );
 
-        // --- Shot items ---
+        // --- Objetos de disparo ---
         register(shop(ItemId.TRIPLE_SHOT,
                 "The Inner Eye",
-                "Triple shot but slower fire rate.",
+                "Triple disparo, pero menor cadencia de fuego.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 2.0),
                         StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.7)
@@ -249,10 +249,10 @@ public final class ItemRegistry {
                 "/assets/images/tripleshot.png"
         );
 
-        // LOCK: tener 5 pasivos
+        // BLOQUEO: tener 5 pasivos
         register(shopLocked(ItemId.QUAD_SHOT,
                 "Mutant Spider",
-                "Quad shot, much slower.",
+                "Cuádruple disparo, mucho más lento.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 3.0),
                         StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 0.55)
@@ -263,35 +263,35 @@ public final class ItemRegistry {
 
         register(shop(ItemId.CUPIDS_ARROW,
                 "Cupid's Arrow",
-                "Piercing shots.",
+                "Disparos perforantes.",
                 List.of(StatModifier.additive(PlayerStatId.PROJECTILE_PIERCE, 1.0))),
                 "/assets/images/piercing.png"
         );
 
         register(shop(ItemId.RUBBER_CEMENT,
                 "Rubber Cement",
-                "Bouncing tears.",
+                "Lágrimas rebotantes.",
                 List.of(StatModifier.additive(PlayerStatId.PROJECTILE_BOUNCE, 1.0))),
                 "/assets/images/bouncing.png"
         );
 
-        // LOCK: comprar 1 objeto en tienda
+        // BLOQUEO: comprar 1 objeto en tienda
         register(shopLocked(ItemId.SPOON_BENDER,
                 "Spoon Bender",
-                "Homing shots.",
+                "Disparos teledirigidos.",
                 List.of(StatModifier.additive(PlayerStatId.PROJECTILE_HOMING, 1.0)),
                 ACH_BIG_SPENDER),
                 "/assets/images/homing.png"
         );
 
         // =========================================================
-        // BOSS POOL  (solo aparece tras matar boss)
+        // POOL DE BOSS  (solo aparece tras matar al boss)
         // =========================================================
 
-        // LOCK: matar tu primer boss
+        // BLOQUEO: matar tu primer boss
         register(bossLocked(ItemId.THE_WAFER,
                 "The Wafer",
-                "HEALTH UP!!!.",
+                "¡¡¡VIDA ↑!!!.",
                 List.of(StatModifier.additive(PlayerStatId.MAX_HEALTH, 6.0)),
                 ACH_BOSS_SLAYER),
                 "/assets/images/wafer.png"
@@ -299,7 +299,7 @@ public final class ItemRegistry {
 
         register(boss(ItemId.MAGIC_MUSHROOM,
                 "Magic Mushroom",
-                "All stats up! (Strong)",
+                "¡Todas las estadísticas ↑! (Fuerte)",
                 List.of(
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
                         StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 1.5),
@@ -310,10 +310,10 @@ public final class ItemRegistry {
                 "/assets/images/magic_mushroom.png"
         );
 
-        // LOCK: ganar run
+        // BLOQUEO: ganar run
         register(bossLocked(ItemId.SACRED_HEART,
                 "Sacred Heart",
-                "Homing + DMG + HP.",
+                "Teledirigido + Daño + Vida.",
                 List.of(
                         StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 2.3),
                         StatModifier.additive(PlayerStatId.MAX_HEALTH, 2.0),
@@ -327,15 +327,15 @@ public final class ItemRegistry {
 
         register(boss(ItemId.TWENTY_TWENTY,
                 "20/20",
-                "Double Shot.",
+                "Doble disparo.",
                 List.of(StatModifier.additive(PlayerStatId.PROJECTILE_COUNT, 1.0))),
                 "/assets/images/20_20.png"
         );
 
-        // LOCK: ganar con 2 HP o menos
+        // BLOQUEO: ganar con 2 HP o menos
         register(bossLocked(ItemId.POLYPHEMUS,
                 "Polyphemus",
-                "Mega Tears.",
+                "Mega lágrimas.",
                 List.of(
                         StatModifier.additive(PlayerStatId.PROJECTILE_DAMAGE, 4.0),
                         StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 2.0),
@@ -347,7 +347,7 @@ public final class ItemRegistry {
 
         register(boss(ItemId.SOY_MILK,
                 "Soy Milk",
-                "DMG down, Fire Rate way up.",
+                "Daño ↓, cadencia de fuego muy ↑.",
                 List.of(
                         StatModifier.multiplicative(PlayerStatId.FIRE_RATE, 5.0),
                         StatModifier.multiplicative(PlayerStatId.PROJECTILE_DAMAGE, 0.2)
@@ -357,11 +357,11 @@ public final class ItemRegistry {
     }
 
     private ItemRegistry() {
-        // utility class
+        // clase de utilidad
     }
 
     // -------------------------
-    // Factory helpers (cleaner registry)
+    // Helpers de factoría (registro más limpio)
     // -------------------------
 
     private static ItemDefinition shop(ItemId id, String name, String desc, List<StatModifier> mods) {
@@ -381,12 +381,12 @@ public final class ItemRegistry {
     }
 
     /**
-     * Registers an item definition and its icon path.
+     * Registra una definición de objeto y su ruta de icono.
      *
-     * <p>Centralizing this avoids "definition registered but missing icon" bugs.</p>
+     * <p>Centralizar esto evita bugs del tipo "definición registrada pero sin icono".</p>
      *
-     * @param definition immutable metadata for the item
-     * @param iconPath resource path for the icon (e.g. "/assets/images/xxx.png")
+     * @param definition metadatos inmutables del objeto
+     * @param iconPath ruta del recurso del icono (p. ej. "/assets/images/xxx.png")
      */
     private static void register(ItemDefinition definition, String iconPath) {
         Objects.requireNonNull(definition, "definition");
@@ -397,20 +397,20 @@ public final class ItemRegistry {
     }
 
     /**
-     * Returns the definition for a given item id.
+     * Devuelve la definición de un objeto para un id dado.
      *
-     * @param id item identifier
-     * @return definition or {@code null} if missing / id is null
+     * @param id identificador del objeto
+     * @return definición o {@code null} si no existe / si id es null
      */
     public static ItemDefinition getDefinition(ItemId id) {
         return (id == null) ? null : ITEMS.get(id);
     }
 
     /**
-     * Returns the icon resource path for the given item id.
+     * Devuelve la ruta del recurso del icono para el id de objeto dado.
      *
-     * @param id item identifier
-     * @return icon path, or a default placeholder path if missing / id is null
+     * @param id identificador del objeto
+     * @return ruta del icono, o una ruta por defecto si no existe / si id es null
      */
     public static String getIconPath(ItemId id) {
         if (id == null) return DEFAULT_ICON_PATH;
@@ -418,13 +418,13 @@ public final class ItemRegistry {
     }
 
     /**
-     * Returns unlocked items from a given pool.
+     * Devuelve los objetos desbloqueados de un pool dado.
      *
-     * <p>If {@code achievements} is null, only items unlocked by default are returned.</p>
+     * <p>Si {@code achievements} es null, solo se devuelven los objetos desbloqueados por defecto.</p>
      *
-     * @param poolType pool to filter
-     * @param achievements achievement service (optional)
-     * @return immutable list of eligible items (may be empty)
+     * @param poolType pool a filtrar
+     * @param achievements servicio de logros (opcional)
+     * @return lista inmutable de objetos elegibles (puede estar vacía)
      */
     public static List<ItemDefinition> getUnlockedByPool(ItemPoolType poolType, AchievementService achievements) {
         if (poolType == null) return List.of();
@@ -445,7 +445,7 @@ public final class ItemRegistry {
     }
 
     /**
-     * @return immutable list with all registered item definitions.
+     * @return lista inmutable con todas las definiciones de objetos registradas.
      */
     public static List<ItemDefinition> allDefinitions() {
         return List.copyOf(ITEMS.values());
