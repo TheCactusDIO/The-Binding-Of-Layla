@@ -3,11 +3,14 @@ package com.layla.entities;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import com.layla.core.AssetsManager;
 import com.layla.core.GameEntity;
 
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -41,6 +44,7 @@ public class GreedButton implements GameEntity {
 
     private static final double BUTTON_SIZE_READY = 30.0;
     private static final double BUTTON_SIZE_ACTIVE = 26.0;
+    private static final double TROPHY_ICON_SIZE = 22.0;
 
     private static final double PRESS_DISTANCE = 32.0;
     private static final double PRESS_COOLDOWN_SEC = 1.0;
@@ -51,6 +55,7 @@ public class GreedButton implements GameEntity {
     private final Rectangle base;
     private final Rectangle button;
     private final Text icon;
+    private final ImageView trophyIcon;
 
     private final Consumer<GreedButton> onPressed;
 
@@ -61,10 +66,12 @@ public class GreedButton implements GameEntity {
 
     /** Si es true, el botón funciona como salida del nivel (color azul). */
     private boolean exitMode = false;
+    private boolean victoryMode = false;
 
     // Caché para optimizar el redibujado
     private boolean lastActiveState = false;
     private boolean lastExitMode = false;
+    private boolean lastVictoryMode = false;
 
     /**
      * Crea un nuevo botón Greed.
@@ -101,10 +108,23 @@ public class GreedButton implements GameEntity {
         icon.setFont(Font.font("Verdana", FontWeight.BOLD, 18));
         icon.setFill(Color.web("#500000"));
 
-        view.getChildren().addAll(base, button, icon);
+        Image trophyImage = AssetsManager.loadImage("assets/images/trophy.png");
+        trophyIcon = new ImageView(trophyImage);
+        trophyIcon.setFitWidth(TROPHY_ICON_SIZE);
+        trophyIcon.setFitHeight(TROPHY_ICON_SIZE);
+        trophyIcon.setPreserveRatio(true);
+        trophyIcon.setVisible(false);
+
+        view.getChildren().addAll(base, button, icon, trophyIcon);
         parent.getChildren().add(view);
 
         // Inicializa el estado visual
+        applyVisualState(true);
+    }
+
+    public void setAsVictory() {
+        setAsExit();
+        this.victoryMode = true;
         applyVisualState(true);
     }
 
@@ -178,6 +198,7 @@ public class GreedButton implements GameEntity {
      */
     public void setAsExit() {
         this.exitMode = true;
+        this.victoryMode = false;
         icon.setText("▼");
         applyVisualState(true);
     }
@@ -188,11 +209,15 @@ public class GreedButton implements GameEntity {
      * @param force Si es true, fuerza la actualización aunque el estado no haya cambiado.
      */
     private void applyVisualState(boolean force) {
-        if (!force && activeState == lastActiveState && exitMode == lastExitMode) {
+        if (!force && activeState == lastActiveState && exitMode == lastExitMode
+                && victoryMode == lastVictoryMode) {
             return;
         }
         lastActiveState = activeState;
         lastExitMode = exitMode;
+        lastVictoryMode = victoryMode;
+
+        boolean showTrophy = victoryMode && trophyIcon.getImage() != null;
 
         if (exitMode) {
             // Estilo de Salida (Azul)
@@ -201,8 +226,13 @@ public class GreedButton implements GameEntity {
             button.setHeight(BUTTON_SIZE_READY);
             button.setFill(Color.DODGERBLUE);
             icon.setFill(Color.web("#001a4d"));
+            icon.setVisible(!showTrophy);
+            trophyIcon.setVisible(showTrophy);
             return;
         }
+
+        trophyIcon.setVisible(false);
+        icon.setVisible(true);
 
         if (activeState) {
             // Estilo Activo/Peligro (Rojo intenso, hundido)

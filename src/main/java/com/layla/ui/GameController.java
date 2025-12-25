@@ -1585,7 +1585,11 @@ public class GameController implements ViewLifecycle {
         clearAreaAround(cx, cy, 100);
 
         greedButton = new GreedButton(cx, cy, gameArea, (btn) -> loadNextFloor());
-        greedButton.setAsExit();
+        if (currentFloor >= MAX_FLOORS) {
+            greedButton.setAsVictory();
+        } else {
+            greedButton.setAsExit();
+        }
 
         gameLoop.addEntity(greedButton);
         checkAndPushInteractive(greedButton);

@@ -15,7 +15,8 @@
       "assets/background/womb.png",
       "assets/background/sheol.png",
       "assets/images/shop.png",
-      "assets/images/coin.png"
+      "assets/images/coin.png",
+      "assets/images/trophy.png"
     ],
   "sounds": [
     "assets/sounds/game_start.wav",
