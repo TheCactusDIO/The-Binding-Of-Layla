@@ -50,7 +50,7 @@
                         </padding>
 
                         <children>
-                            <Label text="STATS PANEL"
+                            <Label text="Panel de estadisticas"
                                    styleClass="stats-panel-title"/>
 
                             <!-- PLAYER STATS -->
@@ -67,31 +67,31 @@
                                     <TextField fx:id="maxHpField"
                                                GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                    <Label text="Move Speed (px/s)"
+                                    <Label text="Velocidad de movimiento (px/s)"
                                            GridPane.rowIndex="1" GridPane.columnIndex="0"
                                            styleClass="stats-label"/>
                                     <TextField fx:id="moveSpeedField"
                                                GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                    <Label text="Fire Rate (shots/s)"
+                                    <Label text="Velocidad de disparo (shots/s)"
                                            GridPane.rowIndex="2" GridPane.columnIndex="0"
                                            styleClass="stats-label"/>
                                     <TextField fx:id="fireRateField"
                                                GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                                    <Label text="Projectile Speed (px/s)"
+                                    <Label text="Velocidad del proyectil (px/s)"
                                            GridPane.rowIndex="3" GridPane.columnIndex="0"
                                            styleClass="stats-label"/>
                                     <TextField fx:id="projSpeedField"
                                                GridPane.rowIndex="3" GridPane.columnIndex="1"/>
 
-                                    <Label text="Projectile Range (s)"
+                                    <Label text="Rango del proyectil (s)"
                                            GridPane.rowIndex="4" GridPane.columnIndex="0"
                                            styleClass="stats-label"/>
                                     <TextField fx:id="projRangeField"
                                                GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-                                    <Label text="Projectile Damage"
+                                    <Label text="Daño del proyectil"
                                            GridPane.rowIndex="5" GridPane.columnIndex="0"
                                            styleClass="stats-label"/>
                                     <TextField fx:id="projDamageField"
@@ -103,7 +103,7 @@
                                           GridPane.columnIndex="0"
                                           GridPane.columnSpan="2">
                                         <children>
-                                            <Label text="Coins:" styleClass="stats-label"/>
+                                            <Label text="Monedas:" styleClass="stats-label"/>
                                             <Spinner fx:id="coinsSpinner" prefWidth="100.0"/>
                                         </children>
                                     </HBox>
@@ -142,13 +142,13 @@
                                         </columnConstraints>
 
                                         <children>
-                                            <Label text="Base HP" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Vida Base" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileHpField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                            <Label text="Velocidad (px/s)" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Velocidad de movimiento (px/s)" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileSpeedField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                            <Label text="Daño contacto" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Daño por contacto" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileContactField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
                                             <Label text="Cadencia (disparos/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="stats-label"/>
@@ -166,7 +166,7 @@
                                             <Label text="Daño proyectil" GridPane.rowIndex="7" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileProjDmgField" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
 
-                                            <Label text="Score" GridPane.rowIndex="8" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Puntuación" GridPane.rowIndex="8" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileScoreField" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
                                         </children>
                                     </GridPane>
@@ -204,6 +204,3 @@
         </children>
     </AnchorPane>
 </StackPane>
-
-
-

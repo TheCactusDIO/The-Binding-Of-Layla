@@ -22,7 +22,7 @@
 
     <!-- LISTA / GRID -->
     <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
-        <Label text="UNLOCKED ITEMS" styleClass="section-header"/>
+        <Label text="OBJETOS DESBLOQUEADOS" styleClass="section-header"/>
 
         <ScrollPane fitToWidth="true"
                     styleClass="transparent-scroll"
@@ -53,18 +53,18 @@
         </StackPane>
 
         <Label fx:id="detailName"
-               text="ITEM NAME"
+               text="NOMBRE DEL OBJETO"
                wrapText="true"
                textAlignment="CENTER"
                styleClass="item-detail-title"/>
 
         <Label fx:id="detailPool"
-               text="TREASURE"
+               text="TESORO"
                styleClass="item-detail-pool"/>
 
         <Separator styleClass="soft-separator"/>
 
-        <Label text="EFFECTS" styleClass="section-header"/>
+        <Label text="EFECTOS" styleClass="section-header"/>
         <Label fx:id="detailDescription"
                text="..."
                wrapText="true"
@@ -72,7 +72,7 @@
 
         <Separator styleClass="soft-separator"/>
 
-        <Label text="STATS" styleClass="section-header"/>
+        <Label text="ESTADISTICAS" styleClass="section-header"/>
         <Label fx:id="detailStats"
                text="..."
                wrapText="true"
@@ -80,4 +80,3 @@
 
     </VBox>
 </HBox>
-

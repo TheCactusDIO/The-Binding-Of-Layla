@@ -41,7 +41,7 @@
                 </padding>
 
                 <Label text="LAYLA"
-                       styleClass="character-name character-name-layla"/>
+                       styleClass="character-name, character-name-layla"/>
                 <Separator styleClass="soft-separator"/>
                 <Label text="Estadísticas equilibradas."
                        wrapText="true" textAlignment="CENTER"
@@ -61,7 +61,7 @@
                 </padding>
 
                 <Label text="THE FRAGILE"
-                       styleClass="character-name character-name-fragile"/>
+                       styleClass="character-name, character-name-fragile"/>
                 <Separator styleClass="soft-separator"/>
                 <Label text="Mucho daño, muy poca vida."
                        wrapText="true" textAlignment="CENTER"

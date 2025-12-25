@@ -15,11 +15,10 @@
       prefHeight="300">
 
     <Label fx:id="messageLabel"
-           text="An error occurred while loading assets."
+           text="Ocurrio un error cargando los assets."
            wrapText="true"/>
 
     <Button fx:id="exitButton"
-            text="Exit"
+            text="Salir"
             onAction="#onExit"/>
 </VBox>
-

@@ -29,7 +29,7 @@
 
             <!-- LISTA -->
             <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">
-                <Label text="ENCOUNTERS" styleClass="section-header"/>
+                <Label text="ENCUENTROS" styleClass="section-header"/>
 
                 <ScrollPane fitToWidth="true"
                             styleClass="transparent-scroll"
@@ -60,7 +60,7 @@
                 </StackPane>
 
                 <Label fx:id="detailName"
-                       text="SELECT AN ENEMY"
+                       text="SELECCIONA UN ENEMIGO"
                        wrapText="true"
                        textAlignment="CENTER"
                        styleClass="detail-title"/>
@@ -69,15 +69,15 @@
 
                 <VBox spacing="8" alignment="CENTER_LEFT" maxWidth="280">
                     <HBox>
-                        <Label text="ENCOUNTERS:" styleClass="stat-label"/>
+                        <Label text="ENCUENTROS:" styleClass="stat-label"/>
                         <Label fx:id="statSeen" text="0" styleClass="stat-value"/>
                     </HBox>
                     <HBox>
-                        <Label text="KILLS:" styleClass="stat-label"/>
+                        <Label text="MATADOS:" styleClass="stat-label"/>
                         <Label fx:id="statKills" text="0" styleClass="stat-value"/>
                     </HBox>
                     <HBox>
-                        <Label text="DEATHS BY:" styleClass="stat-label"/>
+                        <Label text="MUERTO POR:" styleClass="stat-label"/>
                         <Label fx:id="statDeaths" text="0" styleClass="stat-value-danger"/>
                     </HBox>
                 </VBox>
@@ -86,24 +86,24 @@
 
                 <VBox spacing="8" alignment="CENTER_LEFT" maxWidth="280">
                     <HBox>
-                        <Label text="BASE HP:" styleClass="stat-label"/>
+                        <Label text="VIDA BASE:" styleClass="stat-label"/>
                         <Label fx:id="attrHp" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                     <HBox>
-                        <Label text="CONTACT DMG:" styleClass="stat-label"/>
+                        <Label text="DAÑO POR CONTACTO:" styleClass="stat-label"/>
                         <Label fx:id="attrDmg" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                     <HBox>
-                        <Label text="PROJ DMG:" styleClass="stat-label"/>
+                        <Label text="DAÑO POR PROYECTIL:" styleClass="stat-label"/>
                         <Label fx:id="attrProjDmg" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                     <HBox>
-                        <Label text="SPEED:" styleClass="stat-label"/>
+                        <Label text="VELOCIDAD:" styleClass="stat-label"/>
                         <Label fx:id="attrSpeed" text="-" styleClass="stat-value-gold"/>
                     </HBox>
                 </VBox>
 
-                <Button text="CLOSE"
+                <Button text="CERRAR"
                         onAction="#onCloseDetails"
                         styleClass="menu-button bestiary-close-button"/>
 
@@ -113,5 +113,3 @@
     </VBox>
 
 </StackPane>
-
-
