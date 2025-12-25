@@ -9,9 +9,11 @@ import com.layla.core.AssetsManager;
 
 import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCombination;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -89,6 +91,8 @@ public final class SceneRouter {
      */
     public static void init(Stage stage) {
         primaryStage = stage;
+        primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        primaryStage.setFullScreenExitHint("");
     }
 
     /**
@@ -105,6 +109,7 @@ public final class SceneRouter {
             logInfo("Intentando cargar escena: " + fxmlPath);
 
             LoadedFXML loaded = loadFXML(fxmlPath);
+            boolean wasFullScreen = primaryStage.isFullScreen();
 
             // 1) Salir de la vista anterior (si aplica)
             callExitOnPrevious();
@@ -114,7 +119,7 @@ public final class SceneRouter {
             applyBaseStyles(scene, loaded.root());
 
             // 3) Mostrar escena
-            setSceneAndShow(scene);
+            setSceneAndShow(scene, wasFullScreen);
 
             // 4) Política de audio (antes de onEnter)
             applySceneAudioPolicy(fxmlPath);
@@ -145,6 +150,7 @@ public final class SceneRouter {
             logInfo("Intentando cargar escena (fade): " + fxmlPath);
 
             LoadedFXML loaded = loadFXML(fxmlPath);
+            boolean wasFullScreen = primaryStage.isFullScreen();
 
             // Salir de la vista anterior (si aplica)
             callExitOnPrevious();
@@ -165,8 +171,7 @@ public final class SceneRouter {
 
                 fadeOut.setOnFinished(e -> {
                     // Cambiar escena
-                    primaryStage.setScene(newScene);
-                    primaryStage.show();
+                    setSceneAndShow(newScene, wasFullScreen);
 
                     // Preparar nuevo root para fade-in
                     loaded.root().setOpacity(0.0);
@@ -190,8 +195,7 @@ public final class SceneRouter {
                 fadeOut.play();
             } else {
                 // No había escena previa: fade-in directo
-                primaryStage.setScene(newScene);
-                primaryStage.show();
+                setSceneAndShow(newScene, wasFullScreen);
 
                 loaded.root().setOpacity(0.0);
 
@@ -347,10 +351,27 @@ public final class SceneRouter {
     }
 
     /** Aplica una escena al stage y la muestra. */
-    private static void setSceneAndShow(Scene scene) {
+    private static void setSceneAndShow(Scene scene, boolean restoreFullscreen) {
+        boolean wasShowing = primaryStage.isShowing();
         primaryStage.setScene(scene);
-        primaryStage.show();
+        if (!wasShowing) {
+            primaryStage.show();
+        } else if (!primaryStage.isFullScreen()) {
+            primaryStage.sizeToScene();
+        }
+        restoreFullscreenIfNeeded(restoreFullscreen);
         safeRequestFocus();
+    }
+
+    private static void restoreFullscreenIfNeeded(boolean restore) {
+        if (!restore) return;
+        Platform.runLater(() -> {
+            try {
+                if (!primaryStage.isFullScreen()) {
+                    primaryStage.setFullScreen(true);
+                }
+            } catch (Exception ignore) {}
+        });
     }
 
     /**
