@@ -36,6 +36,8 @@ public final class MainMenuController implements ViewLifecycle {
     private static final String MENU_MUSIC_FILE = "menu.mp3";
     private static final String MENU_VIDEO_FILE = "menu.mp4";
     private static final String MAIN_FONT_PATH  = "/assets/fonts/main_font.ttf";
+    private static final int MAX_VIDEO_RETRIES = 3;
+    private static final int VIDEO_RETRY_DELAY_MS = 200;
 
     // ---------- Navegación ----------
     private static final String FXML_RUN_SETUP     = "ui/run_setup.fxml";
@@ -54,7 +56,7 @@ public final class MainMenuController implements ViewLifecycle {
 
     // ---------- Estado ----------
     private MediaPlayer videoPlayer;
-    private boolean retriedVideoOnce = false;
+    private int videoRetryCount = 0;
 
     // Overlays (evita abrir el mismo overlay dos veces)
     private Node settingsOverlay;
@@ -188,14 +190,14 @@ public final class MainMenuController implements ViewLifecycle {
 
             if (videoPlayer == null) {
                 System.err.println("[MainMenu] No se pudo crear el MediaPlayer del vídeo.");
-                hideVideoNode();
+                scheduleVideoRetry();
                 return;
             }
 
-            // Si falla, reintentar una vez. Si falla otra vez, se oculta el vídeo.
+            // Si falla, reintentar varias veces. Si se agotan, se oculta el vídeo.
             videoPlayer.setOnError(() -> {
                 System.err.println("[MainMenu] MediaPlayer ERROR: " + videoPlayer.getError());
-                retryVideoPlayerOnce();
+                scheduleVideoRetry();
             });
 
             backgroundVideo.setMediaPlayer(videoPlayer);
@@ -210,21 +212,23 @@ public final class MainMenuController implements ViewLifecycle {
 
         } catch (Exception e) {
             e.printStackTrace();
-            hideVideoNode();
+            scheduleVideoRetry();
         }
     }
 
-    /** Reintenta crear el MediaPlayer una sola vez para evitar loops de error. */
-    private void retryVideoPlayerOnce() {
-        if (retriedVideoOnce) {
+    /** Reintenta crear el MediaPlayer varias veces para evitar fallos puntuales. */
+    private void scheduleVideoRetry() {
+        if (videoRetryCount >= MAX_VIDEO_RETRIES) {
+            cleanupVideoOnly();
             hideVideoNode();
             return;
         }
-        retriedVideoOnce = true;
+        videoRetryCount++;
 
         cleanupVideoOnly();
 
-        PauseTransition wait = new PauseTransition(Duration.millis(150));
+        int delay = VIDEO_RETRY_DELAY_MS * videoRetryCount;
+        PauseTransition wait = new PauseTransition(Duration.millis(delay));
         wait.setOnFinished(e -> startBackgroundVideoSafely());
         wait.play();
     }
