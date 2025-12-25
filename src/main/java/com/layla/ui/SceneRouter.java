@@ -382,18 +382,18 @@ public final class SceneRouter {
      * - menu.css solo si root tiene id "main-menu-root"
      */
     private static void applyBaseStyles(Scene scene, Parent root) {
-        String global = css("ui/styles/global.css");
+        String global = css("ui/css/global.css");
         if (global != null && !scene.getStylesheets().contains(global)) {
             scene.getStylesheets().add(global);
-            logInfo("Aplicado CSS global: ui/styles/global.css");
+            logInfo("Aplicado CSS global: ui/css/global.css");
         }
 
         boolean isMainMenu = root != null && "main-menu-root".equals(root.getId());
         if (isMainMenu) {
-            String menu = css("ui/styles/menu.css");
+            String menu = css("ui/css/menu.css");
             if (menu != null && !scene.getStylesheets().contains(menu)) {
                 scene.getStylesheets().add(menu);
-                logInfo("Aplicado CSS menú: ui/styles/menu.css");
+                logInfo("Aplicado CSS menú: ui/css/menu.css");
             }
         }
 

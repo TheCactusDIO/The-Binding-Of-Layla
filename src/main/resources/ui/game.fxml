@@ -17,7 +17,6 @@
            styleClass="game-root">
 
     <stylesheets>
-        <URL value="@/ui/styles/game.css"/>
         <URL value="@css/game.css"/>
     </stylesheets>
 

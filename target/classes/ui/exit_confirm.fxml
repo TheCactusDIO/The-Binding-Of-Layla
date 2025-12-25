@@ -15,7 +15,7 @@
 
     <!-- Carga CSS (mejor que el atributo stylesheets con rutas raras) -->
     <stylesheets>
-        <java.net.URL value="@styles/dialogs.css"/>
+        <java.net.URL value="@css/dialogs.css"/>
     </stylesheets>
 
     <padding>

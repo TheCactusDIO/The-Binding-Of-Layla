@@ -1,0 +1,35 @@
+/* =========================
+   ITEMS TAB (solo Items)
+   ========================= */
+
+.items-content {
+    -fx-background-color: #111;
+}
+
+.items-content .list-panel {
+    -fx-background-color: #111;
+}
+
+/* Si el label se ve raro, fuerza color */
+.items-content .section-header {
+    -fx-text-fill: #ddd;
+}
+
+/* ScrollPane: el culpable típico del “blanco” es el viewport */
+.items-content .transparent-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.items-content .transparent-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.items-content .transparent-scroll .content {
+    -fx-background-color: transparent;
+}
+
+/* El FlowPane donde metes las celdas de items */
+.items-content .transparent-pane {
+    -fx-background-color: transparent;
+}

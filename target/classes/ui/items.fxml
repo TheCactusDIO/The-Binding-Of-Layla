@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.net.URL?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
@@ -13,7 +14,11 @@
       xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.layla.ui.ItemsController"
-      styleClass="collection-content">
+      styleClass="items-content">
+
+    <stylesheets>
+        <URL value="@css/items.css"/>
+    </stylesheets>
 
     <!-- LISTA / GRID -->
     <VBox spacing="10" HBox.hgrow="ALWAYS" styleClass="list-panel">

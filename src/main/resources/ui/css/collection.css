@@ -1,10 +1,10 @@
 .collection-root {
-    -fx-background-color: #111111;
+    -fx-background-color: transparent;
 }
 
 .collection-header {
-    -fx-padding: 20;
-    -fx-background-color: #1a1a1a;
+    -fx-background-color: #111;
+    -fx-padding: 12 16;
     -fx-border-color: #333;
     -fx-border-width: 0 0 2 0;
 }
@@ -15,9 +15,9 @@
 }
 
 .collection-title {
-    -fx-text-fill: white;
-    -fx-font-family: "Upheaval TT (BRK)";
-    -fx-font-size: 32px;
+    -fx-text-fill: #ffd54f;
+    -fx-font-family: "Upheaval TT (BRK)", "Segoe UI";
+    -fx-font-size: 26px;
     -fx-effect: dropshadow(gaussian, black, 4, 0.5, 0, 0);
 }
 
@@ -25,11 +25,23 @@
     -fx-background-color: transparent;
 }
 
-.tab-header-area .tab-header-background {
+.collection-tabpane > .tab-header-area {
+    -fx-background-color: #111;
+}
+
+.collection-tabpane > .tab-header-area > .headers-region {
     -fx-background-color: transparent;
 }
 
-.tab {
+.collection-tabpane > .tab-content-area {
+    -fx-background-color: #111;
+}
+
+.collection-tabpane > .tab-header-area > .tab-header-background {
+    -fx-background-color: #111;
+}
+
+.collection-tabpane .tab {
     -fx-background-color: #222;
     -fx-pref-width: 200;
     -fx-pref-height: 48;
@@ -42,30 +54,30 @@
     -fx-padding: 0 20 0 20;
 }
 
-.tab .tab-label {
+.collection-tabpane .tab .tab-label {
     -fx-text-fill: #888;
     -fx-font-family: "Upheaval TT (BRK)", "Segoe UI";
     -fx-font-size: 18px;
     -fx-font-weight: normal;
 }
 
-.tab:hover {
+.collection-tabpane .tab:hover {
     -fx-background-color: #333;
 }
 
-.tab:selected {
+.collection-tabpane .tab:selected {
     -fx-background-color: #111;
     -fx-border-color: #ffd54f;
     -fx-border-width: 2 2 0 2;
 }
 
-.tab:selected .tab-label {
+.collection-tabpane .tab:selected .tab-label {
     -fx-text-fill: #ffd54f;
     -fx-font-weight: bold;
     -fx-effect: dropshadow(gaussian, rgba(255, 213, 79, 0.4), 8, 0, 0, 0);
 }
 
-.tab-pane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+.collection-tabpane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
     -fx-border-width: 0;
     -fx-border-color: transparent;
 }
