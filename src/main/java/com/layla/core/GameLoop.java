@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -231,6 +232,37 @@ public final class GameLoop {
             pendingRemovals.addAll(entities);
         }
         processQueuesOnFxThread();
+    }
+
+    /**
+     * Elimina entidades que cumplan un predicado (por ejemplo, proyectiles).
+     *
+     * @param predicate condicion para seleccionar entidades a eliminar
+     */
+    public void removeEntitiesIf(Predicate<GameEntity> predicate) {
+        Objects.requireNonNull(predicate, "predicate");
+
+        Runnable task = () -> {
+            boolean applyNow;
+            synchronized (queueLock) {
+                pendingAdds.removeIf(e -> e != null && predicate.test(e));
+
+                for (GameEntity entity : entities) {
+                    if (entity != null && predicate.test(entity) && !pendingRemovals.contains(entity)) {
+                        pendingRemovals.add(entity);
+                    }
+                }
+                applyNow = !running;
+            }
+
+            if (applyNow) processQueuesOnFxThread();
+        };
+
+        if (Platform.isFxApplicationThread()) {
+            task.run();
+        } else {
+            Platform.runLater(task);
+        }
     }
 
     // =========================

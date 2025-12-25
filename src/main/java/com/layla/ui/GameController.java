@@ -20,6 +20,7 @@ import com.layla.entities.Coin;
 import com.layla.entities.GreedButton;
 import com.layla.entities.ItemPedestal;
 import com.layla.entities.Player;
+import com.layla.entities.Projectile;
 import com.layla.entities.Rock;
 import com.layla.entities.SpawnIndicator;
 import com.layla.items.ItemDefinition;
@@ -1693,6 +1694,9 @@ public class GameController implements ViewLifecycle {
      * </ul>
      */
     private void clearLevel() {
+        // Projectiles: remove from loop, not only from the view.
+        gameLoop.removeEntitiesIf(ent -> ent instanceof Projectile);
+
         // Enemigos
         for (Enemy e : new ArrayList<>(enemies)) {
             gameLoop.removeEntity(e);

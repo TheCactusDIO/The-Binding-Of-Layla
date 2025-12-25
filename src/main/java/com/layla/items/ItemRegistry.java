@@ -355,6 +355,7 @@ public final class ItemRegistry {
                 "/assets/images/soy_milk.png"
         );
     }
+    
 
     private ItemRegistry() {
         // clase de utilidad
