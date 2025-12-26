@@ -110,9 +110,23 @@ public final class SceneRouter {
 
             LoadedFXML loaded = loadFXML(fxmlPath);
             boolean wasFullScreen = primaryStage.isFullScreen();
+            Scene currentScene = primaryStage.getScene();
 
             // 1) Salir de la vista anterior (si aplica)
             callExitOnPrevious();
+
+            if (wasFullScreen && currentScene != null) {
+                currentScene.setRoot(loaded.root());
+                applyBaseStyles(currentScene, loaded.root());
+
+                applySceneAudioPolicy(fxmlPath);
+                rememberAndEnter(loaded.controller());
+                notifySceneReady();
+                safeRequestFocus();
+
+                logInfo("Escena mostrada: " + fxmlPath);
+                return;
+            }
 
             // 2) Construir escena + CSS
             Scene scene = new Scene(loaded.root(), width, height);
@@ -154,6 +168,39 @@ public final class SceneRouter {
 
             // Salir de la vista anterior (si aplica)
             callExitOnPrevious();
+
+            Scene sceneForFullscreen = primaryStage.getScene();
+            if (wasFullScreen && sceneForFullscreen != null && sceneForFullscreen.getRoot() != null) {
+                Parent oldRoot = sceneForFullscreen.getRoot();
+
+                FadeTransition fadeOut = new FadeTransition(FADE_DURATION, oldRoot);
+                fadeOut.setFromValue(1.0);
+                fadeOut.setToValue(0.0);
+
+                fadeOut.setOnFinished(e -> {
+                    sceneForFullscreen.setRoot(loaded.root());
+                    applyBaseStyles(sceneForFullscreen, loaded.root());
+
+                    loaded.root().setOpacity(0.0);
+
+                    applySceneAudioPolicy(fxmlPath);
+                    rememberAndEnter(loaded.controller());
+
+                    FadeTransition fadeIn = new FadeTransition(FADE_DURATION, loaded.root());
+                    fadeIn.setFromValue(0.0);
+                    fadeIn.setToValue(1.0);
+                    fadeIn.setOnFinished(ev -> {
+                        safeRequestFocus();
+                        notifySceneReady();
+                    });
+                    fadeIn.play();
+                });
+
+                fadeOut.play();
+
+                logInfo("Escena puesta con fade: " + fxmlPath);
+                return;
+            }
 
             // Nueva escena + CSS
             Scene newScene = new Scene(loaded.root(), width, height);
@@ -409,13 +456,15 @@ public final class SceneRouter {
             logInfo("Aplicado CSS global: ui/css/global.css");
         }
 
+        String menu = css("ui/css/menu.css");
         boolean isMainMenu = root != null && "main-menu-root".equals(root.getId());
         if (isMainMenu) {
-            String menu = css("ui/css/menu.css");
             if (menu != null && !scene.getStylesheets().contains(menu)) {
                 scene.getStylesheets().add(menu);
                 logInfo("Aplicado CSS menú: ui/css/menu.css");
             }
+        } else if (menu != null) {
+            scene.getStylesheets().remove(menu);
         }
 
         logInfo("Stylesheets activos: " + scene.getStylesheets());
