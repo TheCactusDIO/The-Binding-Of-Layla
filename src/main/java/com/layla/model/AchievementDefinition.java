@@ -19,7 +19,7 @@ public final class AchievementDefinition {
     /**
      * Default reward/extra text used when no unlock content is provided.
      */
-    public static final String DEFAULT_UNLOCK_CONTENT = "No Content Unlock.";
+    public static final String DEFAULT_UNLOCK_CONTENT = "Sin contenido desbloqueable.";
 
     private final String id;
     private final String name;

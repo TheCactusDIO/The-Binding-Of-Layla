@@ -575,11 +575,11 @@ public class GameController implements ViewLifecycle {
         double initialMaxHp = bal.maxHp;
 
         if (charType == CharacterType.THE_FRAGILE) {
-            initialMaxHp = 2.0;
-            statsService.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.5);
+            initialMaxHp = 4.0;
+            statsService.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, 6);
             statsService.setBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, statsService.getBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO) * 1.1);
         } else {
-            statsService.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0);
+            statsService.setBaseStat(PlayerStatId.DAÑO_DEL_PROYECTIL, 3.0);
         }
 
         statsService.setBaseStat(PlayerStatId.VIDA_MAXIMA, initialMaxHp);

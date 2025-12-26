@@ -26,13 +26,13 @@
         <HBox alignment="CENTER_LEFT"
               styleClass="collection-header">
 
-            <Button text="&lt; ATRAS"
+            <Button text="&lt; ATRÁS"
                     onAction="#onBack"
                     styleClass="menu-button btn-back collection-back-button"/>
 
             <Region HBox.hgrow="ALWAYS"/>
 
-            <Label text="COLLECCION" alignment="CENTER"
+            <Label text="COLECCIÓN" alignment="CENTER"
                    styleClass="collection-title"/>
 
             <Region HBox.hgrow="ALWAYS"/>
@@ -47,7 +47,7 @@
                 <Tab fx:id="tabBestiary" text="BESTIARIO"/>
                 <Tab fx:id="tabItems" text="OBJETOS"/>
                 <Tab fx:id="tabAchievements" text="TROFEOS"/>
-                <Tab fx:id="tabRanking" text="RANKING"/>
+                <Tab fx:id="tabRanking" text="CLASIFICACIÓN"/>
             </tabs>
         </TabPane>
 

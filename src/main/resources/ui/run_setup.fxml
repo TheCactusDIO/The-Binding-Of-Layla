@@ -60,7 +60,7 @@
                     <Insets top="25" right="20" bottom="25" left="20"/>
                 </padding>
 
-                <Label text="THE FRAGILE"
+                <Label text="EL FRÁGIL"
                        styleClass="character-name, character-name-fragile"/>
                 <Separator styleClass="soft-separator"/>
                 <Label text="Mucho daño, muy poca vida."

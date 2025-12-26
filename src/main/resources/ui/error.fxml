@@ -15,7 +15,7 @@
       prefHeight="300">
 
     <Label fx:id="messageLabel"
-           text="Ocurrio un error cargando los assets."
+           text="Ocurrió un error cargando los recursos."
            wrapText="true"/>
 
     <Button fx:id="exitButton"

@@ -98,10 +98,10 @@ public final class AchievementService {
                 ACH_FIRST_KILL,
                 new AchievementDefinition(
                         ACH_FIRST_KILL,
-                        "First Blood",
+                        "Primera sangre",
                         "Derrota a tu primer enemigo. ¡No te detengas ahora!",
                         "assets/images/achievements/ach_first_kill.png",
-                        "Desbloquea el ítem: 'Pistola de Juguete'"
+                        "Desbloquea el ítem: 'Pistola de juguete'"
                 )
         );
 
@@ -109,10 +109,10 @@ public final class AchievementService {
                 ACH_NOVICE_HUNTER,
                 new AchievementDefinition(
                         ACH_NOVICE_HUNTER,
-                        "Novice Hunter",
-                        "Derrota a 50 enemigos (Total).",
+                        "Cazador novato",
+                        "Derrota a 50 enemigos (en total).",
                         "assets/images/achievements/ach_novice_hunter.png",
-                        "Desbloquea el ítem: 'Ojo de Águila'"
+                        "Desbloquea el ítem: 'Ojo de águila'"
                 )
         );
 
@@ -120,10 +120,10 @@ public final class AchievementService {
                 ACH_FLOOR_MASTER_1,
                 new AchievementDefinition(
                         ACH_FLOOR_MASTER_1,
-                        "Basement Clear",
-                        "Completa el Piso 1.",
+                        "Sótano completado",
+                        "Completa el piso 1.",
                         "assets/images/achievements/ach_floor_master_1.png",
-                        "Desbloquea el modo: 'Hard Mode'"
+                        "Desbloquea el modo: 'Modo difícil'"
                 )
         );
 
@@ -131,10 +131,10 @@ public final class AchievementService {
                 ACH_BOSS_SLAYER,
                 new AchievementDefinition(
                         ACH_BOSS_SLAYER,
-                        "Boss Slayer",
-                        "Derrota a tu primer Jefe.",
+                        "Cazajefes",
+                        "Derrota a tu primer jefe.",
                         "assets/images/achievements/ach_boss_slayer.png",
-                        "Desbloquea el ítem: 'Moneda de la Suerte'"
+                        "Desbloquea el ítem: 'Moneda de la suerte'"
                 )
         );
 
@@ -142,10 +142,10 @@ public final class AchievementService {
                 ACH_POCKET_MONEY,
                 new AchievementDefinition(
                         ACH_POCKET_MONEY,
-                        "Pocket Money",
+                        "Dinero de bolsillo",
                         "Acumula 25 monedas en una sola partida.",
                         "assets/images/achievements/ach_pocket_money.png",
-                        "Aumenta la probabilidad de aparición de Monedas."
+                        "Aumenta la probabilidad de aparición de monedas."
                 )
         );
 
@@ -153,10 +153,10 @@ public final class AchievementService {
                 ACH_BIG_SPENDER,
                 new AchievementDefinition(
                         ACH_BIG_SPENDER,
-                        "Big Spender",
+                        "Gran gastador",
                         "Compra tu primer objeto en la tienda.",
                         "assets/images/achievements/ach_big_spender.png",
-                        "Desbloquea el ítem: 'Carro de Compras'"
+                        "Desbloquea el ítem: 'Carro de compras'"
                 )
         );
 
@@ -164,7 +164,7 @@ public final class AchievementService {
                 ACH_GEAR_UP,
                 new AchievementDefinition(
                         ACH_GEAR_UP,
-                        "Gear Up",
+                        "Equípate",
                         "Ten 5 objetos pasivos simultáneamente.",
                         "assets/images/achievements/ach_gear_up.png",
                         "Aumenta el número de objetos que aparecen en la tienda."
@@ -175,10 +175,10 @@ public final class AchievementService {
                 ACH_THE_END,
                 new AchievementDefinition(
                         ACH_THE_END,
-                        "The End",
-                        "Gana una partida (completa el Piso 5).",
+                        "El final",
+                        "Gana una partida (completa el piso 5).",
                         "assets/images/achievements/ach_the_end.png",
-                        "Desbloquea el ítem: 'Golden Heart'"
+                        "Desbloquea el ítem: 'Corazón dorado'"
                 )
         );
 
@@ -186,10 +186,10 @@ public final class AchievementService {
                 ACH_SURVIVOR,
                 new AchievementDefinition(
                         ACH_SURVIVOR,
-                        "Survivor",
-                        "Gana una partida con 1 Corazón (2 HP) o menos.",
+                        "Superviviente",
+                        "Gana una partida con 1 corazón (2 HP) o menos.",
                         "assets/images/achievements/ach_survivor.png",
-                        "Desbloquea el personaje: 'The Fragile'"
+                        "Desbloquea el personaje: 'El Frágil'"
                 )
         );
 
@@ -197,10 +197,10 @@ public final class AchievementService {
                 ACH_TRY_AGAIN,
                 new AchievementDefinition(
                         ACH_TRY_AGAIN,
-                        "Try Again",
+                        "Inténtalo de nuevo",
                         "Muere por primera vez.",
                         "assets/images/achievements/ach_try_again.png",
-                        "Desbloquea el ítem: 'Doble Vida'"
+                        "Desbloquea el ítem: 'Doble vida'"
                 )
         );
     }
@@ -354,7 +354,7 @@ public final class AchievementService {
         Platform.runLater(() -> {
             AchievementDefinition def = getDefinition(id);
             if (notificationService != null && def != null) {
-                notificationService.showNotification("LOGRO DESBLOQUEADO!", def.getName(), 3.0);
+                notificationService.showNotification("¡LOGRO DESBLOQUEADO!", def.getName(), 3.0);
             }
         });
     }

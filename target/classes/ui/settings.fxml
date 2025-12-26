@@ -43,10 +43,10 @@
                                         <ColumnConstraints percentWidth="70"/>
                                     </columnConstraints>
                                     <children>
-                                        <Label text="Volumen de musica" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
+                                        <Label text="Volumen de música" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
                                         <Slider fx:id="musicSlider" min="0" max="1" value="0.5" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                                        <Label text="Volumen SFX" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
+                                        <Label text="Volumen de efectos" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
                                         <Slider fx:id="sfxSlider" min="0" max="1" value="0.8" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                                     </children>
                                 </GridPane>
@@ -54,12 +54,12 @@
 
                             <VBox spacing="10" styleClass="settings-card">
                                 <Label text="PANTALLA" styleClass="section-header section-header-gold"/>
-                                <CheckBox fx:id="fullscreenCheck" text="Fullscreen" styleClass="settings-checkbox"/>
+                                <CheckBox fx:id="fullscreenCheck" text="Pantalla completa" styleClass="settings-checkbox"/>
                             </VBox>
 
                             <Separator/>
 
-                            <TitledPane fx:id="devToolsPane" text="PARTIDA CUSTOMIZADA / HERRAMIENTAS DE DESARROLLADOR" expanded="false" styleClass="settings-titled-pane">
+                            <TitledPane fx:id="devToolsPane" text="PARTIDA PERSONALIZADA / HERRAMIENTAS DE DESARROLLADOR" expanded="false" styleClass="settings-titled-pane">
                                 <VBox spacing="15">
 
                                     <VBox spacing="8" styleClass="settings-subcard">
@@ -70,13 +70,13 @@
                                                 <ColumnConstraints percentWidth="50"/>
                                             </columnConstraints>
                                             <children>
-                                                <Label text="Multiplicador del ratio de spawn (x)" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
+                                                <Label text="Multiplicador de la tasa de aparición (x)" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="spawnRateSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
                                                 <Label text="Oleadas por piso" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="wavesSpinner" editable="true" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                                <Label text="Vida global de los enemigos  (x)" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="settings-label"/>
+                                                <Label text="Vida global de los enemigos (x)" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="settings-label"/>
                                                 <Spinner fx:id="globalHpMultSpinner" editable="true" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
                                                 <Label text="Daño global de los enemigos (x)" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="settings-label"/>
@@ -85,7 +85,7 @@
                                         </GridPane>
                                     </VBox>
 
-                                    <Label text="Estadisticas del jugador" styleClass="settings-muted-title"/>
+                                    <Label text="Estadísticas del jugador" styleClass="settings-muted-title"/>
 
                                     <GridPane hgap="10" vgap="8">
                                         <columnConstraints>
@@ -99,7 +99,7 @@
                                             <Label text="Velocidad de movimiento" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="moveSpeedField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                            <Label text="Velocidad de disparo" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="settings-label"/>
+                                            <Label text="Cadencia" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="settings-label"/>
                                             <TextField fx:id="fireRateField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
                                             <Label text="Velocidad del proyectil" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="settings-label"/>
@@ -124,7 +124,7 @@
                                         <Label text="PERFILES DE LOS ENEMIGOS (Individual)" styleClass="settings-muted-title"/>
                                         <HBox spacing="10" alignment="CENTER_LEFT">
                                             <ComboBox fx:id="enemyTypeCombo" prefWidth="180"/>
-                                            <CheckBox fx:id="stationaryCheck" text="ESTATICO" styleClass="settings-checkbox"/>
+                                            <CheckBox fx:id="stationaryCheck" text="ESTÁTICO" styleClass="settings-checkbox"/>
                                             <Region HBox.hgrow="ALWAYS"/>
                                             <Button fx:id="saveBtn" text="GUARDAR EN JSON" styleClass="menu-button btn-small"/>
                                         </HBox>
@@ -150,14 +150,14 @@
                                         </GridPane>
                                     </VBox>
 
-                                    <CheckBox fx:id="persistCheck" text="Auto guardar en el .json" styleClass="settings-muted-checkbox"/>
-                                    <Button text="Reset Defaults" onAction="#onReset" styleClass="menu-button btn-danger"/>
+                                    <CheckBox fx:id="persistCheck" text="Autoguardar en el .json" styleClass="settings-muted-checkbox"/>
+                                    <Button text="Restablecer valores" onAction="#onReset" styleClass="menu-button btn-danger"/>
                                 </VBox>
                             </TitledPane>
 
                             <HBox spacing="15" alignment="CENTER_RIGHT" styleClass="settings-actions">
                                 <Button text="Cancelar" onAction="#onCancel" styleClass="menu-button, btn-secondary"/>
-                                <Button text="Aplicar &amp; Guardar" onAction="#onApply" styleClass="menu-button, btn-primary"/>
+                                <Button text="Aplicar y guardar" onAction="#onApply" styleClass="menu-button, btn-primary"/>
                             </HBox>
                         </children>
                         <padding>

@@ -5,6 +5,7 @@ import java.util.List;
 import com.layla.AppContext;
 import com.layla.core.AssetsManager;
 import com.layla.items.ItemDefinition;
+import com.layla.items.ItemPoolType;
 import com.layla.items.ItemRegistry;
 import com.layla.model.AchievementDefinition;
 import com.layla.model.StatModifier;
@@ -70,8 +71,8 @@ public class ItemsController implements ViewLifecycle {
     private static final String STYLE_TITLE_LOCKED =
             "-fx-text-fill: #aa0000; -fx-font-family: 'Upheaval TT (BRK)'; -fx-font-size: 24px;";
 
-    private static final String TXT_LOCKED_ITEM = "LOCKED ITEM";
-    private static final String TXT_POOL_UNKNOWN = "Pool: ???";
+    private static final String TXT_LOCKED_ITEM = "OBJETO BLOQUEADO";
+    private static final String TXT_POOL_UNKNOWN = "ORIGEN: ???";
 
     // Comparación segura para multiplicadores
     private static final double EPS = 1e-9;
@@ -200,8 +201,8 @@ public class ItemsController implements ViewLifecycle {
 
         // Pool
         if (detailPool != null) {
-            String pool = (def.getPoolType() != null) ? def.getPoolType().name() : "???";
-            detailPool.setText("Pool: " + pool);
+            String pool = poolLabel(def.getPoolType());
+            detailPool.setText("ORIGEN: " + pool);
         }
 
         // Imagen
@@ -281,17 +282,26 @@ public class ItemsController implements ViewLifecycle {
     private String buildLockedConditionText(ItemDefinition def) {
         String achId = def.getRequiredAchievementId();
         if (achId == null || achId.isBlank()) {
-            return "This item is locked by mysterious means.";
+            return "Este objeto está bloqueado por causas misteriosas.";
         }
 
         AchievementDefinition achDef = achievements.getDefinition(achId);
         if (achDef == null) {
-            return "Unlock condition unknown.";
+            return "Condición de desbloqueo desconocida.";
         }
 
-        return "UNLOCK CONDITION:\n\n"
-                + "Achievement: " + safe(achDef.getName()) + "\n"
-                + "Requirement: " + safe(achDef.getDescription());
+        return "CONDICIÓN DE DESBLOQUEO:\n\n"
+                + "Logro: " + safe(achDef.getName()) + "\n"
+                + "Requisito: " + safe(achDef.getDescription());
+    }
+
+    private static String poolLabel(ItemPoolType poolType) {
+        if (poolType == null) return "???";
+        return switch (poolType) {
+            case SHOP -> "TIENDA";
+            case BOSS -> "JEFE";
+            default -> poolType.name();
+        };
     }
 
     /**

@@ -254,7 +254,7 @@ public final class RunSetupController implements ViewLifecycle {
 
         String subtitleText = (selected == CharacterType.THE_FRAGILE)
                 ? "El Frágil"
-                : "The Binding of Layla";
+                : "El vínculo de Layla";
 
         Label subtitle = new Label(subtitleText);
         subtitle.getStyleClass().add("intro-subtitle");

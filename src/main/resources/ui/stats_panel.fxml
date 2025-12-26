@@ -50,7 +50,7 @@
                         </padding>
 
                         <children>
-                            <Label text="Panel de estadisticas"
+                            <Label text="Panel de estadísticas"
                                    styleClass="stats-panel-title"/>
 
                             <!-- PLAYER STATS -->
@@ -73,7 +73,7 @@
                                     <TextField fx:id="moveSpeedField"
                                                GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                                    <Label text="Velocidad de disparo (shots/s)"
+                                    <Label text="Cadencia (disparos/s)"
                                            GridPane.rowIndex="2" GridPane.columnIndex="0"
                                            styleClass="stats-label"/>
                                     <TextField fx:id="fireRateField"
@@ -154,16 +154,16 @@
                                             <Label text="Cadencia (disparos/s)" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileFireField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
 
-                                            <Label text="Jitter (%)" GridPane.rowIndex="4" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Aleatoriedad (%)" GridPane.rowIndex="4" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileJitterField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-                                            <Label text="Velocidad proyectil" GridPane.rowIndex="5" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Velocidad del proyectil" GridPane.rowIndex="5" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileProjSpeedField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
 
-                                            <Label text="Alcance proyectil (px)" GridPane.rowIndex="6" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Alcance del proyectil (px)" GridPane.rowIndex="6" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileProjRangeField" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
 
-                                            <Label text="Daño proyectil" GridPane.rowIndex="7" GridPane.columnIndex="0" styleClass="stats-label"/>
+                                            <Label text="Daño del proyectil" GridPane.rowIndex="7" GridPane.columnIndex="0" styleClass="stats-label"/>
                                             <TextField fx:id="profileProjDmgField" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
 
                                             <Label text="Puntuación" GridPane.rowIndex="8" GridPane.columnIndex="0" styleClass="stats-label"/>
@@ -177,7 +177,7 @@
                                       text="Persistir en JSON (usuario)"
                                       styleClass="stats-checkbox">
                                 <tooltip>
-                                    <Tooltip text="Si está activado, guarda los valores en ~/.layla/stats.json al pulsar Aplicar o Reset."/>
+                                    <Tooltip text="Si está activado, guarda los valores en ~/.layla/stats.json al pulsar Aplicar o Restablecer."/>
                                 </tooltip>
                             </CheckBox>
 
@@ -187,7 +187,7 @@
                                     <Button text="Cancelar" onAction="#onCancel" styleClass="menu-button">
                                         <tooltip><Tooltip text="Cerrar sin aplicar cambios."/></tooltip>
                                     </Button>
-                                    <Button text="Reset" onAction="#onReset" styleClass="menu-button">
+                                    <Button text="Restablecer" onAction="#onReset" styleClass="menu-button">
                                         <tooltip><Tooltip text="Restaurar valores por defecto y aplicarlos al instante."/></tooltip>
                                     </Button>
                                     <Button text="Aplicar" onAction="#onApply" styleClass="menu-button">

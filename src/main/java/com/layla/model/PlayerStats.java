@@ -30,11 +30,11 @@ public final class PlayerStats {
      * </p>
      */
     public void resetDefaults() {
-        setBase(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 300.0);
-        setBase(PlayerStatId.VIDA_MAXIMA, 6.0);
+        setBase(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 350.0);
+        setBase(PlayerStatId.VIDA_MAXIMA, 10.0);
         setBase(PlayerStatId.CADENCIA, 15.0);
-        setBase(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, 400.0);
-        setBase(PlayerStatId.RANGO_DEL_PROYECTIL, 10.0);
+        setBase(PlayerStatId.VELOCIDAD_DEL_PROYECTIL, 500.0);
+        setBase(PlayerStatId.RANGO_DEL_PROYECTIL, 500.0);
         setBase(PlayerStatId.DAÑO_DEL_PROYECTIL, 3.0);
 
         // Estadísticas relacionadas con el comportamiento del proyectil.

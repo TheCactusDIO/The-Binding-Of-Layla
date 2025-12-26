@@ -59,7 +59,7 @@
                styleClass="item-detail-title"/>
 
         <Label fx:id="detailPool"
-               text="TESORO"
+               text="ORIGEN"
                styleClass="item-detail-pool"/>
 
         <Separator styleClass="soft-separator"/>
@@ -72,7 +72,7 @@
 
         <Separator styleClass="soft-separator"/>
 
-        <Label text="ESTADISTICAS" styleClass="section-header"/>
+        <Label text="ESTADÍSTICAS" styleClass="section-header"/>
         <Label fx:id="detailStats"
                text="..."
                wrapText="true"

@@ -25,7 +25,7 @@
     </padding>
 
     <!-- Header -->
-    <Label text="TOP 20 RUNS"
+    <Label text="TOP 20 PARTIDAS"
            styleClass="section-header ranking-title"/>
 
     <!-- Table -->
@@ -40,21 +40,21 @@
                          styleClass="col-center"/>
 
             <TableColumn fx:id="nameCol"
-                         text="PLAYER"
+                         text="JUGADOR"
                          prefWidth="180"/>
 
             <TableColumn fx:id="scoreCol"
-                         text="SCORE"
+                         text="PUNTUACIÓN"
                          prefWidth="120"
                          styleClass="col-right-bold"/>
 
             <TableColumn fx:id="floorCol"
-                         text="FLOOR"
+                         text="PISO"
                          prefWidth="120"
                          styleClass="col-center"/>
 
             <TableColumn fx:id="dateCol"
-                         text="DATE"
+                         text="FECHA"
                          prefWidth="200"/>
         </columns>
 

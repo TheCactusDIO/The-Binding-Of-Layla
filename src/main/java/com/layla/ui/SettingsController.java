@@ -261,7 +261,6 @@ public final class SettingsController {
 
         double hp = get(maxHpField, bal.maxHp);
         bal.maxHp = hp;
-        bal.startHp = hp;
         stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, hp);
 
         stats.setBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO,        get(moveSpeedField, stats.getBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO)));
@@ -301,7 +300,6 @@ public final class SettingsController {
     private void onReset() {
         stats.getBaseStats().resetDefaults();
         AppContext.balance().resetDefaults();
-        AppContext.balance().startHp = AppContext.balance().maxHp;
         AppContext.getRunModifiers().reset();
 
         // Valores por defecto “UI”
@@ -528,7 +526,6 @@ public final class SettingsController {
 
                 if (dto.maxHp != null) {
                     bal.maxHp = dto.maxHp;
-                    bal.startHp = dto.maxHp;
                     stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, dto.maxHp);
                 }
 

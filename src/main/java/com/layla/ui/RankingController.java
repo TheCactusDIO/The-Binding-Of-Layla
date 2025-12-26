@@ -106,7 +106,7 @@ public class RankingController implements ViewLifecycle {
     private void configurePlaceholder() {
         if (rankingTable == null) return;
 
-        Label placeholder = new Label("No runs recorded yet.");
+        Label placeholder = new Label("Aún no hay partidas registradas.");
         placeholder.getStyleClass().add("table-placeholder"); // preparado para CSS luego
         placeholder.setStyle("-fx-text-fill: #666; -fx-font-size: 16px;");
         rankingTable.setPlaceholder(placeholder);
@@ -161,7 +161,7 @@ public class RankingController implements ViewLifecycle {
     private void showLoadError(Throwable ex) {
         if (rankingTable == null) return;
 
-        Label placeholder = new Label("Error loading ranking.");
+        Label placeholder = new Label("Error al cargar la clasificación.");
         placeholder.setStyle("-fx-text-fill: #aa0000; -fx-font-size: 16px;");
         rankingTable.setPlaceholder(placeholder);
 
@@ -174,13 +174,13 @@ public class RankingController implements ViewLifecycle {
     // =========================
 
     /**
-     * Formatea la columna FLOOR:
-     * "F3" o "F3 (WIN)".
+     * Formatea la columna PISO:
+     * "P3" o "P3 (VICTORIA)".
      */
     private String formatFloor(LeaderboardEntry e) {
         if (e == null) return "-";
-        String text = "F" + e.floor();
-        if (e.isWin()) text += " (WIN)";
+        String text = "P" + e.floor();
+        if (e.isWin()) text += " (VICTORIA)";
         return text;
     }
 

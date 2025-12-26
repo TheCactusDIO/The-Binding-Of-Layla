@@ -107,11 +107,11 @@ public final class HudView extends VBox {
      */
     private void buildUi() {
         getChildren().addAll(
-                statLine(icon("speed_icon.png"), "Speed", lblSpeed),
-                statLine(icon("tears_icon.png"), "Fire Rate", lblTears),
-                statLine(icon("shotspeed_icon.png"), "Shot Spd", lblShotSpeed),
-                statLine(icon("range_icon.png"), "Range", lblRange),
-                statLine(icon("damage_icon.png"), "Damage", lblDamage),
+                statLine(icon("speed_icon.png"), "Velocidad", lblSpeed),
+                statLine(icon("tears_icon.png"), "Cadencia", lblTears),
+                statLine(icon("shotspeed_icon.png"), "Vel. proyectil", lblShotSpeed),
+                statLine(icon("range_icon.png"), "Alcance", lblRange),
+                statLine(icon("damage_icon.png"), "Daño", lblDamage),
                 heartLine(icon("health_icon.png"))
         );
     }
@@ -136,7 +136,7 @@ public final class HudView extends VBox {
      * Crea la fila de vida (icono + texto + contenedor de corazones).
      */
     private HBox heartLine(ImageView iv) {
-        Label title = new Label("Health");
+        Label title = new Label("Vida");
         title.getStyleClass().add("hud-title");
         title.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
 

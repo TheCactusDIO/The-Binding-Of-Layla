@@ -241,7 +241,7 @@ public class BestiaryController implements ViewLifecycle {
      * @param deathsBy número de muertes del jugador causadas por este enemigo
      */
     private void showDetails(String id, boolean isBoss, int seen, int kills, int deathsBy) {
-        detailName.setText(id.replace("_", " "));
+        detailName.setText(displayNameFor(id, isBoss));
 
         // Imagen detalle
         Image img = loadEnemyImage(id);
@@ -276,6 +276,29 @@ public class BestiaryController implements ViewLifecycle {
         } catch (Exception ignore) {
             setAttrs("-", "-", "-", "-");
         }
+    }
+
+    private static String displayNameFor(String id, boolean isBoss) {
+        if (id == null || id.isBlank()) return "-";
+        if (isBoss) {
+            return switch (id) {
+                case "BOSS_FLOOR_1" -> "JEFE DEL PISO 1";
+                case "BOSS_FLOOR_2" -> "JEFE DEL PISO 2";
+                case "BOSS_FLOOR_3" -> "JEFE DEL PISO 3";
+                case "BOSS_FLOOR_4" -> "JEFE DEL PISO 4";
+                case "BOSS_FLOOR_5" -> "JEFE DEL PISO 5";
+                default -> "JEFE";
+            };
+        }
+
+        return switch (id) {
+            case "SHOOTER" -> "TIRADOR";
+            case "MELEE" -> "CUERPO A CUERPO";
+            case "TURRET" -> "TORRETA";
+            case "TANK" -> "TANQUE";
+            case "KAMIKAZE" -> "KAMIKAZE";
+            default -> id.replace("_", " ");
+        };
     }
 
     /**

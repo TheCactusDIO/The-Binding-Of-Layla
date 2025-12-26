@@ -30,7 +30,7 @@ public class App extends Application {
 
         stage.setMinWidth(800);
         stage.setMinHeight(480);
-        stage.setTitle("The Binding of Layla");
+        stage.setTitle("The Binding Of Layla");
 
         // 1) Monta escena inicial y muestra Stage
         SceneRouter.init(stage);

@@ -32,7 +32,7 @@ public final class AppContext {
     /** Servicio de estadísticas del jugador (base + modificadores runtime). */
     private static final StatsService STATS = new StatsService();
 
-    /** Balance global del juego (perfiles de enemigos, pesos de aparición, etc.). */
+    /** Balance global del juego (perfiles de enemigos, monedas de aparición, etc.). */
     private static final GameBalance BALANCE = new GameBalance();
 
     /** Servicio de persistencia (SQLite / stats / perfiles / etc.). */
@@ -228,20 +228,18 @@ public final class AppContext {
      * Balance global del juego.
      *
      * <p>Incluye valores base del jugador/enemigos, parámetros de proyectiles y colecciones
-     * de perfiles por tipo de enemigo, además de pesos de aparición.</p>
+     * de perfiles por tipo de enemigo, además de monedas de aparición.</p>
      */
     public static final class GameBalance {
 
         private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-        /** Vida inicial del jugador (HP). */
-        public double startHp = 6.0;
 
         /** Vida máxima del jugador (HP). */
-        public double maxHp = 6.0;
+        public double maxHp = 10.0;
 
         /** Monedas iniciales. */
-        public int startCoins = 0;
+        public int startCoins = 10;
 
         /** Valores base medios para enemigos (referencias generales). */
         public double enemyBaseHp = 6.0;
@@ -269,7 +267,7 @@ public final class AppContext {
         /** Perfiles detallados por tipo de enemigo. */
         private final EnumMap<EnemyType, EnemyProfile> enemyProfiles = new EnumMap<>(EnemyType.class);
 
-        /** Pesos de aparición por tipo de enemigo. */
+        /** Monedas de aparición por tipo de enemigo. */
         private final EnumMap<EnemyType, Integer> spawnWeights = new EnumMap<>(EnemyType.class);
 
         /**
@@ -304,11 +302,11 @@ public final class AppContext {
         }
 
         /**
-         * Devuelve el mapa de pesos de aparición.
+         * Devuelve el mapa de monedas de aparición.
          *
          * <p>Nota: devuelve el mapa interno. Si necesitas inmutabilidad, haz copia fuera.</p>
          *
-         * @return mapa de pesos
+         * @return mapa de monedas
          */
         public Map<EnemyType, Integer> spawnWeights() {
             return spawnWeights;
@@ -317,12 +315,11 @@ public final class AppContext {
         /**
          * Resetea los valores del balance a los valores por defecto.
          *
-         * <p>Incluye también reset de perfiles y pesos.</p>
+         * <p>Incluye también reset de perfiles y monedas.</p>
          */
         public void resetDefaults() {
-            this.startHp = 6.0;
-            this.maxHp = 6.0;
-            this.startCoins = 0;
+            this.maxHp = 10.0;
+            this.startCoins = 10;
 
             this.enemyBaseHp = 6.0;
             this.enemySpeedAvg = 130.0;
@@ -343,7 +340,7 @@ public final class AppContext {
         }
 
         /**
-         * Resetea perfiles y pesos de aparición a sus valores por defecto.
+         * Resetea perfiles y monedas de aparición a sus valores por defecto.
          */
         private void resetEnemyProfiles() {
             enemyProfiles.clear();
@@ -364,14 +361,14 @@ public final class AppContext {
          */
         private EnemyProfile defaultProfile(EnemyType type) {
             if (type == null) {
-                return EnemyProfile.of(20, 110, 5, 1.2, 10, 260, 500, 6, false);
+                return EnemyProfile.of(20, 0, 1, 1.2, 10, 260, 500, 2, false);
             }
             return switch (type) {
-                case SHOOTER -> EnemyProfile.of(20, 110, 5, 1.2, 10, 260, 500, 6, false);
-                case MELEE -> EnemyProfile.of(25, 140, 8, 0.0, 12, 0, 0, 0, false);
-                case TURRET -> EnemyProfile.of(30, 0, 3, 0.6, 0, 300, 650, 7, true);
-                case TANK -> EnemyProfile.of(60, 80, 10, 0.3, 4, 220, 450, 8, false);
-                case KAMIKAZE -> EnemyProfile.of(15, 170, 14, 0.0, 18, 0, 0, 0, false);
+                case SHOOTER -> EnemyProfile.of(20, 110, 1, 1.2, 10, 260, 500, 2, false);
+                case MELEE -> EnemyProfile.of(25, 140, 2, 0.0, 12, 0, 0, 0, false);
+                case TURRET -> EnemyProfile.of(30, 0, 3, 0.6, 0, 300, 650, 1, true);
+                case TANK -> EnemyProfile.of(60, 80, 1, 0.3, 4, 220, 450, 1, false);
+                case KAMIKAZE -> EnemyProfile.of(15, 170, 3, 0.0, 18, 0, 0, 0, false);
             };
         }
 
@@ -393,7 +390,7 @@ public final class AppContext {
         }
 
         /**
-         * Carga perfiles y pesos desde un JSON.
+         * Carga perfiles y monedas desde un JSON.
          *
          * <p>Comportamiento:</p>
          * <ul>
@@ -438,7 +435,7 @@ public final class AppContext {
         }
 
         /**
-         * Guarda perfiles y pesos a un JSON.
+         * Guarda perfiles y moenedas a un JSON.
          *
          * <p>Comportamiento:</p>
          * <ul>
@@ -486,14 +483,14 @@ public final class AppContext {
          * DTO para serializar/deserializar el balance a JSON.
          *
          * <p>Se guarda únicamente lo que interesa para edición externa:
-         * perfiles de enemigos y pesos de aparición.</p>
+         * perfiles de enemigos y monedas de aparición.</p>
          */
         public static final class BalanceDTO {
 
             /** Perfiles por tipo de enemigo. */
             public Map<EnemyType, EnemyProfile> enemyProfiles;
 
-            /** Pesos por tipo de enemigo. */
+            /** Monedas por tipo de enemigo. */
             public Map<EnemyType, Integer> spawnWeights;
 
             /** Constructor vacío requerido por Gson. */
@@ -503,7 +500,7 @@ public final class AppContext {
              * Crea el DTO copiando los mapas recibidos.
              *
              * @param profiles mapa de perfiles
-             * @param weights mapa de pesos
+             * @param weights mapa de monedas
              */
             public BalanceDTO(Map<EnemyType, EnemyProfile> profiles,
                               Map<EnemyType, Integer> weights) {

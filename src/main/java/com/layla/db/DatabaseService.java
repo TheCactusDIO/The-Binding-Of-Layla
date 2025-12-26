@@ -440,7 +440,7 @@ public class DatabaseService {
             int rank = 1;
             while (rs.next()) {
                 String pName = rs.getString("name");
-                if (pName == null) pName = "Unknown";
+                if (pName == null) pName = "Desconocido";
 
                 list.add(new LeaderboardEntry(
                     rank++,

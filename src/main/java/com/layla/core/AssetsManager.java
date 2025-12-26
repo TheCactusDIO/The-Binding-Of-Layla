@@ -161,7 +161,7 @@ public class AssetsManager {
             @Override
             protected Void call() {
                 System.out.println("[AssetsManager] Iniciando carga de assets");
-                updateMessage("Leyendo manifest...");
+                updateMessage("Leyendo manifiesto...");
 
                 Manifest manifest = readManifest();
                 if (manifest == null) {
@@ -187,7 +187,7 @@ public class AssetsManager {
                     updateMessage("Sonido cargado: " + path);
                 }
 
-                updateMessage("Assets cargados.");
+                updateMessage("Recursos cargados.");
                 updateProgress(1, 1);
                 return null;
             }

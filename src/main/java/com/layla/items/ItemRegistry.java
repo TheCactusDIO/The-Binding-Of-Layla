@@ -46,7 +46,7 @@ public final class ItemRegistry {
 
         // --- OLEADA 3: Hongos y velocidad ---
         register(shop(ItemId.ODD_MUSHROOM_THIN,
-                "Odd Mushroom (Thin)",
+                "Hongo raro (fino)",
                 "Cadencia de fuego ↑ + Velocidad ↑ + Daño ↓.",
                 List.of(
                         StatModifier.multiplicative(PlayerStatId.CADENCIA, 2.0),
@@ -57,7 +57,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.ODD_MUSHROOM_LARGE,
-                "Odd Mushroom (Large)",
+                "Hongo raro (grande)",
                 "Vida máx. ↑ + Daño ↑ + Alcance ↑ + Velocidad ↓.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -69,7 +69,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.GROWTH_HORMONES,
-                "Growth Hormones",
+                "Hormonas de crecimiento",
                 "Daño ↑ + Velocidad ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0),
@@ -79,7 +79,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.JESUS_JUICE,
-                "Jesus Juice",
+                "Jugo de Jesús",
                 "Daño ↑ + Alcance ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.5),
@@ -89,7 +89,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.ROID_RAGE,
-                "Roid Rage",
+                "Furia de esteroides",
                 "Velocidad ↑ + Alcance ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 20.0),
@@ -100,7 +100,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: completar piso 1
         register(shopLocked(ItemId.THE_BELT,
-                "The Belt",
+                "El cinturón",
                 "Velocidad ↑.",
                 List.of(StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 25.0)),
                 ACH_FLOOR_MASTER_1),
@@ -108,7 +108,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.WOODEN_SPOON,
-                "Wooden Spoon",
+                "Cuchara de madera",
                 "Velocidad ↑.",
                 List.of(StatModifier.additive(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO, 25.0))),
                 "/assets/images/wooden_spoon.png"
@@ -117,7 +117,7 @@ public final class ItemRegistry {
         // --- Clásicos de Isaac (Oleada 2) ---
         // BLOQUEO: primera muerte
         register(shopLocked(ItemId.STIGMATA,
-                "Stigmata",
+                "Estigmas",
                 "Vida máx. ↑ + Daño ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -128,7 +128,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.BLUE_CAP,
-                "Blue Cap",
+                "Gorra azul",
                 "Vida máx. ↑ + Lágrimas ↑ + Velocidad de proyectil ↓.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -139,7 +139,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.STEM_CELLS,
-                "Stem Cells",
+                "Células madre",
                 "Vida máx. ↑ + Velocidad de proyectil ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -149,7 +149,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.SMB_SUPER_FAN,
-                "SMB Super Fan",
+                "Superfan de SMB",
                 "Todas las estadísticas ↑... pero te sientes más lento.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -161,7 +161,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.CAPRICORN,
-                "Capricorn",
+                "Capricornio",
                 "Todas las estadísticas ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -175,7 +175,7 @@ public final class ItemRegistry {
         // --- Clásicos de Isaac (Oleada 1) ---
         // BLOQUEO: primera kill
         register(shopLocked(ItemId.MEAT,
-                "Meat!",
+                "¡Carne!",
                 "Vida máx. ↑ + Daño ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -187,7 +187,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: 50 kills
         register(shopLocked(ItemId.THE_HALO,
-                "The Halo",
+                "El halo",
                 "Todas las estadísticas ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -200,7 +200,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.BUCKET_OF_LARD,
-                "Bucket of Lard",
+                "Cubo de manteca",
                 "Mucha vida ↑, velocidad ↓.",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 4.0),
@@ -211,7 +211,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: 25 monedas en una run
         register(shopLocked(ItemId.CRICKETS_HEAD,
-                "Cricket's Head",
+                "Cabeza de Grillo",
                 "Daño masivo.",
                 List.of(
                         StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 0.5),
@@ -222,8 +222,8 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.SYNTHOIL,
-                "Synthoil",
-                "Daño + Alcance.",
+                "Aceite sintético",
+                "Daño ↑ + Alcance ↑.",
                 List.of(
                         StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0),
                         StatModifier.additive(PlayerStatId.RANGO_DEL_PROYECTIL, 50.0)
@@ -232,7 +232,7 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.PENTAGRAM,
-                "Pentagram",
+                "Pentagrama",
                 "Daño ↑.",
                 List.of(StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 1.0))),
                 "/assets/images/pentagram.png"
@@ -240,7 +240,7 @@ public final class ItemRegistry {
 
         // --- Objetos de disparo ---
         register(shop(ItemId.TRIPLE_SHOT,
-                "The Inner Eye",
+                "El ojo interior",
                 "Triple disparo, pero menor cadencia de fuego.",
                 List.of(
                         StatModifier.additive(PlayerStatId.NUMERO_DE_PROYECTILES, 2.0),
@@ -251,7 +251,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: tener 5 pasivos
         register(shopLocked(ItemId.QUAD_SHOT,
-                "Mutant Spider",
+                "Araña mutante",
                 "Cuádruple disparo, mucho más lento.",
                 List.of(
                         StatModifier.additive(PlayerStatId.NUMERO_DE_PROYECTILES, 3.0),
@@ -262,14 +262,14 @@ public final class ItemRegistry {
         );
 
         register(shop(ItemId.CUPIDS_ARROW,
-                "Cupid's Arrow",
+                "Flecha de Cupido",
                 "Disparos perforantes.",
                 List.of(StatModifier.additive(PlayerStatId.PENETRACIÓN_DEL_PROYECTIL, 1.0))),
                 "/assets/images/piercing.png"
         );
 
         register(shop(ItemId.RUBBER_CEMENT,
-                "Rubber Cement",
+                "Cemento de goma",
                 "Lágrimas rebotantes.",
                 List.of(StatModifier.additive(PlayerStatId.REBOTE_DEL_PROYECTIL, 1.0))),
                 "/assets/images/bouncing.png"
@@ -277,7 +277,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: comprar 1 objeto en tienda
         register(shopLocked(ItemId.SPOON_BENDER,
-                "Spoon Bender",
+                "Dobla cucharas",
                 "Disparos teledirigidos.",
                 List.of(StatModifier.additive(PlayerStatId.AUTOAPUNTADO_DEL_PROYECTIL, 1.0)),
                 ACH_BIG_SPENDER),
@@ -290,15 +290,15 @@ public final class ItemRegistry {
 
         // BLOQUEO: matar tu primer boss
         register(bossLocked(ItemId.THE_WAFER,
-                "The Wafer",
-                "¡¡¡VIDA ↑!!!.",
+                "La oblea",
+                "¡VIDA ↑!!!",
                 List.of(StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 6.0)),
                 ACH_BOSS_SLAYER),
                 "/assets/images/wafer.png"
         );
 
         register(boss(ItemId.MAGIC_MUSHROOM,
-                "Magic Mushroom",
+                "Hongo mágico",
                 "¡Todas las estadísticas ↑! (Fuerte)",
                 List.of(
                         StatModifier.additive(PlayerStatId.VIDA_MAXIMA, 2.0),
@@ -312,7 +312,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: ganar run
         register(bossLocked(ItemId.SACRED_HEART,
-                "Sacred Heart",
+                "Corazón sagrado",
                 "Teledirigido + Daño + Vida.",
                 List.of(
                         StatModifier.multiplicative(PlayerStatId.DAÑO_DEL_PROYECTIL, 2.3),
@@ -334,7 +334,7 @@ public final class ItemRegistry {
 
         // BLOQUEO: ganar con 2 HP o menos
         register(bossLocked(ItemId.POLYPHEMUS,
-                "Polyphemus",
+                "Polifemo",
                 "Mega lágrimas.",
                 List.of(
                         StatModifier.additive(PlayerStatId.DAÑO_DEL_PROYECTIL, 4.0),
@@ -346,7 +346,7 @@ public final class ItemRegistry {
         );
 
         register(boss(ItemId.SOY_MILK,
-                "Soy Milk",
+                "Leche de soja",
                 "Daño ↓, cadencia de fuego muy ↑.",
                 List.of(
                         StatModifier.multiplicative(PlayerStatId.CADENCIA, 5.0),

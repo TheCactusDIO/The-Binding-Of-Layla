@@ -182,7 +182,7 @@ public class StatsPanelController {
             // 1) Cargar JSON user si existe (puede tocar HP/stats/coins)
             loadUserJsonIfExists();
 
-            // 2) Unificar HP: startHp y maxHp deben ser el mismo valor internamente
+            // 2) Sincronizar HP con el balance (maxHp manda)
             unifyHpInBalance();
 
             // 3) Pintar campos del jugador
@@ -244,15 +244,12 @@ public class StatsPanelController {
     /**
      * Unifica HP en el balance:
      * - maxHp manda
-     * - startHp = maxHp
      * - también sincroniza StatsService VIDA_MAXIMA
      */
     private void unifyHpInBalance() {
         var bal = AppContext.balance();
         double hp = bal.maxHp;
         bal.maxHp = hp;
-        bal.startHp = hp;
-
         stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, hp);
     }
 
@@ -448,7 +445,6 @@ public class StatsPanelController {
         liveNumber(maxHpField, v -> {
             var b = AppContext.balance();
             b.maxHp = v;
-            b.startHp = v;
             stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, v);
             onStatsChanged.run();
         });
@@ -490,7 +486,6 @@ public class StatsPanelController {
         // HP único
         double hp = getNumber(maxHpField, bal.maxHp);
         bal.maxHp = hp;
-        bal.startHp = hp;
         stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, hp);
 
         // Stats
@@ -524,7 +519,7 @@ public class StatsPanelController {
         stats.getBaseStats().resetDefaults();
         AppContext.balance().resetDefaults();
 
-        // Unificar startHp/maxHp en defaults
+        // Sincronizar HP en defaults
         unifyHpInBalance();
 
         // Repintar
@@ -567,7 +562,6 @@ public class StatsPanelController {
             Double savedHp = m.containsKey("maxHp") ? m.get("maxHp") : m.get("startHp");
             if (savedHp != null) {
                 bal.maxHp = savedHp;
-                bal.startHp = savedHp;
                 stats.setBaseStat(PlayerStatId.VIDA_MAXIMA, savedHp);
             }
 
@@ -614,9 +608,8 @@ public class StatsPanelController {
             Files.createDirectories(USER_STATS_PATH.getParent());
 
             LinkedHashMap<String, Double> m = new LinkedHashMap<>();
-            // HP unificado (guardamos startHp también por compatibilidad con configs viejas)
+            // HP unico (guardamos solo maxHp)
             m.put("maxHp",      bal.maxHp);
-            m.put("startHp",    bal.maxHp);
 
             m.put("moveSpeed",  stats.getBaseStat(PlayerStatId.VELOCIDAD_DE_MOVIMIENTO));
             m.put("fireRate",   stats.getBaseStat(PlayerStatId.CADENCIA));

@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"com.layla"},{"l":"com.layla.core"},{"l":"com.layla.db"},{"l":"com.layla.entities"},{"l":"com.layla.items"},{"l":"com.layla.model"},{"l":"com.layla.services"},{"l":"com.layla.ui"}];updateSearchResults();

@@ -22,11 +22,11 @@
         <Insets top="24" right="24" bottom="24" left="24"/>
     </padding>
 
-    <Label text="Seguro que quieres se salir?" styleClass="dialog-title"/>
+    <Label text="¿Seguro que quieres salir?" styleClass="dialog-title"/>
     <Label text="El progreso no guardado se perderá." styleClass="dialog-subtitle"/>
 
     <VBox spacing="10" alignment="CENTER">
-        <Button fx:id="cancelBtn"  text="Cancel" onAction="#onCancel"/>
-        <Button fx:id="confirmBtn" text="Exit"   onAction="#onConfirm"/>
+        <Button fx:id="cancelBtn"  text="Cancelar" onAction="#onCancel"/>
+        <Button fx:id="confirmBtn" text="Salir"   onAction="#onConfirm"/>
     </VBox>
 </VBox>
