@@ -60,6 +60,7 @@ public final class Enemy implements GameEntity {
      */
     private static final double WIDTH = 22.0 * VISUAL_SCALE;
     private static final double HEIGHT = 22.0 * VISUAL_SCALE;
+    private static final boolean SHOW_ENEMY_HITBOX = false;
 
     /** Umbral pequeño para evitar divisiones por cero y direcciones sin longitud. */
     private static final double EPSILON = 1e-6;
@@ -343,8 +344,13 @@ public final class Enemy implements GameEntity {
         this.speedMultiplier = Math.max(0.0, speedMultiplier);
         this.damageMultiplier = Math.max(0.0, damageMultiplier);
 
-        debugBox.setStroke(Color.BLACK);
-        debugBox.setFill(colorForType(type));
+        if (SHOW_ENEMY_HITBOX) {
+            debugBox.setStroke(Color.BLACK);
+            debugBox.setFill(colorForType(type));
+        } else {
+            debugBox.setStroke(Color.TRANSPARENT);
+            debugBox.setFill(Color.TRANSPARENT);
+        }
 
         Image sheet = loadSheetForType(type);
         if (sheet == null) {
@@ -361,9 +367,10 @@ public final class Enemy implements GameEntity {
             headView.setSmooth(false);
             headView.setMouseTransparent(true);
 
-            // Si hay sprite, ocultamos el debugBox.
-            debugBox.setFill(Color.TRANSPARENT);
-            debugBox.setStroke(Color.TRANSPARENT);
+            if (!SHOW_ENEMY_HITBOX) {
+                debugBox.setFill(Color.TRANSPARENT);
+                debugBox.setStroke(Color.TRANSPARENT);
+            }
 
             configureSpriteViewsForType(type);
         } else {
@@ -1481,14 +1488,14 @@ public final class Enemy implements GameEntity {
         if (hitFlashTimer == null) {
             hitFlashTimer = new PauseTransition(Duration.millis(120));
             hitFlashTimer.setOnFinished(e -> {
-                debugBox.setStroke(Color.TRANSPARENT);
+                if (SHOW_ENEMY_HITBOX) debugBox.setStroke(Color.TRANSPARENT);
                 spriteView.setEffect(null);
             });
         } else {
             hitFlashTimer.stop();
         }
 
-        debugBox.setStroke(Color.WHITE);
+        if (SHOW_ENEMY_HITBOX) debugBox.setStroke(Color.WHITE);
         spriteView.setEffect(hitFlashEffect);
         hitFlashTimer.playFromStart();
     }
