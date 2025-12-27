@@ -1,5 +1,3 @@
-com\layla\core\VideoSettings.class
-com\layla\services\HighScoreService$ScoreEntry.class
 com\layla\ui\StatsPanelController$Json.class
 com\layla\ui\NotificationService.class
 com\layla\model\EnemyType.class
@@ -39,7 +37,6 @@ com\layla\entities\Player.class
 com\layla\ui\SceneRouter.class
 com\layla\items\ItemId.class
 com\layla\ui\MainMenuController.class
-com\layla\ui\FloatingTextEntity.class
 com\layla\db\DatabaseService.class
 com\layla\services\ConfigService$ConfigData.class
 com\layla\ui\BestiaryController.class
@@ -52,7 +49,6 @@ com\layla\entities\ItemPedestal.class
 com\layla\ui\ItemPickupOverlayController.class
 com\layla\ui\LoadingController.class
 com\layla\entities\Projectile.class
-com\layla\services\HighScoreService.class
 com\layla\ui\HudView.class
 com\layla\items\ItemDefinition.class
 com\layla\ui\StatsPanelController.class

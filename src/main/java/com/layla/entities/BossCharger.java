@@ -127,7 +127,7 @@ public class BossCharger extends Boss {
 
         // Ataque secundario (disparo) solo durante la fase de persecución
         attackTimer += dt;
-        if (state == State.CHASE && attackTimer > 2.4) {
+        if (state == State.CHASE && attackTimer > 3.0) {
             performAttack();
             attackTimer = 0.0;
         }
@@ -268,12 +268,12 @@ public class BossCharger extends Boss {
         double aimX = dx / dist;
         double aimY = dy / dist;
 
-        int shots = (phase == 1) ? 5 : 7;
+        int shots = (phase == 1) ? 3 : 5;
         double spreadDeg = 35.0;
 
         // Caso borde: un solo disparo
         if (shots <= 1) {
-            spawnProjectile(aimX, aimY, 210.0, 3.2, 1.0, bx, by);
+            spawnProjectile(aimX, aimY, 210.0, 2.2, 1.0, bx, by);
             return;
         }
 
@@ -288,7 +288,7 @@ public class BossCharger extends Boss {
             double rx = aimX * Math.cos(a) - aimY * Math.sin(a);
             double ry = aimX * Math.sin(a) + aimY * Math.cos(a);
 
-            spawnProjectile(rx, ry, 210.0, 3.2, 1.0, bx, by);
+            spawnProjectile(rx, ry, 210.0, 2.2, 1.0, bx, by);
         }
     }
 
@@ -296,7 +296,7 @@ public class BossCharger extends Boss {
      * Genera una onda de choque radial (shockwave) al finalizar el dash.
      */
     private void doShockwave() {
-        int count = (phase == 1) ? 10 : 14;
+        int count = (phase == 1) ? 8 : 10;
         double spd = (phase == 1) ? 180.0 : 210.0;
 
         double bx = view.getLayoutX();
@@ -304,7 +304,7 @@ public class BossCharger extends Boss {
 
         for (int i = 0; i < count; i++) {
             double a = (2.0 * Math.PI / count) * i;
-            spawnProjectile(Math.cos(a), Math.sin(a), spd, 3.0, 1.0, bx, by);
+            spawnProjectile(Math.cos(a), Math.sin(a), spd, 2.2, 1.0, bx, by);
         }
     }
 
@@ -339,7 +339,7 @@ public class BossCharger extends Boss {
         Mine m = new Mine(
                 x, y,
                 (phase == 1) ? 1.15 : 0.9, // Tiempo hasta explosión
-                (phase == 1) ? 8 : 10,     // Proyectiles al explotar
+                (phase == 1) ? 6 : 8,     // Proyectiles al explotar
                 (phase == 1) ? 170.0 : 200.0, // Velocidad proyectiles
                 parent,
                 onSpawnProjectile,
@@ -474,7 +474,7 @@ public class BossCharger extends Boss {
                 Projectile p = new Projectile(
                         Math.cos(a), Math.sin(a),
                         ringSpeed,
-                        3.0, 1.0,
+                        2.2, 1.0,
                         true,
                         parent,
                         onRemove,

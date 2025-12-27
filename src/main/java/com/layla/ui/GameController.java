@@ -247,13 +247,6 @@ public class GameController implements ViewLifecycle {
     private boolean timerStopped = false;
     private double buttonSafetyTimer = 0.0;
 
-    /**
-     * Campos reservados para un futuro “spawn constante”.
-     * Se mantienen para no alterar comportamiento actual (aunque la lógica esté desactivada).
-     */
-    private double constantSpawnInterval;
-    private double timeUntilNextSpawn = 0.0;
-
     private boolean gameStarted = false;
     private boolean paused = false;
     private boolean gameOverShown = false;
@@ -1081,9 +1074,6 @@ public class GameController implements ViewLifecycle {
 
         spawnWaveEnemies(Math.max(1, enemyCount));
 
-        constantSpawnInterval = Math.max(0.25, 2.0 - (difficulty * 0.15));
-        timeUntilNextSpawn = 1.0;
-
         updateHudLabels();
     }
 
@@ -1112,12 +1102,6 @@ public class GameController implements ViewLifecycle {
 
         if (!timerStopped) {
             nextWaveTimer -= dt;
-        }
-
-        // Reservado (sin spawn constante activo)
-        timeUntilNextSpawn -= dt;
-        if (timeUntilNextSpawn <= 0.0) {
-            // (Reservado / futuro) No hacer nada por ahora.
         }
 
         boolean timeUp = nextWaveTimer <= 0.0;
@@ -2419,18 +2403,6 @@ public class GameController implements ViewLifecycle {
         if (!obstacles.contains(w)) {
             obstacles.add(w);
         }
-    }
-
-    /**
-     * Método legacy (compatibilidad interna).
-     *
-     * @param w pared invisible
-     */
-    @SuppressWarnings("unused")
-    private void addBoundaryWall(InvisibleWall w) {
-        gameArea.getChildren().add(w.getView());
-        obstacles.add(w);
-        if (gameLoop != null) gameLoop.addEntity(w);
     }
 
     /**

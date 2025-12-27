@@ -238,7 +238,7 @@ public class Boss implements GameEntity {
         }
 
         attackTimer += dt;
-        if (attackTimer > 2.0) {
+        if (attackTimer > 3.6) {
             performAttack();
             attackTimer = 0.0;
         }
@@ -286,8 +286,8 @@ public class Boss implements GameEntity {
             view.setLayoutY(by + dashDirY * dashSpeed * dt);
 
             // Disparos residuales durante el dash (más agresivo en fase 2)
-            if (phase >= 2 && rng.nextDouble() < 0.18) {
-                spawnMiniSpiralBurst(2, 180.0);
+            if (phase >= 2 && rng.nextDouble() < 0.12) {
+                spawnMiniSpiralBurst(1, 180.0);
             }
 
             if (dashTimer <= 0.0) {
@@ -295,7 +295,7 @@ public class Boss implements GameEntity {
                 dashCooldown = (phase == 1) ? 3.2 : 2.2;
 
                 // Shockwave al terminar el dash (impacto)
-                spawnRing(10 + phase * 2, 220.0 + phase * 30.0, 3.0, 1.0);
+                spawnRing(6 + phase, 220.0 + phase * 30.0, 2.2, 1.0);
             }
 
         } else {
@@ -346,7 +346,7 @@ public class Boss implements GameEntity {
         // -------------------------
         patternTimer += dt;
 
-        double baseAttackInterval = (phase == 1) ? 2.5 : 1.5;
+        double baseAttackInterval = (phase == 1) ? 3.6 : 2.6;
         attackTimer += dt;
         if (attackTimer >= baseAttackInterval) {
             performAttack();
@@ -364,18 +364,18 @@ public class Boss implements GameEntity {
         switch (patternIndex) {
             case 0 -> { // Presión en espiral
                 spiralAngle += dt * ((phase == 1) ? 3.2 : 4.6);
-                if (rng.nextDouble() < ((phase == 1) ? 0.12 : 0.20)) {
+                if (rng.nextDouble() < ((phase == 1) ? 0.08 : 0.14)) {
                     spawnSpiralShot(spiralAngle, 240.0 + phase * 40.0);
                 }
             }
             case 1 -> { // Ráfagas apuntadas aleatorias
-                if (rng.nextDouble() < ((phase == 1) ? 0.05 : 0.16)) {
-                    spawnAimedFan(5 + phase * 2, 0.35, 260.0 + phase * 40.0);
+                if (rng.nextDouble() < ((phase == 1) ? 0.04 : 0.12)) {
+                    spawnAimedFan(2 + phase, 0.35, 260.0 + phase * 40.0);
                 }
             }
             default -> { // Anillos de negación de área
-                if (rng.nextDouble() < ((phase == 1) ? 0.04 : 0.10)) {
-                    spawnRing(12 + phase * 2, 170.0, 3.0, 1.0);
+                if (rng.nextDouble() < ((phase == 1) ? 0.03 : 0.08)) {
+                    spawnRing(8 + phase, 170.0, 2.2, 1.0);
                 }
             }
         }
@@ -425,11 +425,11 @@ public class Boss implements GameEntity {
         }
 
         // Ataque principal del Spreader: Abanico dirigido
-        spawnAimedFan(7 + phase * 2, 0.50, 280.0 + phase * 30.0);
+        spawnAimedFan(4 + phase, 0.50, 280.0 + phase * 30.0);
 
         // En fase 2 añade un anillo extra
         if (phase >= 2) {
-            spawnRing(8, 210.0, 3.0, 1.0);
+            spawnRing(4, 210.0, 2.2, 1.0);
         }
     }
 
@@ -438,10 +438,10 @@ public class Boss implements GameEntity {
      * Usado por defecto en subclases que no sobrescriben performAttack.
      */
     private void performAttackLegacy() {
-        int projectiles = 8 + (phase * 2);
+        int projectiles = 5 + phase;
         for (int i = 0; i < projectiles; i++) {
             double angle = (2.0 * Math.PI / projectiles) * i;
-            spawnProjectile(Math.cos(angle), Math.sin(angle), 200.0, 2.0, 1.0);
+            spawnProjectile(Math.cos(angle), Math.sin(angle), 200.0, 1.6, 1.0);
         }
     }
 
@@ -485,7 +485,7 @@ public class Boss implements GameEntity {
      * @param speed Velocidad del proyectil.
      */
     private void spawnSpiralShot(double angle, double speed) {
-        spawnProjectile(Math.cos(angle), Math.sin(angle), speed, 3.0, 1.0);
+        spawnProjectile(Math.cos(angle), Math.sin(angle), speed, 2.2, 1.0);
     }
 
     /**
@@ -523,7 +523,7 @@ public class Boss implements GameEntity {
             // Evita división por cero si shots es 1 (aunque el bucle lo maneja)
             double t = (half == 0) ? 0.0 : (i / (double) half);
             double ang = base + t * spreadRadians;
-            spawnProjectile(Math.cos(ang), Math.sin(ang), speed, 3.0, 1.0);
+            spawnProjectile(Math.cos(ang), Math.sin(ang), speed, 2.2, 1.0);
         }
     }
 

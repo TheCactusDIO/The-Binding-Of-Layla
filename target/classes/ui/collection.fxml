@@ -46,7 +46,7 @@
             <tabs>
                 <Tab fx:id="tabBestiary" text="BESTIARIO"/>
                 <Tab fx:id="tabItems" text="OBJETOS"/>
-                <Tab fx:id="tabAchievements" text="TROFEOS"/>
+                <Tab fx:id="tabAchievements" text="TROFEOS@"/>
                 <Tab fx:id="tabRanking" text="CLASIFICACIÓN"/>
             </tabs>
         </TabPane>
