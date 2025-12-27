@@ -124,6 +124,8 @@ public class GameController implements ViewLifecycle {
     // Tienda
     private static final String TXT_TIENDA = "TIENDA";
 
+    private static final double BOSS_HUD_BOTTOM_MARGIN = -600.0;
+
     // Game over / victoria
     private static final String TXT_GAME_OVER = "FIN DE LA PARTIDA";
     private static final String TXT_VICTORIA = "¡VICTORIA!";
@@ -513,6 +515,11 @@ public class GameController implements ViewLifecycle {
             hudBar.getChildren().remove(healthLabel);
         }
 
+        if (overlayLayer != null && root != null) {
+            overlayLayer.prefWidthProperty().bind(root.widthProperty());
+            overlayLayer.prefHeightProperty().bind(root.heightProperty());
+        }
+
         // Timer HUD
         if (hudBar != null) {
             if (timeLabel == null) {
@@ -543,7 +550,7 @@ public class GameController implements ViewLifecycle {
             overlayLayer.getChildren().add(bossHealthBox);
 
             StackPane.setAlignment(bossHealthBox, Pos.BOTTOM_CENTER);
-            StackPane.setMargin(bossHealthBox, new Insets(0, 0, 18, 0));
+            StackPane.setMargin(bossHealthBox, new Insets(0, 0, BOSS_HUD_BOTTOM_MARGIN, 0));
 
             // Para que no bloquee clics
             bossHealthBox.setMouseTransparent(true);

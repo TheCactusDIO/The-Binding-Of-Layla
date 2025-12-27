@@ -1,5 +1,3 @@
-/* GPT — dialogs.css: estilos específicos de diálogos */
-
 .game-dialog {
     -fx-font-family: "Upheaval TT (BRK)", "Upheaval TT -BRK-", "System";
     -fx-background-color: linear-gradient(to bottom, #1b1b27, #101018);
